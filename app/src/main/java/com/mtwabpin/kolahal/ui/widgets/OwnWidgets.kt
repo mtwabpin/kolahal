@@ -188,6 +188,7 @@ internal object OwnCards {
         duration = p.duration.coerceAtLeast(0),
         canSeek = p.canSeek,
         cover = p.cover,
+        ground = p.largeCover,
     )
 
     /**

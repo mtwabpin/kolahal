@@ -215,9 +215,6 @@ private fun midway(a: Color, b: Color, from: Color, toward: Color): Color {
  *   the tile's shorter side ([CappedCorner]), so Very rounded can't swallow a small tile.
  */
 object SplitCorners {
-    val OUTER: Dp = CardCorners.SPLIT_OUTER.dp
-    val INNER: Dp = CardCorners.SPLIT_INNER.dp
-
     /** Space between two tiles. */
     val GAP: Dp = CardCorners.SPLIT_GAP.dp
 

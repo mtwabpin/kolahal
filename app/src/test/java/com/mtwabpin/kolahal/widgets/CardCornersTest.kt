@@ -79,6 +79,16 @@ class CardCornersTest {
         assertEquals(listOf(0, 4, 8, 8), CardCorners.entries.map(CardCorners::splitInner))
     }
 
+    /** Arrange widgets' outline is the card's corner: 24 dp on a small card with its own, Split's outer corner on a script's Split card. */
+    @Test
+    fun theOutlineIsTheCardsCorner() {
+        assertEquals(24, CardCorners.outline(null, split = false, small = true))
+        assertEquals(28, CardCorners.outline(null, split = false, small = false))
+        assertEquals(28, CardCorners.outline(null, split = true, small = true))
+        assertEquals(16, CardCorners.outline(CardCorners.ROUNDED, split = false, small = true))
+        assertEquals(0, CardCorners.outline(CardCorners.SQUARE, split = true, small = true))
+    }
+
     /** A chosen corner is never more than half the tile's shorter side, so it can't swallow a small tile. */
     @Test
     fun aCornerFitsTheTile() {

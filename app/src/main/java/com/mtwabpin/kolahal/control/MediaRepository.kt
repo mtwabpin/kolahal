@@ -24,6 +24,7 @@ import com.mtwabpin.kolahal.notifications.KolahalNotificationListener
 import com.mtwabpin.kolahal.notifications.NotificationActions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +50,12 @@ data class NowPlaying(
     val canSeek: Boolean = false,
     /** The track's album art, small ([Covers]). Null when the player gives none. */
     val cover: Bitmap? = null,
+    /**
+     * The same art larger ([Covers.LARGE_DP]), for a Now playing card with album art as background.
+     * Kept only while some placed card has that option on ([MediaRepository.wantLargeCover]), and
+     * made off the main thread: null until then, and the card draws [cover] meanwhile.
+     */
+    val largeCover: Bitmap? = null,
 ) {
     val playing: Boolean get() = state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_BUFFERING
 
@@ -125,10 +132,25 @@ data class LastPlayer(
  *   it would read another app's files, or the web.
  * - It is cut to the square in its middle and made [COVER_DP] across, once, when the player sends
  *   it. Only that small copy is kept, one for each session, and never on disk.
+ * - While some placed Now playing card has album art as background, the shown session's art is also
+ *   kept larger ([LARGE_DP]): one copy, made on a background thread, dropped when the option goes
+ *   off or the track has no cover.
  */
 internal object Covers {
     /** The cover's side, in dp: a little more than the largest play or pause it fills, Shape's cookie of up to 104 dp. */
     const val COVER_DP = 128
+
+    /**
+     * The large cover's side at most, in dp: about a page's width, so a card as wide as the page is
+     * sharp. It is also never more than the screen's shorter side ([largePx]). Android hands a
+     * player's picture over at 320 dp at most, and a picture is never made larger ([scale]), so in
+     * practice the copy is that picture's middle square as it came: a few MB at most, once.
+     */
+    const val LARGE_DP = 512
+
+    /** The large cover's side in pixels: [LARGE_DP] at [density], but no more than the screen's [shorterPx] side. */
+    fun largePx(density: Float, shorterPx: Int): Int =
+        minOf((LARGE_DP * density).roundToInt(), shorterPx).coerceAtLeast(1)
 
     /** The middle square of a picture [width] by [height]: its start across, its start down, and its side. */
     fun square(width: Int, height: Int): Triple<Int, Int, Int> {
@@ -380,10 +402,81 @@ class MediaRepository private constructor(private val context: Context) {
         val chosen = watches.firstOrNull { it.state.isActive() }
             ?: watches.maxByOrNull { lastPlaying[it.controller.packageName] ?: 0L }
         current = chosen?.controller
+        val big = largeCoverOf(chosen)
         val shown =
-            chosen?.let { snapshot(it.controller.packageName, it.track, it.state, now, it.cover) }
+            chosen?.let { snapshot(it.controller.packageName, it.track, it.state, now, it.cover, big) }
         _nowPlaying.value = shown
         keepLast(LastPlayer.after(_lastPlayer.value, shown))
+    }
+
+    /** Some placed Now playing card has album art as background ([wantLargeCover]): the large cover is kept. */
+    @Volatile
+    private var largeWanted = false
+
+    // The large cover ([Covers.LARGE_DP]) of the shown session [largeFor], made from its small cover
+    // [largeOf]: one bitmap, never one for each card or session. Main thread only.
+    private var large: Bitmap? = null
+    private var largeFor: Watch? = null
+    private var largeOf: Bitmap? = null
+
+    // The large cover being made on the background thread, for the small cover [makingOf].
+    private var making: Job? = null
+    private var makingOf: Bitmap? = null
+
+    /**
+     * Whether some placed Now playing card has album art as background ([on]). While it does, the
+     * shown session's cover is also kept larger ([NowPlaying.largeCover]); when it no longer does,
+     * that copy is let go.
+     */
+    fun wantLargeCover(on: Boolean) {
+        if (largeWanted == on) return
+        largeWanted = on
+        main.post { recompute() }
+    }
+
+    /**
+     * Main thread. The large cover for [w], the session about to be shown: the one made already for
+     * its cover, else null while it is made off the main thread (the card draws the small one
+     * meanwhile). Without a cover, or with nothing asking, the large one is let go.
+     */
+    private fun largeCoverOf(w: Watch?): Bitmap? {
+        val small = w?.cover
+        if (!largeWanted || w == null || small == null) {
+            dropLarge()
+            return null
+        }
+        if (largeFor === w && largeOf === small) return large
+        if (makingOf === small) return null
+        // Another track or session: the copy kept is let go before the next is made, so there is one at most.
+        dropLarge()
+        makingOf = small
+        val controller = w.controller
+        val px = largePx()
+        making = background.launch {
+            val meta = runCatching { controller.metadata }.getOrNull()
+            val made = Covers.of(meta, px, null)
+            main.post {
+                if (makingOf !== small) return@post
+                making = null
+                makingOf = null
+                if (!largeWanted || w.cover !== small) return@post
+                large = made
+                largeFor = w
+                largeOf = small
+                recompute()
+            }
+        }
+        return null
+    }
+
+    /** Main thread. Lets the large cover go, and stops one being made. */
+    private fun dropLarge() {
+        making?.cancel()
+        making = null
+        makingOf = null
+        large = null
+        largeFor = null
+        largeOf = null
     }
 
     /** Main thread. Keeps [last] as the last player. Its package is written down when it changes. */
@@ -401,6 +494,11 @@ class MediaRepository private constructor(private val context: Context) {
     /** The cover's side in pixels on this screen ([Covers.COVER_DP]). */
     private fun coverPx(): Int =
         (Covers.COVER_DP * context.resources.displayMetrics.density).roundToInt()
+
+    /** The large cover's side in pixels on this screen ([Covers.largePx]). */
+    private fun largePx(): Int = context.resources.displayMetrics.let {
+        Covers.largePx(it.density, minOf(it.widthPixels, it.heightPixels))
+    }
 
     private fun PlaybackState?.isActive() =
         this?.state == PlaybackState.STATE_PLAYING || this?.state == PlaybackState.STATE_BUFFERING
@@ -437,7 +535,7 @@ class MediaRepository private constructor(private val context: Context) {
     }
 
     /**
-     * Builds the [nowPlaying] value for [pkg]'s session, with its [cover]. Players often repeat the same
+     * Builds the [nowPlaying] value for [pkg]'s session, with its [cover] and its [largeCover]. Players often repeat the same
      * update. An update that changes nothing shown gives a value equal to the last one, so home isn't
      * built again.
      */
@@ -446,7 +544,8 @@ class MediaRepository private constructor(private val context: Context) {
         track: Track?,
         ps: PlaybackState?,
         now: Long,
-        cover: Bitmap?
+        cover: Bitmap?,
+        largeCover: Bitmap? = null,
     ): NowPlaying {
         val updatedAt =
             ps?.lastPositionUpdateTime?.takeIf { it > 0 }?.let { wallTime(it, now) } ?: now
@@ -468,6 +567,7 @@ class MediaRepository private constructor(private val context: Context) {
             idleSince = idleSince,
             canSeek = ps != null && (ps.actions and PlaybackState.ACTION_SEEK_TO) != 0L,
             cover = cover,
+            largeCover = largeCover,
         )
         // The same playback can be reported in two ways. When we ask, Android computes the position
         // for now. In a callback, it is the player's own position from earlier. Keep the last value.

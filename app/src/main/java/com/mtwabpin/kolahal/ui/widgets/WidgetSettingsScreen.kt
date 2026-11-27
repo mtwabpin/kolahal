@@ -768,14 +768,7 @@ private fun ResetOwn(widgets: WidgetHost, w: PlacedWidget, hasOptions: Boolean, 
         onClick = {
             val before = w
             widgets.resetOwn(w.key)
-            undo(WidgetSettingsWords.resetDone(title)) {
-                widgets.setColor(before.key, before.color)
-                widgets.setShape(before.key, before.shape)
-                before.hidden.forEach { widgets.setShown(before.key, it, false) }
-                before.shown.forEach { widgets.setShown(before.key, it, true) }
-                widgets.setArtBackground(before.key, before.artBackground)
-                widgets.setScene(before.key, before.scene)
-            }
+            undo(WidgetSettingsWords.resetDone(title)) { widgets.restoreOwn(before) }
         },
         enabled = w.color != null || w.shape != null || w.hidden.isNotEmpty() || w.artBackground || w.scene != null ||
                 w.shown.isNotEmpty(),

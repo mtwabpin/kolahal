@@ -40,9 +40,6 @@ object CardScenes {
     /** The scenes offered, in the order Kolahal's shaders are listed: the set a stat's `scene` accepts ([StatScenes.drawn]). */
     val names: List<String> = ShaderCatalog.BUNDLED.filter(StatScenes::drawn)
 
-    /** Whether the settings page offers the row: for any card Kolahal draws ([source]), not an app's widget. */
-    fun offered(source: String?): Boolean = source != null && WidgetSource.isSource(source)
-
     /** A scene's name as the list says it: "grove-snow" is "Grove snow". */
     fun label(name: String): String = name.replace('-', ' ').replaceFirstChar(Char::titlecase)
 

@@ -62,16 +62,6 @@ class CardScenesTest {
         (WidgetLook.entries - drawn.toSet()).forEach { assertTrue(it.id, CardScenes.why(it)!!.startsWith("Not in ${it.label}")) }
     }
 
-    /** Only a card Kolahal draws has the row; an app's widget doesn't. */
-    @Test
-    fun everyOwnCardOffersIt() {
-        listOf(WidgetSource.BATTERY, WidgetSource.TODOS, WidgetSource.AGENDA, WidgetSource.MEDIA, WidgetSource.NOTES)
-            .forEach { assertTrue(it, CardScenes.offered(WidgetSource.builtin(it))) }
-        assertTrue(CardScenes.offered("script:weather"))
-        assertFalse(CardScenes.offered("com.a/.W"))
-        assertFalse(CardScenes.offered(null))
-    }
-
     /** On Now playing, the cover wins while there is one; the scene shows when there isn't. */
     @Test
     fun albumArtWinsWhileThereIsACover() {

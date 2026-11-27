@@ -224,6 +224,20 @@ data class PlacedWidget(
      */
     val shown: Set<String> = emptySet(),
 ) {
+    /**
+     * This widget with the options its settings page sets taken from [was]: color, shape, the parts
+     * hidden and shown as they are (also ones this version doesn't know), album art and scene. Its
+     * place, size and look stay. Undo after Reset.
+     */
+    fun withOptionsOf(was: PlacedWidget): PlacedWidget = copy(
+        color = was.color,
+        shape = was.shape,
+        hidden = was.hidden,
+        shown = was.shown,
+        artBackground = was.artBackground,
+        scene = was.scene,
+    )
+
     /** Whether it has a place on the page: a [column] and a [topDp]. */
     val positioned: Boolean get() = column >= 0 && topDp >= 0
 
@@ -426,7 +440,7 @@ object WidgetOrder {
  * - Lines saved before widths existed have no span. They are full width.
  * - Lines saved before looks and places (0.5.14 and older) have neither: the look is
  *   [WidgetLook.PLAIN], and [start] gives each widget the place it had ([WidgetPlacement.placeMissing]).
- *   An older Kolahal reads fields by position and ignores the last three.
+ *   An older Kolahal reads fields by position and ignores the ones after those it knows.
  * - The shape, the color, the hidden parts ([WidgetParts.write]), the Now playing card's album
  *   art as background ([MediaArt.STORED]), the scene ([CardScenes]) and the parts shown that are
  *   off by default are written only when set ([PlacedWidget.shape], [PlacedWidget.color],

@@ -59,19 +59,26 @@ class ArrangeUndo {
     }
 
     companion object {
-        /** The changes Undo is offered after. Close gaps only: `setOf(Change.CLOSE_GAPS)`. */
+        /** The changes Undo is offered after. */
         val OFFERED = setOf(Change.CLOSE_GAPS, Change.MOVE, Change.RESIZE)
 
         /**
          * [now] with every widget that [before] has back on its page, at its place and its size there.
          * Its look, color and the rest stay as they are now. A widget added since stays where it is;
          * one removed since stays removed. Entries waiting to be added again are left as they are.
+         * A widget whose page then is no longer one of [pages] (null: every page is still there) stays
+         * where it is now.
          */
-        fun restored(now: List<PlacedWidget>, before: List<PlacedWidget>): List<PlacedWidget> {
+        fun restored(
+            now: List<PlacedWidget>,
+            before: List<PlacedWidget>,
+            pages: Set<String>? = null,
+        ): List<PlacedWidget> {
             val was = before.associateBy { it.key }
             return now.map { w ->
                 // An entry waiting to be added again has no place; its key holds its order.
-                val b = was[w.key]?.takeUnless { w.pending } ?: return@map w
+                val b = was[w.key]?.takeUnless { w.pending }
+                    ?.takeIf { pages == null || it.location in pages } ?: return@map w
                 w.copy(
                     location = b.location,
                     column = b.column,

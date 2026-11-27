@@ -161,13 +161,16 @@ private fun artScrim(color: Color, box: WidgetSizes.Box): Brush {
  *   scrim over its own part ([SplitMedia]); the buttons are tiles of their own.
  * - Nothing without a cover: the card is as it is with the choice off.
  * - The picture says nothing to a screen reader: the card's description says the track.
+ * - The picture is the large cover ([WidgetSpec.Media.ground]), sharp on a wide card; until it is
+ *   made, the small one.
  * The bitmap is the one the card has, wrapped once for it, never scaled or copied.
  */
 @Composable
 internal fun MediaArtGround(spec: WidgetSpec.Media, look: WidgetLook, box: WidgetSizes.Box, card: Color) {
     val cover = spec.cover ?: return
     if (!MediaArt.ground(LocalArtBackground.current, cover = true, look, box)) return
-    val image = remember(cover) { cover.asImageBitmap() }
+    val picture = spec.ground ?: cover
+    val image = remember(picture) { picture.asImageBitmap() }
     val split = look == WidgetLook.SPLIT
     Image(
         image,

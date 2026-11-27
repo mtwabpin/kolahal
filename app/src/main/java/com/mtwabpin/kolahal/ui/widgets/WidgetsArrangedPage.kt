@@ -86,6 +86,7 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
 import com.mtwabpin.kolahal.widgets.WidgetLayout
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetPlacement
+import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -452,7 +453,7 @@ internal fun ArrangedPage(
                                 if (lifted && dragged != null) Modifier.lifted(
                                     dragged,
                                     page,
-                                    arrangedCorner(w, corners, oneShape[w.key] == true)
+                                    arrangedCorner(w, corners, oneShape[w.key] == true, grid.widthDp(w.span))
                                 ) else Modifier
                             )
                             .bringIntoViewRequester(bring)
@@ -464,6 +465,7 @@ internal fun ArrangedPage(
                         pausedKind = profiles(w),
                         feed = feed,
                         oneShape = oneShape[w.key] == true,
+                        widthDp = grid.widthDp(w.span),
                         onOneShape = remember(w.key) { { one: Boolean -> if (oneShape[w.key] != one) oneShape[w.key] = one } },
                         actions = screenReaderActions(
                             w,
@@ -485,12 +487,12 @@ internal fun ArrangedPage(
                         .height(d.w.heightDp.dp)
                         .background(
                             MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            RoundedCornerShape(arrangedCorner(d.w, corners, oneShape[d.w.key] == true))
+                            RoundedCornerShape(arrangedCorner(d.w, corners, oneShape[d.w.key] == true, grid.widthDp(d.w.span)))
                         )
                         .dashedBorder(
                             MaterialTheme.colorScheme.primary,
                             2.dp,
-                            arrangedCorner(d.w, corners, oneShape[d.w.key] == true)
+                            arrangedCorner(d.w, corners, oneShape[d.w.key] == true, grid.widthDp(d.w.span))
                         ),
                 )
             }
@@ -648,11 +650,12 @@ private fun ArrangedCard(
     feed: WidgetFeed,
     oneShape: Boolean,
     onOneShape: (Boolean) -> Unit,
+    widthDp: Int,
     actions: List<CustomAccessibilityAction>,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(arrangedCorner(w, rememberCardCorners(), oneShape))
+    val shape = RoundedCornerShape(arrangedCorner(w, rememberCardCorners(), oneShape, widthDp))
     Box(
         modifier
             .fillMaxWidth()
@@ -729,9 +732,17 @@ internal const val EDGE_HOLD_MS = 700L
  * The corner of [w]'s outline in Arrange widgets (its shadow while held, where it lands, its border):
  * one of Kolahal's cards has the corners widgets.corners gives ([corners]), Split's tiles too, unless
  * it is one shape ([oneShape], as the card tells: [LocalOneShape]). Else 28 dp, as an app's widget always has.
+ * The card's own corner depends on its box ([CardCorners.outline]): 24 dp on a small card, read from
+ * its width [widthDp] and its height, as the card measures them ([WidgetSizes.box]). A script's card
+ * in Split is its tiles; a built-in card's own look is drawn on a Plain card.
  */
-private fun arrangedCorner(w: PlacedWidget, corners: CardCorners?, oneShape: Boolean): Dp =
-    (if (w.source != null && CardCorners.takenIn(drawnLookOf(w), oneShape)) CardCorners.dp(corners, small = false) else 28).dp
+private fun arrangedCorner(w: PlacedWidget, corners: CardCorners?, oneShape: Boolean, widthDp: Int): Dp {
+    val look = drawnLookOf(w)
+    if (w.source == null || !CardCorners.takenIn(look, oneShape)) return 28.dp
+    val split = look == WidgetLook.SPLIT && WidgetSource.builtinId(w.source) == null
+    val small = WidgetSizes.box(widthDp, w.heightDp) == WidgetSizes.Box.SMALL
+    return CardCorners.outline(corners, split, small).dp
+}
 
 /** The look [w] is drawn in, as far as its place tells: a built-in card draws a look it doesn't offer as Plain ([WidgetLook.drawnFor]). */
 private fun drawnLookOf(w: PlacedWidget): WidgetLook =

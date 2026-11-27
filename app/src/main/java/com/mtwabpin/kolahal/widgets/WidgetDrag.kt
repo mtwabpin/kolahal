@@ -37,6 +37,9 @@ class WidgetDrag(val pagePx: Int, val gapPx: Int, val density: Float, val rtl: B
     /** [px] in dp. */
     fun dp(px: Float): Float = px / density
 
+    /** How wide a widget [span] columns wide is, in whole dp, as the card measures its box. */
+    fun widthDp(span: Int): Int = dp(widthPx(span).toFloat()).toInt()
+
     /**
      * The column a widget [span] columns wide lands in when its left edge is at [leftPx]: the
      * nearest one, kept inside the page.

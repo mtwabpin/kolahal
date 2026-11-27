@@ -25,6 +25,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.content.edit
 import com.mtwabpin.kolahal.apps.AppRepository
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.control.MediaRepository
 import com.mtwabpin.kolahal.data.KvStore
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogKind
@@ -247,6 +248,9 @@ class WidgetHost private constructor(context: Context) {
     /** The highest further id each script was given ([GivenIds]). Every placed list that is saved counts in it. */
     private var given: Map<String, Int> = GivenIds.parse(prefs.getString(KEY_GIVEN, null))
 
+    /** Whether Now playing was told that a placed card has album art as background ([tellArt]). Before [init], which tells it. */
+    private var artTold = false
+
     private val _pages = MutableStateFlow(
         WidgetPages.of(WidgetPages.decode(prefs.getString(KEY_PAGES, null)), _widgets.value)
     )
@@ -264,6 +268,7 @@ class WidgetHost private constructor(context: Context) {
         }
         // Ids placed before they were counted.
         noteGiven(_widgets.value)
+        tellArt(_widgets.value)
     }
 
     /**
@@ -363,7 +368,20 @@ class WidgetHost private constructor(context: Context) {
         _widgets.value = list
         prefs.edit { putString(KEY, WidgetCodec.encode(list)) }
         noteGiven(list)
+        tellArt(list)
         if (list.isNotEmpty() && !listening && shown) main.post { listenIfNeeded() }
+    }
+
+    /**
+     * Tells Now playing whether some card in [list] is a Now playing card with album art as
+     * background: only then does it keep the large cover ([MediaRepository.wantLargeCover]). Told
+     * only when that changes, so a list without one never starts it.
+     */
+    private fun tellArt(list: List<PlacedWidget>) {
+        val on = list.any { it.artBackground && WidgetSource.builtinId(it.source) == WidgetSource.MEDIA }
+        if (on == artTold) return
+        artTold = on
+        runCatching { MediaRepository.get(app).wantLargeCover(on) }
     }
 
     /** Counts every further widget in [list] as given ([GivenIds.noted]), and saves that when it changed. */
@@ -678,10 +696,13 @@ class WidgetHost private constructor(context: Context) {
 
     /**
      * Puts every widget still placed back where [before] had it, at its size then: Undo in Arrange
-     * widgets ([ArrangeUndo.restored]). An app's widget is told its size again by its view.
+     * widgets ([ArrangeUndo.restored]). An app's widget is told its size again by its view. One whose
+     * page then has been removed stays where it is.
      */
-    fun putBack(before: List<PlacedWidget>) =
-        update { ArrangeUndo.restored(it, before) }
+    fun putBack(before: List<PlacedWidget>) = synchronized(this) {
+        val pages = _pages.value.map { it.location }.toSet()
+        update { ArrangeUndo.restored(it, before, pages) }
+    }
 
     // ---- pages ----------------------------------------------------------------------------
 
@@ -774,6 +795,11 @@ class WidgetHost private constructor(context: Context) {
     /** Gives the widget [key] its own color, shape and parts again, and album art off and its own scene: what its settings page's Reset does. Its look and size stay. */
     fun resetOwn(key: String) = update { all ->
         all.map { if (it.key == key) it.copy(shape = null, color = null, hidden = emptySet(), artBackground = false, scene = null, shown = emptySet()) else it }
+    }
+
+    /** Gives the widget [before] its options back as [before] had them ([PlacedWidget.withOptionsOf]): Undo after [resetOwn]. */
+    fun restoreOwn(before: PlacedWidget) = update { all ->
+        all.map { if (it.key == before.key) it.withOptionsOf(before) else it }
     }
 
     /** Gives the widget [key] one of the sizes a script widget starts at: 2×2 and so on. Widgets in the way move down. */

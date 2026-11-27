@@ -554,6 +554,7 @@ fun WidgetsScreen(
                         onAdd = { vm.openScreen(Screen.WIDGET_PICKER) },
                         onRemove = {
                             widgets.removePage(location)
+                            noUndo()
                             arranging = WidgetLocation.PANEL
                         },
                         modifier = inset,
@@ -690,6 +691,7 @@ fun WidgetsScreen(
                 },
                 onRemove = {
                     widgets.removePage(at)
+                    noUndo()
                     if (arranging == at) arranging = WidgetLocation.PANEL
                     pageDialog = null
                 },

@@ -419,6 +419,8 @@ sealed interface WidgetSpec {
      * - [canSeek]: the player can move to a place in the track, so the bar takes a drag.
      * - [cover]: the track's album art, small ([com.mtwabpin.kolahal.control.Covers]). It is never
      *   changed once made, and the same picture is the same object.
+     * - [ground]: the same art larger, for album art as background, while some placed card has it on.
+     *   Null until it is made, and then the card's ground is [cover].
      * - [lastPlayed]: nothing plays. This is the player that played last, with its last track when
      *   known, and Play starts it again.
      */
@@ -435,6 +437,7 @@ sealed interface WidgetSpec {
         val canSeek: Boolean = false,
         val cover: Bitmap? = null,
         val lastPlayed: Boolean = false,
+        val ground: Bitmap? = null,
     ) : WidgetSpec
 }
 

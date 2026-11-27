@@ -1,5 +1,6 @@
 package com.mtwabpin.kolahal.widgets
 
+import com.mtwabpin.kolahal.data.StyledText.ColorRole
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -839,5 +840,15 @@ class WidgetModelTest {
             listOf(further("weather", "2")),
             WidgetSource.renamed(listOf(further("weather", "2")), "weather", "")
         )
+    }
+
+    /** Undo after Reset gives the options back as they were, parts this version doesn't know included. */
+    @Test
+    fun withOptionsOfKeepsUnknownParts() {
+        val was = PlacedWidget(null, WidgetSource.script("w"), 0L, 120, 0)
+            .copy(color = ColorRole.WARN, shown = setOf(WidgetParts.UPDATED, "later-part"), hidden = setOf("other-later"), artBackground = true, scene = CardScenes.NONE)
+        val reset = was.copy(color = null, shown = emptySet(), hidden = emptySet(), artBackground = false, scene = null, heightDp = 200)
+        val back = reset.withOptionsOf(was)
+        assertEquals(was.copy(heightDp = 200), back)
     }
 }

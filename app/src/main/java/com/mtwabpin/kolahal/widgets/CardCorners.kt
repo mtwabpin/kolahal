@@ -67,6 +67,14 @@ enum class CardCorners(val id: String, val dp: Int) {
          */
         fun splitInner(chosen: CardCorners?): Int = minOf(inner(chosen, SPLIT_GAP, SPLIT_INNER), SPLIT_INNER)
 
+        /**
+         * The corner, in dp, of a card's outline, as Arrange widgets draws it around the card: Split's
+         * tiles where they meet the card's corners ([split], [splitOuter]), else the card's own corner,
+         * 24 dp on a small card ([small], [dp]).
+         */
+        fun outline(chosen: CardCorners?, split: Boolean, small: Boolean): Int =
+            if (split) splitOuter(chosen) else dp(chosen, small)
+
         /** A chosen corner of [corner] on a tile whose shorter side is [side]: half of [side] at most, so it can't swallow a small tile. */
         fun capped(corner: Float, side: Float): Float = minOf(corner, side / 2)
 

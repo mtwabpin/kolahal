@@ -135,4 +135,19 @@ class ArrangeUndoTest {
         assertNull(back.firstOrNull { it.key == page[1].key })
         assertEquals(6 to 0, back.first { it.source == WidgetSource.script("d") }.let { it.column to it.topDp })
     }
+
+    /** Undo never puts a widget on a page that was removed since: it stays where it is now. */
+    @Test
+    fun restoredKeepsAWidgetWhosePageIsGone() {
+        val second = "p2"
+        val before = page.map { if (it.key == page[1].key) it.copy(location = second, column = 0, topDp = 0) else it }
+        // The page was removed: its widget went to page 1, under what is there.
+        val now = page.map { if (it.key == page[1].key) it.copy(column = 0, topDp = 480) else it }
+        val back = ArrangeUndo.restored(now, before, setOf(WidgetLocation.PANEL))
+        val b = back.first { it.key == page[1].key }
+        assertEquals(WidgetLocation.PANEL, b.location)
+        assertEquals(0 to 480, b.column to b.topDp)
+        // With the page still there, it goes back to it.
+        assertEquals(second, ArrangeUndo.restored(now, before, setOf(WidgetLocation.PANEL, second)).first { it.key == page[1].key }.location)
+    }
 }

@@ -204,4 +204,12 @@ class NowPlayingTest {
         assertEquals("a small picture keeps its size", 1f, Covers.scale(96, 168), 0f)
         assertEquals(0f, Covers.scale(0, 168), 0f)
     }
+
+    /** The large cover, for album art as background: 512 dp, but never more than the screen's shorter side. */
+    @Test
+    fun theLargeCoverIsAboutAPageWide() {
+        assertEquals(1024, Covers.largePx(density = 2f, shorterPx = 1080))
+        assertEquals(1080, Covers.largePx(density = 3f, shorterPx = 1080))
+        assertEquals(1, Covers.largePx(density = 1f, shorterPx = 0))
+    }
 }
