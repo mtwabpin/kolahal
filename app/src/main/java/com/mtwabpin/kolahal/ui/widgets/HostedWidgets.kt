@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -298,6 +299,11 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
     // When home opens on this page (widgets.start), it has no title row; with more than one page, every
     // page has one, for its name and the page dots.
     val first = remember(version) { Keys.widgetsFirst(vm.config) }
+    // Home's pages in the order the pager shows them (HomeOrder, as MainActivity's HomePager builds it), for
+    // the page dots: shown while there is more than one widgets page, as before.
+    val marks = remember(version, pages, index) {
+        if (pages.size > 1) HomeOrder.of(vm.config, pages).let { pageMarks(it, it.placeOf(index)) } else emptyList()
+    }
     var menu by remember { mutableStateOf<ActionMenu?>(null) }
     val menuScope = rememberCoroutineScope()
     Box(
@@ -322,8 +328,7 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
                 titleRow = !first || pages.size > 1,
                 location = location,
                 title = if (pages.size > 1) WidgetPages.title(pages, index) else "Widgets",
-                pageCount = pages.size,
-                current = index,
+                marks = marks,
             )
         }
         // The app selector is on this page too, whenever it is on (selector.rail): HomeAppSelector shows nothing otherwise.
@@ -360,7 +365,7 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
 }
 
 /**
- * A widgets page's content: its title row (if [titleRow]: [title], and the page dots when there is
+ * A widgets page's content: its title row (if [titleRow]: [title], and the page dots, [marks], when there is
  * more than one page) and the widgets, or a hint when there are none. [location] is the page's.
  */
 @Composable
@@ -373,8 +378,7 @@ private fun WidgetPanelContent(
     titleRow: Boolean,
     location: String,
     title: String,
-    pageCount: Int,
-    current: Int,
+    marks: List<PageMark>,
 ) {
     // Home is laid out again when a screen closes: the page opens scrolled where it was (vm.widgetsScroll).
     val scroll = rememberScrollState(vm.widgetsScroll[location] ?: 0)
@@ -390,8 +394,7 @@ private fun WidgetPanelContent(
             onAdd = { widgets.addTo = location; vm.openScreen(Screen.WIDGET_PICKER) },
             onEdit = { widgets.addTo = location; vm.openScreen(Screen.WIDGETS) },
             title = title,
-            pageCount = pageCount,
-            current = current,
+            marks = marks,
         )
         if (panel.isEmpty()) {
             if (titleRow) {
@@ -487,8 +490,8 @@ private fun WidgetPanelContent(
 }
 
 /**
- * A widgets page's title row: its [title], the page dots when there is more than one page
- * ([pageCount], the [current] one from 0, [WidgetPageDots]), then + ([onAdd]: the picker) and the pencil
+ * A widgets page's title row: its [title], the page dots for home's pages when [marks] has any (more than
+ * one widgets page: [pageMarks], [WidgetPageDots]), then + ([onAdd]: the picker) and the pencil
  * ([onEdit]: Arrange widgets).
  */
 @Composable
@@ -496,8 +499,7 @@ internal fun WidgetsTitleRow(
     onAdd: () -> Unit,
     onEdit: () -> Unit,
     title: String = "Widgets",
-    pageCount: Int = 1,
-    current: Int = 0,
+    marks: List<PageMark> = emptyList(),
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -516,7 +518,7 @@ internal fun WidgetsTitleRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false)
             )
-            if (pageCount > 1) WidgetPageDots(pageCount, current, Modifier.padding(start = 8.dp))
+            if (marks.isNotEmpty()) WidgetPageDots(marks, Modifier.padding(start = 8.dp))
         }
         LabeledIconButton(R.drawable.ic_add, "Add a widget", onClick = onAdd, tint = Term.prompt)
         LabeledIconButton(R.drawable.ic_edit, "Edit widgets", onClick = onEdit, tint = Term.fg)

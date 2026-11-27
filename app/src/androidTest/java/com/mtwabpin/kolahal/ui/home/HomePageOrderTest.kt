@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -104,6 +105,11 @@ class HomePageOrderTest {
                 compose.onNodeWithTag("home-pager").performSemanticsAction(SemanticsActions.PageRight)
                 waitForTag("widgets-page-2")
                 waitForNeighbors("Log", null)
+                // The page dots on both widgets pages count every page home shows, in its order:
+                // page 1 is the first, page 2 the last.
+                val count = if (assistant) 4 else 3
+                compose.onNodeWithContentDescription("Page $count of $count").assertExists()
+                compose.onNodeWithContentDescription("Page 1 of $count").assertExists()
                 instrumentation.runOnMainSync { vm.onHomePressed() }
                 vm.waitForLog()
                 waitForNeighbors(beforeLog, "Page 2")
