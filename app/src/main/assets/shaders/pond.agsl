@@ -3,6 +3,7 @@
 // @suits dark good, light good, wallpaper poor
 // @param birds 0..7 = 5 Birds
 // @animated
+// @still 41.5
 //
 // Flat shapes with one soft gradient each, and their reflections. The lower part of the page is the theme's
 // own, where the newest lines are.
@@ -14,6 +15,8 @@ uniform float4 date;
 uniform float dark;
 uniform float wallpaper;
 uniform float birds;
+// The arrangement of the hills and the woods: 0 on home and as the live wallpaper, another number in a picture.
+uniform float seed;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 fg;
 layout(color) uniform half4 dim;
@@ -33,14 +36,14 @@ float hash2(float2 p) {
 }
 
 // Five octaves of value noise, 0 to 1: broad shapes with fine edges.
-float noise(float x, float seed) {
+float noise(float x, float salt) {
     float sum = 0.0;
     float size = 0.516;
     for (int i = 0; i < 5; i++) {
         float at = floor(x);
         float f = fract(x);
         f = f * f * (3.0 - 2.0 * f);
-        sum += size * mix(hash(at + seed), hash(at + 1.0 + seed), f);
+        sum += size * mix(hash(at + salt), hash(at + 1.0 + salt), f);
         x = x * 2.0 + 7.3;
         size *= 0.5;
     }
@@ -105,7 +108,7 @@ float3 nearColor(float4 w) {
 
 // The far hills' height above the shore, as a part of the page's height, at x across.
 float hillAt(float x) {
-    return 0.03 + 0.085 * smoothstep(0.25, 0.85, noise(x * 3.4, 17.0));
+    return 0.03 + 0.085 * smoothstep(0.25, 0.85, noise(x * 3.4, 17.0 + seed));
 }
 
 // The woods' height, with two rows of round crowns along their top.
@@ -121,12 +124,12 @@ float woodAt(float2 xy, float x, float small, float pixel, float b) {
             // A crown is at most 0.9 of a cell wide each way from its middle, which is 0.3 to 0.7 into its cell.
             if ((j < 0 && f >= 0.6) || (j > 0 && f <= 0.4)) continue;
             float c = id + float(j);
-            float radius = width * (0.55 + 0.35 * hash(c + 71.0 * n));
-            float dx = (at - c - 0.5 - 0.4 * (hash(c * 1.7 + 5.0) - 0.5)) * width;
+            float radius = width * (0.55 + 0.35 * hash(c + 71.0 * n + seed));
+            float dx = (at - c - 0.5 - 0.4 * (hash(c * 1.7 + 5.0 + seed) - 0.5)) * width;
             crowns = max(crowns, sqrt(max(0.0, radius * radius - dx * dx)));
         }
     }
-    return (0.006 + 0.030 * smoothstep(0.3, 0.8, noise(x * 9.0, 91.0)) + crowns * pixel * 0.8) * (1.0 + 0.14 * b);
+    return (0.006 + 0.030 * smoothstep(0.3, 0.8, noise(x * 9.0, 91.0 + seed)) + crowns * pixel * 0.8) * (1.0 + 0.14 * b);
 }
 
 // The page is this shader's where it is the background, and the theme's own lower down, where the log ends. As a

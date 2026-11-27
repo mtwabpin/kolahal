@@ -86,7 +86,7 @@ import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.shader.ShaderParam
 import com.mtwabpin.kolahal.shader.ShaderParams
 import com.mtwabpin.kolahal.shader.ShaderValues
-import com.mtwabpin.kolahal.terminal.ShaderActions
+import com.mtwabpin.kolahal.shader.ParamTarget
 import com.mtwabpin.kolahal.ui.AccessNeeds
 import com.mtwabpin.kolahal.ui.ConnectedChoices
 import com.mtwabpin.kolahal.ui.HOLD_TO_TYPE
@@ -115,21 +115,21 @@ import com.mtwabpin.kolahal.ui.typeValueAction
 internal fun ShaderParamRows(
     shader: String,
     params: List<ShaderParam>,
-    actions: ShaderActions,
+    actions: ParamTarget,
     modifier: Modifier = Modifier,
     opened: MutableMap<String, Boolean> = remember { mutableStateMapOf<String, Boolean>() },
 ) {
-    val all by ShaderParams.values.collectAsStateWithLifecycle()
+    val all by actions.values.collectAsStateWithLifecycle()
     val set = all[shader].orEmpty()
-    val follows by ShaderParams.follows.collectAsStateWithLifecycle()
+    val follows by actions.follows.collectAsStateWithLifecycle()
     val given by ShaderValues.given.collectAsStateWithLifecycle()
-    val formulas by ShaderParams.formulas.collectAsStateWithLifecycle()
+    val formulas by actions.formulas.collectAsStateWithLifecycle()
     val phone = remember(given, follows, formulas) { actions.phone() }
     // A run is found from what the header says each parameter follows, so it stays one row whatever is picked.
     val runs = remember(params) { ShaderSeries.runs(params.map { p -> p.follow.takeIf { p.choices.isEmpty() } }) }
     val inRun = remember(runs) { runs.flatMap { it.indices }.toSet() }
     val follow = params.map { ShaderParams.follow(follows[shader].orEmpty(), it) }
-    val formula = params.map { ShaderParams.formula(shader, it) }
+    val formula = params.map { ShaderParams.formula(formulas[shader].orEmpty(), follows[shader].orEmpty(), it) }
     val followed = params.mapIndexed { i, param -> follow[i]?.let { ShaderParams.followed(param, it, formula[i], phone) } }
     val now = params.mapIndexed { i, param -> followed[i] ?: ShaderParams.of(set, param) }
     fun opener(run: ShaderSeries.Run) = "$shader ${params[run.first].name}"
@@ -187,7 +187,7 @@ private fun ParamRow(
     value: Float,
     given: Map<String, String>,
     phone: ShaderValues.Phone,
-    actions: ShaderActions,
+    actions: ParamTarget,
     inSeries: Boolean,
 ) {
     // A tap on a number's title or value says it can be held, in a toast, as a tap on the sheet's eye does.
@@ -484,7 +484,7 @@ private fun SeriesRow(
 }
 
 @Composable
-private fun ParamSlider(shader: String, param: ShaderParam, value: Float, actions: ShaderActions) {
+private fun ParamSlider(shader: String, param: ShaderParam, value: Float, actions: ParamTarget) {
     val state = remember(shader, param.name, param.range) {
         // Stops only for a short row of whole numbers.
         val stops = if (param.whole) (param.max - param.min).toInt() - 1 else 0
@@ -502,7 +502,7 @@ private fun ParamSlider(shader: String, param: ShaderParam, value: Float, action
         state = state,
         onValueChange = {
             dragged = it
-            ShaderParams.tryOut(shader, param, it)
+            actions.tryOut(shader, param, it)
         },
         onValueChangeFinished = { keep() },
         modifier = Modifier
@@ -525,7 +525,7 @@ private fun FollowButton(
     param: ShaderParam,
     follow: String?,
     hasValue: Boolean,
-    actions: ShaderActions,
+    actions: ParamTarget,
     onPick: (String?) -> Unit,
     onFormula: (() -> Unit)? = null,
     icon: Boolean = false,

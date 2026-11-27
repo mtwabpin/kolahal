@@ -30,9 +30,10 @@ Comments at the top, all optional:
 | `// @param amount 0.0..2.0 = 1.0 Amount` | Something people change: see "Parameters". |
 | `// @suits dark good, light fair, wallpaper poor` | How it looks over a dark theme, a light theme and a wallpaper behind the log: `good`, `fair` or `poor`. A one-off adds `apps good` to play over other apps, on a clear `content`. |
 | `// @text` | It works on text, so it can't be a live wallpaper. |
-| `// @animated` | It changes by itself: drawn up to 30 times a second, and `time` moves. Without it, it is drawn only when the screen changes, and costs nothing while it is still. |
-| `// @fps 10` | An animated shader's frames a second, 1 to 30. Use it for slow scenes. |
-| `// @settles 4` | Seconds a touch changes the picture, 0.5 to 60 (60). A shader whose only clock is `touchAge` stops after that until the next touch. |
+| `// @animated` | It changes by itself: drawn up to 30 times a second, and `time` moves. Without it, it is drawn only when something changes. |
+| `// @fps 10` | Frames a second when animated, 1 to 30, for slow scenes. |
+| `// @still 41.5` | Where a picture of it starts, in seconds of `time`, 0 to 120. |
+| `// @settles 4` | Seconds a touch changes it, 0.5 to 60 (60). One whose only clock is `touchAge` stops after that until the next touch. |
 | `// @once 3` | A one-off: plays for this many seconds (1 to 10) over the shader that is on, then goes. Start and end with nothing. |
 | `// @author …` | Who made it. |
 | `// @version 1.0` | Its version. |
@@ -51,7 +52,7 @@ Declare only those you use; Kolahal sets them. A uniform of another name stays 0
 | `cell` | `float2` | one character cell's size in pixels, to size things like the text |
 | `grid` | `float2` | columns and rows of cells that fit |
 | `origin` | `float2` | where the first column starts, in pixels from the left, and 0 |
-| `time` | `float` | Kolahal's clock in seconds, from 0 when turned on or saved; moves only with `@animated` while home is in front, and pauses to save power. Not the time of day (`date`). Wrap it: `mod(time, 3141.59265)` |
+| `time` | `float` | seconds since it was turned on or saved; moves only with `@animated` while home is in front. Not the time of day (`date`). Wrap it: `mod(time, 3141.59265)` |
 | `progress` | `float` | how far a one-off has come, 0 to 1 |
 | `touch` | `float2` | the last touch, in pixels; `-1, -1` before the first |
 | `touchAge` | `float` | seconds since that touch, only with `@animated`; 1000 before the first |
@@ -62,8 +63,9 @@ Declare only those you use; Kolahal sets them. A uniform of another name stays 0
 | `corner` | `float` | the radius of the screen's rounded corners in pixels; 0 when square or in a preview |
 | `cutout` | `float4` | the camera cutout at the top: left, top, right, bottom in pixels; all 0 without one |
 | `wallpaper` | `float` | 1 as the live wallpaper (then `content` is the theme's background alone), else 0 |
+| `seed` | `float` | 0, but in a picture after Shuffle: add it where noise is read, so 0 keeps the scene |
 | `dark` | `float` | 1 in a dark theme, 0 in a light one |
-| `date` | `float4` | year, month (1 to 12), day of the month, seconds since midnight, local time. A still shader that declares it is drawn again each minute |
+| `date` | `float4` | year, month (1 to 12), day of the month, seconds since midnight, local time. A still shader with it is drawn again each minute |
 | `bg` `surface` `fg` `dim` `accent` `error` `warn` `good` `info` `link` | `half4` | the theme's colors; declare each as `layout(color) uniform half4 accent;` |
 
 A still shader (no `@animated`) is drawn again when `pressed`, `battery`, `charging`, `tilt` or a parameter changes.
@@ -123,6 +125,6 @@ float open = (1.0 - clamp(d * 5.0, 0.0, 1.0)) * (1.0 - step(0.999, here.a));   /
 ```
 
 - Use the theme's color uniforms, never fixed colors, so it fits every theme; take less on a light theme (`mix(0.75, 1.0, dark)`), and check `wallpaper`.
-- Return early for pixels you don't change. Look at a few pixels around each one at most, never hundreds.
-- An `@animated` shader works out every pixel every frame: use `@fps 10` for slow motion, and `@settles` with `touchAge` for touch effects instead of `time`.
-- Don't move pixels far from where they are (under half a cell): a tap would miss what it shows.
+- Return early for pixels you don't change. Read a few pixels around each one at most.
+- An `@animated` shader works out every pixel every frame: use `@fps 10` for slow motion, and `@settles` with `touchAge` for touch effects.
+- Don't move pixels more than half a cell: a tap would miss what it shows.

@@ -7,12 +7,14 @@ import android.content.Context
 import android.net.Uri
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.Lab
 import com.mtwabpin.kolahal.data.ScriptRepository
 import com.mtwabpin.kolahal.notifications.NotificationActions
 import com.mtwabpin.kolahal.script.ScriptCatalog
 import com.mtwabpin.kolahal.script.ScriptFiles
 import com.mtwabpin.kolahal.script.ScriptFolder
 import com.mtwabpin.kolahal.script.ScriptMeta
+import com.mtwabpin.kolahal.shader.ParamTarget
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.ShaderFit
 import com.mtwabpin.kolahal.shader.ShaderMeta
@@ -81,7 +83,7 @@ class ShaderActions(
     private val context: Context,
     private val scripts: ScriptActions,
     private val host: ScriptActions.Host,
-) {
+) : ParamTarget {
     private val config = Config.get(context)
     private val safety by lazy { ShaderSafety.get(context) }
     private val store by lazy { ShaderStore(context, scripts.scriptCatalog) }
@@ -185,11 +187,18 @@ class ShaderActions(
     /** No shader. `shader on` turns the last one on again. */
     fun off() = host.io { Shaders.off(context) }
 
+    // What its parameters are, as home uses them ([ParamTarget]).
+    override val values: StateFlow<Map<String, Map<String, String>>> get() = ShaderParams.values
+    override val follows: StateFlow<Map<String, Map<String, String>>> get() = ShaderParams.follows
+    override val formulas: StateFlow<Map<String, Map<String, String>>> get() = ShaderParams.formulas
+
     /** Sets [param] of [name], and keeps it. */
-    fun setParam(name: String, param: ShaderParam, value: Float) = ShaderParams.set(context, name, param, value)
+    override fun setParam(name: String, param: ShaderParam, value: Float) = ShaderParams.set(context, name, param, value)
+
+    override fun tryOut(name: String, param: ShaderParam, value: Float) = ShaderParams.tryOut(name, param, value)
 
     /** [param] of [name] follows the value [id], with [formula] if there is one; null for no value. */
-    fun follow(name: String, param: ShaderParam, id: String?, formula: String? = null) =
+    override fun follow(name: String, param: ShaderParam, id: String?, formula: String?) =
         ShaderParams.setFollow(context, name, param, id, formula)
 
     /** The one-off shader [name] plays when a notification has one of [words], with commas between; blank for never. */
@@ -217,7 +226,7 @@ class ShaderActions(
      * The values there are to follow, for the Follow menu: Kolahal's, and those of the scripts that are on. The rows
      * of days and blocks ([UsageValues.series]) aren't there: `shader follow` and a header's `@follow` take them.
      */
-    suspend fun sources(): List<ShaderValues.Source> = withContext(Dispatchers.IO) { sources(context, series = false, fresh = true) }
+    override suspend fun sources(): List<ShaderValues.Source> = withContext(Dispatchers.IO) { sources(context, series = false, fresh = true) }
 
     /** Which shaders' parameters follow the values of [script], by the value's name: "rain (amount)". */
     suspend fun followers(script: String): Map<String, List<String>> = withContext(Dispatchers.IO) {
@@ -230,10 +239,13 @@ class ShaderActions(
     }
 
     /** The phone as it is now, for the values that Kolahal gives. */
-    fun phone(): ShaderValues.Phone = phone(context)
+    override fun phone(): ShaderValues.Phone = phone(context)
 
     /** The parameters of [name] are as it comes. */
-    fun resetParams(name: String) = ShaderParams.reset(context, name)
+    override fun resetParams(name: String) = ShaderParams.reset(context, name)
+
+    /** Whether Lab's pictures are on ([Lab.Feature.PICTURE]): a scene's details then have Make a picture. */
+    fun picturesOn(): Boolean = Lab.has(config, Lab.Feature.PICTURE)
 
     /** Compiles [name] and reads its uniforms. Null when it can't be read. */
     suspend fun check(name: String): Shaders.Check? =

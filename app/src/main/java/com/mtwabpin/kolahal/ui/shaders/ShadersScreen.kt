@@ -68,6 +68,7 @@ import com.mtwabpin.kolahal.shader.ShaderWords
 import com.mtwabpin.kolahal.shader.Shaders
 import com.mtwabpin.kolahal.shader.UsageWatch
 import com.mtwabpin.kolahal.shader.WallpaperChoice
+import com.mtwabpin.kolahal.terminal.PictureRequest
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ShaderActions
 import com.mtwabpin.kolahal.terminal.ShaderRow
@@ -138,6 +139,7 @@ fun ShadersScreen(
     val shared by actions.shared.collectAsStateWithLifecycle()
     val problems by actions.problems.collectAsStateWithLifecycle()
     val inUse = remember(settings, files) { actions.inUse() }
+    val pictures = remember(settings) { actions.picturesOn() }
     // Their files are read off the main thread, again when one changes. Null until they are read.
     val rows by produceIo<List<ShaderRow>?>(
         null,
@@ -330,6 +332,12 @@ fun ShadersScreen(
                 onPeek = { shader -> onPeek(shader?.let { TerminalViewModel.Peek(null, false, it) }) },
                 onEdit = onEdit,
                 onDismiss = { details = null },
+                // Lab's pictures (data/Lab.kt): only while they are on.
+                onPicture = if (pictures) { shader ->
+                    details = null
+                    PictureRequest.ask(shader)
+                    open(Screen.PICTURE)
+                } else null,
             )
         }
 

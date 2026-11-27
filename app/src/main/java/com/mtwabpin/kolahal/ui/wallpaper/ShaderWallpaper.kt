@@ -235,11 +235,7 @@ class ShaderWallpaper : WallpaperService() {
         private fun prepare(next: WallpaperState) {
             val shader = runtime ?: return
             val colors = if (dark) next.dark else next.light
-            val page = colors["bg"] ?: 0xFF000000.toInt()
-            // A page of one color is what there is to draw over, a step under opaque as on home
-            // ([ShaderMeta.PAGE_ALPHA]): nothing covers it, so a scene draws all of it.
-            val marked = (page and 0x00FFFFFF) or ((ShaderMeta.PAGE_ALPHA * 255f + 0.5f).toInt() shl 24)
-            shader.setInputShader(ShaderMeta.INPUT, LinearGradient(0f, 0f, 0f, 1f, marked, marked, Shader.TileMode.CLAMP))
+            givePage(shader, colors["bg"] ?: 0xFF000000.toInt())
             uniforms = ShaderUniforms(meta!!, shader, next.cellW, next.cellH, colors, dark, wallpaper = true)
             paint.shader = shader
         }
@@ -609,6 +605,16 @@ internal class WallpaperGuard(private val file: File) {
     companion object {
         const val MAX_TRIES = 3
     }
+}
+
+/**
+ * Hands [shader] a page of one color, [page], to draw over: a step under opaque as on home ([ShaderMeta.PAGE_ALPHA]).
+ * Nothing covers it, so a scene draws all of it. The live wallpaper and Lab's pictures ([PictureShader]) draw so.
+ */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+internal fun givePage(shader: RuntimeShader, page: Int) {
+    val marked = (page and 0x00FFFFFF) or ((ShaderMeta.PAGE_ALPHA * 255f + 0.5f).toInt() shl 24)
+    shader.setInputShader(ShaderMeta.INPUT, LinearGradient(0f, 0f, 0f, 1f, marked, marked, Shader.TileMode.CLAMP))
 }
 
 /** When the live wallpaper draws, and when it asks the phone: what [ShaderWallpaper] decides, without Android. */

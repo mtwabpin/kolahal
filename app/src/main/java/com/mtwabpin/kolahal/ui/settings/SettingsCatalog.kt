@@ -82,6 +82,8 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         // The tty style has no gap between a list's items, and no taller lines (HomeStyles.GUI_ONLY).
         Keys.LOG_ITEM_SPACING to { c: Config -> HomeStyles.applies(Keys.LOG_ITEM_SPACING, HomeStyles.ttyNow(c)) },
         Keys.LOG_TALLER_TAPS to { c: Config -> HomeStyles.applies(Keys.LOG_TALLER_TAPS, HomeStyles.ttyNow(c)) },
+        // Lab's switch shows on its page, which is there only while Lab is on ([Lab.shows]).
+        Keys.LAB_ON to on(Keys.LAB_ON),
     )
 }
 
@@ -443,10 +445,31 @@ private fun assistantCategory() = Category(
 )
 
 /**
+ * Lab's page ([com.mtwabpin.kolahal.data.Lab]): a line on what Lab is, its switch, and a row for each Lab feature
+ * ([labItems]). The main list has its row last, and only while Lab is on ([shownCategories]).
+ */
+internal const val LAB_CATEGORY = "lab"
+
+private val LAB = Category(
+    LAB_CATEGORY,
+    "Lab",
+    "Unfinished features that may change or go",
+    R.drawable.wi_bolt,
+    listOf(null to listOf(Keys.LAB_ON)),
+)
+
+/**
  * Every settings page. Each setting is on one, except the [Keys.CONFIG_ONLY] ones: a test checks this.
  * A build without the Assistant (BuildConfig.ASSISTANT) has no page for it.
  */
-internal fun allCategories() = CATEGORIES + (if (BuildConfig.ASSISTANT) listOf(assistantCategory()) else emptyList()) + BACKUP
+internal fun allCategories() = CATEGORIES + (if (BuildConfig.ASSISTANT) listOf(assistantCategory()) else emptyList()) + BACKUP + LAB
+
+/**
+ * The pages the main list of Settings has a row for, in order: every page but Feeds (in the Feeds tab) and Backup
+ * (under the list), and Lab only while it is on ([labOn]), last.
+ */
+internal fun shownCategories(labOn: Boolean): List<Category> =
+    allCategories().filter { it.id != FEEDS_CATEGORY && it.id != BACKUP_CATEGORY && (it.id != LAB_CATEGORY || labOn) }
 
 /**
  * Whether Settings search for [q] finds [key]: each word of [q], in any order, is in the setting's

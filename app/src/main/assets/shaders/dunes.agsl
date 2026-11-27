@@ -17,6 +17,8 @@ uniform float4 date;
 uniform float dark;
 uniform float wallpaper;
 uniform float camels;
+// The arrangement of the dunes: 0 on home and as the live wallpaper, another number in a picture.
+uniform float seed;
 layout(color) uniform half4 bg;
 layout(color) uniform half4 fg;
 layout(color) uniform half4 dim;
@@ -101,20 +103,20 @@ float swing(float v, float root, float n) {
 }
 
 // Where a dune's top is between its two hollows (0 to 1), for dune number id of a row.
-float topAt(float id, float seed) {
-    return 0.52 + 0.22 * hash(id * 7.0 + seed);
+float topAt(float id, float salt) {
+    return 0.52 + 0.22 * hash(id * 7.0 + salt);
 }
 
 // Where the top line of a row of dunes is at x = qx. base is the row's top line and tall its height, in parts of the
 // screen's height; width is one dune's. Returns the line, the dune's number, where this place is between the
 // dune's two hollows (0 to 1) and where the dune's top is.
 float4 rowTop(float qx, float n, float base, float tall, float width) {
-    float seed = n * 17.0;
+    float salt = n * 17.0 + seed;
     float x = qx / width + 3.93 * n + 40.0;
     float id = floor(x);
     float t = x - id;
-    float at = topAt(id, seed);
-    float high = (0.45 + 0.55 * hash(id * 3.0 + seed + 11.0)) * profile(t, at);
+    float at = topAt(id, salt);
+    float high = (0.45 + 0.55 * hash(id * 3.0 + salt + 11.0)) * profile(t, at);
     return float4(base - tall * high - 0.35 * tall * (noise1(x * 0.37 + n) - 0.5), id, t, at);
 }
 
@@ -126,7 +128,7 @@ float3 rowSand(float3 color, float2 q, float y, float4 top, float n, float width
     float topLine = top.x;
     float cover = clamp((y - topLine) / px + 0.5, 0.0, 1.0);
     if (cover > 0.0) {
-        float seed = n * 17.0;
+        float salt = n * 17.0 + seed;
         float id = top.y;
         float t = top.z;
         float at = top.w;
@@ -140,7 +142,7 @@ float3 rowSand(float3 color, float2 q, float y, float4 top, float n, float width
         // place belongs to the next dune's side.
         float lee, toCrest;
         if (t < left) {
-            float before = topAt(id - 1.0, seed) + (0.10 + 0.12 * near) * swing(v, root, id - 1.0 + n * 31.0) - 1.0;
+            float before = topAt(id - 1.0, salt) + (0.10 + 0.12 * near) * swing(v, root, id - 1.0 + n * 31.0) - 1.0;
             lee = 1.0;
             toCrest = (left - t) / max(left - before, 0.001);
         } else if (t < crest) {
@@ -150,7 +152,7 @@ float3 rowSand(float3 color, float2 q, float y, float4 top, float n, float width
             lee = 1.0;
             toCrest = (right - t) / max(right - crest, 0.001);
         } else {
-            float after = 1.0 + topAt(id + 1.0, seed) + (0.10 + 0.12 * near) * swing(v, root, id + 1.0 + n * 31.0);
+            float after = 1.0 + topAt(id + 1.0, salt) + (0.10 + 0.12 * near) * swing(v, root, id + 1.0 + n * 31.0);
             lee = 0.0;
             toCrest = (t - right) / max(after - right, 0.001);
         }

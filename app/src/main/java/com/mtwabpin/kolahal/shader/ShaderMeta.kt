@@ -14,6 +14,8 @@ package com.mtwabpin.kolahal.shader
  * - `// @text`: it works on text, and shows nothing without any;
  * - `// @fps 10`: how many frames a second it needs while nothing touches it, and `// @settles 4`: how many
  *   seconds a touch changes it ([ShaderClock.Pace]). A line that can't be read is left out ([warnings]);
+ * - `// @still 41.5`: the moment, in seconds of `time`, where a picture of it starts (Lab's pictures). A line that
+ *   can't be read is left out too;
  * - the uniforms it declares. The host sets the ones it knows ([KNOWN]); it skips the rest.
  *
  * Pure: the compiler runs in [Shaders.compile], on Android 13 and newer.
@@ -43,6 +45,8 @@ class ShaderMeta private constructor(
     val fps: Int?,
     /** How many seconds after a touch the touch still changes it; null without a line that can be read: [ShaderClock.IDLE_MS]. */
     val settles: Float?,
+    /** Where a picture of it starts, in seconds of `time`; null without a line that can be read: 0. */
+    val still: Float?,
 ) {
     /** One declared uniform. [color]: declared with `layout(color)`. */
     data class Uniform(val name: String, val type: String, val color: Boolean, val array: Boolean) {
@@ -101,6 +105,12 @@ class ShaderMeta private constructor(
         const val PROGRESS = "progress"
 
         /**
+         * The uniform that changes a scene's arrangement: 0 on home and as the live wallpaper, another number when
+         * Shuffle in a picture's composer picks one. Declaring it is what offers Shuffle.
+         */
+        const val SEED = "seed"
+
+        /**
          * The uniform that holds the radius of the screen's rounded corners, in pixels of the surface: 0 where
          * they are square, below Android 12, or on a surface that isn't the whole screen (a preview).
          */
@@ -116,6 +126,10 @@ class ShaderMeta private constructor(
         /** The header's words for the frames a second ([fps]) and the seconds a touch lasts ([settles]). */
         const val FPS = "fps"
         const val SETTLES = "settles"
+
+        /** The header's word for where a picture starts ([still]), and the latest moment it can say, in seconds. */
+        const val STILL = "still"
+        const val MAX_STILL = 120f
 
         /** The fewest seconds `@settles` can say; the most is the time without a touch after which a shader stops ([ShaderClock.IDLE_MS]). */
         const val MIN_SETTLES = 0.5f
@@ -153,6 +167,7 @@ class ShaderMeta private constructor(
             WALLPAPER to listOf(1),
             CORNER to listOf(1),
             CUTOUT to listOf(4),
+            SEED to listOf(1),
         ) + COLORS.associateWith { listOf(4) }
 
         private val COMMENTS = Regex("""//[^\n]*|/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL)
@@ -184,6 +199,7 @@ class ShaderMeta private constructor(
                 tags = said("tags")?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 fps = tags[FPS]?.let(::fps),
                 settles = tags[SETTLES]?.let(::settles),
+                still = said("still")?.let(::still),
             )
         }
 
@@ -201,6 +217,8 @@ class ShaderMeta private constructor(
 
         private fun settles(said: String): Float? = said.toFloatOrNull()?.takeIf { it in MIN_SETTLES..MAX_SETTLES }
 
+        private fun still(said: String): Float? = said.toFloatOrNull()?.takeIf { it in 0f..MAX_STILL }
+
         /**
          * The header's lines that can't be read, each with what to write instead. They are left out, and the
          * shader works without them: unlike [problems], they keep nothing from being used.
@@ -213,6 +231,8 @@ class ShaderMeta private constructor(
                     ?.let { "${quoted(FPS, it)}: write a whole number from 1 to ${ShaderClock.FPS}" },
                 tags[SETTLES]?.takeIf { settles(it) == null }
                     ?.let { "${quoted(SETTLES, it)}: write the seconds, from ${number(MIN_SETTLES)} to ${number(MAX_SETTLES)}" },
+                tags[STILL]?.takeIf { still(it) == null }
+                    ?.let { "${quoted(STILL, it)}: write the seconds, from 0 to ${number(MAX_STILL)}" },
             )
         }
 

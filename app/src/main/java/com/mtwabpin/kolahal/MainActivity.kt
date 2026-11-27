@@ -479,6 +479,8 @@ class MainActivity : ComponentActivity(), HidesBars {
 
                                 Screen.HEADER_PARTS -> HeaderPartsScreen(vm)
                                 Screen.HOME_PAGES -> HomePagesScreen(vm)
+                                // Lab's picture composer (data/Lab.kt).
+                                Screen.PICTURE -> com.mtwabpin.kolahal.ui.wallpaper.PictureScreen(vm)
                                 Screen.TERMINAL -> Unit
                             }
                         }

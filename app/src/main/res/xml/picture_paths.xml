@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The picture Lab made last, shared from the cache (PictureFiles). -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path
+        name="pictures"
+        path="pictures/" />
+</paths>

@@ -814,6 +814,17 @@ object Keys {
             "very" to "40 dp",
         ),
     )
+
+    /**
+     * Lab: features that aren't finished ([Lab]). Off until Settings → About → Version is tapped 8 times, or until
+     * `config set lab.on on` is typed in full. While it is off, `config`, completion and Settings leave it out
+     * ([Lab.shows]).
+     */
+    val LAB_ON = ConfigKey.Bool(
+        "lab.on",
+        false,
+        "Lab: unfinished features that may change or go, in Settings → Lab.\nOff: they're hidden, and tapping Version in Settings → About 8 times turns Lab on again"
+    )
     // The Assistant (assistant/, ui/assistant): only in a build that has it (BuildConfig.ASSISTANT, [ALL]).
     // Getters, not fields: the keys live in [AssistantConfig], built only when something reads them, so
     // a build without the Assistant names nothing of it here and R8 leaves it all out.
@@ -954,6 +965,7 @@ object Keys {
         WIDGETS_WALLPAPER,
         AGENDA_WIDGET_DAYS,
         WIDGET_CORNERS,
+        LAB_ON,
         *(if (com.mtwabpin.kolahal.BuildConfig.ASSISTANT) AssistantConfig.all() else emptyArray()),
         // Last, so they never take the place of another setting when the prompt suggests settings by what
         // they do (Completer): these matter only with home.style tty.

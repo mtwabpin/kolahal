@@ -40,6 +40,12 @@ class ShaderFrame {
      */
     val cutout = FloatArray(4)
 
+    /** The `date` it is drawn at ([ShaderDate.of]); null for now, as on home and as the live wallpaper. A picture sets its hour. */
+    var date: FloatArray? = null
+
+    /** The arrangement of a scene that declares `seed` ([ShaderMeta.SEED]): 0 but in a picture's composer. */
+    var seed = 0f
+
     companion object {
         /** `touchAge` before any touch: longer than any ring or fade. */
         const val NEVER = 1000f
@@ -99,8 +105,9 @@ class ShaderUniforms(
         float1(ShaderMeta.CORNER, f.corner)
         float4(ShaderMeta.CUTOUT, f.cutout)
         float2(ShaderTilt.NAME, f.tiltX, f.tiltY)
+        float1(ShaderMeta.SEED, f.seed)
         if (usesDate) {
-            val now = ShaderDate.of(LocalDateTime.now())
+            val now = f.date ?: ShaderDate.of(LocalDateTime.now())
             runtime.setFloatUniform(ShaderDate.NAME, now[0], now[1], now[2], now[3])
         }
         meta.params.forEachIndexed { i, p -> float1(p.name, param(i)) }

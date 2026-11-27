@@ -66,6 +66,14 @@ internal object ShaderPage {
         e.tilt || (code != null && ShaderMeta.parse(code).tilt)
 
     /**
+     * Whether a shader's sheet has Make a picture (Lab's pictures): only while they are on ([picturesOn]), for one
+     * that is drawn there ([drawable]: shaders are drawn on this phone, it wasn't turned off and has no problem) and
+     * can be a wallpaper ([com.mtwabpin.kolahal.shader.WallpaperChoice.suits]): a scene, not a one-off nor one on text.
+     */
+    fun makesPicture(meta: ShaderMeta, drawable: Boolean, picturesOn: Boolean): Boolean =
+        picturesOn && drawable && com.mtwabpin.kolahal.shader.WallpaperChoice.suits(meta)
+
+    /**
      * Play, on a one-off's row and in its sheet: null where there is none (a shader that isn't a one-off, or a screen
      * reader is on, as nothing plays then), else whether it can be pressed. It can't where shaders aren't drawn
      * ([supported]), for one that was turned off, or one that couldn't be used ([problem]); the page says why.

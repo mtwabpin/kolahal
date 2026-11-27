@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -44,6 +45,7 @@ import com.mtwabpin.kolahal.commands.Accesses
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.Lab
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.AccessNeeded
@@ -172,10 +174,19 @@ fun SettingsScreen(vm: TerminalViewModel) {
     // Read it here, not in the list's content below. Reading a derived value while the list measures
     // can deadlock with a snapshot applied from another thread (Compose tests do that).
     val applicableKeys = applicable
+    // Lab's page is there only while Lab is on. Turned off on that page, the page closes.
+    val labOn = remember(version.value) { Lab.on(config) }
     // Settings that need an access Android hasn't given have a line and a button in their place ([NEEDS_ACCESS]).
     val missing = rememberMissing(remember { NEEDS_ACCESS.values.flatten().toSet() })
     val ask = { access: Access -> vm.runCommand(Accesses.command(access)) }
     val context = LocalContext.current
+    // Lab's countdown on About (aboutItems): a toast, which takes no touches, so each tap lands on the Version row
+    // even where a message covers it. The one before is taken away, so they don't wait in line.
+    val toasts = remember { arrayOfNulls<android.widget.Toast>(1) }
+    val labToast: (String) -> Unit = { text ->
+        toasts[0]?.cancel()
+        toasts[0] = android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_SHORT).also { it.show() }
+    }
     // For About → Crash reports. They are read off the main thread, and read again after a delete.
     var crashReads by remember { mutableIntStateOf(0) }
     var openCrash by remember { mutableStateOf<CrashRow?>(null) }
@@ -217,6 +228,13 @@ fun SettingsScreen(vm: TerminalViewModel) {
                 tapScope.launch {
                     snackbar.currentSnackbarData?.dismiss()
                     snackbar.showSnackbar(text)
+                }
+            }
+            val labPage = open?.id == LAB_CATEGORY
+            LaunchedEffect(labOn, labPage) {
+                if (labPage && !labOn) {
+                    openId = null
+                    hint("Lab is off")
                 }
             }
 
@@ -266,6 +284,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                     return@GuiListPage
                 }
                 if (open != null) {
+                    if (open.id == LAB_CATEGORY) labIntro()
                     if (open.manage.isNotEmpty()) {
                         item(key = "manage:${open.id}") {
                             PeekFade(peek) {
@@ -344,6 +363,12 @@ fun SettingsScreen(vm: TerminalViewModel) {
                         }
                     }
                     if (commandsOpen) commandsPage(vm, version, commandQuery) { commandQuery = it }
+                    if (open.id == LAB_CATEGORY) labFeatures(labOn) { feature ->
+                        when (feature) {
+                            // Make a picture is in a scene's details, on the Shaders tab.
+                            Lab.Feature.PICTURE -> vm.switchTab(Screen.SHADERS)
+                        }
+                    }
                     if (open.id == "look") {
                         // What the wallpaper can become, as `wallpaper` lists it: the theme's color, a shader, Android's list.
                         item(key = "h:wallpaper") { PeekFade(peek) { GroupHeader("Wallpaper") } }
@@ -402,7 +427,10 @@ fun SettingsScreen(vm: TerminalViewModel) {
                         onRefreshIsHome = { vm.refreshIsHome() },
                         onTour = { vm.openScreen(Screen.ONBOARDING) },
                         onCrashReports = { openId = CRASHES_PAGE },
-                        say = say
+                        say = say,
+                        labOn = { Lab.on(config) },
+                        onLabOn = { config.set(Keys.LAB_ON, "on") },
+                        sayNow = labToast,
                     )
                     return@GuiListPage
                 }
@@ -475,7 +503,7 @@ fun SettingsScreen(vm: TerminalViewModel) {
                 item(key = "h:settings") { Spacer(Modifier.height(12.dp)) }
                 item(key = "categories") {
                     // Feed settings are in the Feeds tab, but search here still finds them.
-                    ActionGroup(allCategories().filter { it.id != FEEDS_CATEGORY && it.id != BACKUP_CATEGORY }
+                    ActionGroup(shownCategories(labOn)
                         .flatMap { c ->
                             listOf(Action(c.icon, c.title, c.subtitle, chevron = true) {
                                 openId = c.id

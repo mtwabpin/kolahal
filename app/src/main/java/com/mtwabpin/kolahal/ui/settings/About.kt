@@ -27,6 +27,7 @@ import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -121,6 +122,11 @@ internal fun asksForHome(isHome: Boolean, sdk: Int): Boolean = !isHome && sdk >=
  * - [isHome]: whether Kolahal is the home app now. [onRefreshIsHome] reads that again.
  * - [onTour] and [onCrashReports] open those pages.
  * - [say] shows a message, when no app on the phone can open a link or send email.
+ * - Version copies the version. Tapped 8 times in one go it turns Lab on ([LabTaps]): [labOn] says whether it is,
+ *   [onLabOn] turns it on, and [sayNow] shows the countdown at once, in place of the message before it. It is a toast,
+ *   as Android's own countdown to Developer options is: a snackbar would take the touches where it covers the row,
+ *   which is the last of the page, near the bottom. A screen reader hears the messages too, and its double-taps count
+ *   as taps.
  */
 internal fun LazyListScope.aboutItems(
     crashCount: Int?,
@@ -128,11 +134,15 @@ internal fun LazyListScope.aboutItems(
     onRefreshIsHome: () -> Unit,
     onTour: () -> Unit,
     onCrashReports: () -> Unit,
-    say: (String) -> Unit
+    say: (String) -> Unit,
+    labOn: () -> Boolean = { false },
+    onLabOn: () -> Unit = {},
+    sayNow: (String) -> Unit = say,
 ) {
     item(key = "h:about") { Spacer(Modifier.height(8.dp)) }
     item(key = "about") {
         val context = LocalContext.current
+        val labTaps = remember { LabTaps() }
         // The row is right from the start, also when the page opens before home was resumed.
         LaunchedEffect(Unit) { onRefreshIsHome() }
         // Android's page for the home app: to choose another one, on Android 9, and when its dialog
@@ -201,8 +211,11 @@ internal fun LazyListScope.aboutItems(
                 Action(R.drawable.ic_info, "Version", "$VERSION_TEXT · tap to copy") {
                     context.getSystemService(android.content.ClipboardManager::class.java)
                         ?.setPrimaryClip(android.content.ClipData.newPlainText("Kolahal version", VERSION_TEXT))
+                    val tap = labTaps.tap(android.os.SystemClock.uptimeMillis(), labOn())
+                    if (tap.turnsOn) onLabOn()
                     // Android 13 and later show their own "copied" confirmation.
-                    if (Build.VERSION.SDK_INT < 33) say("Copied")
+                    if (tap.message != null) sayNow(tap.message)
+                    else if (Build.VERSION.SDK_INT < 33) say("Copied")
                 },
             )
         )

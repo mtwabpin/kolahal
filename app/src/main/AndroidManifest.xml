@@ -55,6 +55,11 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.HOME" />
         </intent>
+        <!-- Android's screen that crops a picture and sets it as the wallpaper (Lab's pictures). -->
+        <intent>
+            <action android:name="android.service.wallpaper.CROP_AND_SET_WALLPAPER" />
+            <data android:mimeType="image/*" />
+        </intent>
     </queries>
 
     <application
@@ -239,6 +244,16 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_paths" />
+        </provider>
+        <!-- Shares Lab's pictures with other apps and with Android's crop-and-set screen. In both builds. -->
+        <provider
+            android:name=".ui.wallpaper.PictureProvider"
+            android:authorities="${applicationId}.pictures"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/picture_paths" />
         </provider>
     </application>
 </manifest>

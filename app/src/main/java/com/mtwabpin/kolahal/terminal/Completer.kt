@@ -23,6 +23,8 @@ import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.FontFiles
 import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
+import com.mtwabpin.kolahal.data.Lab
+import com.mtwabpin.kolahal.commands.LabCommands
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.notifications.NotifPrefs
@@ -364,7 +366,7 @@ class Completer(private val context: Context, private val data: Data) {
                 )
             }
         val settings =
-            Keys.ALL.asSequence().filter { HomeStyles.applies(it, tty) && (says(SettingTitles[it.key].orEmpty()) || says(it.help)) }
+            Keys.ALL.asSequence().filter { HomeStyles.applies(it, tty) && Lab.shows(it, Lab.on(config)) && (says(SettingTitles[it.key].orEmpty()) || says(it.help)) }
                 .map {
                     Suggestion.Completion(
                         it.key,
@@ -779,10 +781,12 @@ class Completer(private val context: Context, private val data: Data) {
                             "get",
                             "reset"
                         ).filter { it.startsWith(last, ignoreCase = true) } else emptyList()
-                        // A setting that does nothing in the home style (log.item-spacing in tty) isn't offered.
+                        // A setting that does nothing in the home style (log.item-spacing in tty) isn't offered, nor
+                        // lab.on while Lab is off: typed in full it still works.
                         val tty = tty()
+                        val lab = Lab.on(config)
                         subs.map { Suggestion.Completion(it, "$prefix $it ") } +
-                                Keys.ALL.filter { it.key.starts(last) && HomeStyles.applies(it, tty) }
+                                Keys.ALL.filter { it.key.starts(last) && HomeStyles.applies(it, tty) && Lab.shows(it, lab) }
                                     .map {
                                         Suggestion.Completion(
                                             it.key,
@@ -836,11 +840,19 @@ class Completer(private val context: Context, private val data: Data) {
                     )
                 }
 
-            // `wallpaper shader d`: the shaders that can be a wallpaper. `wallpaper m`: the usage line's words.
-            "wallpaper" -> if (parts.size == 3 && parts[1].lowercase() == "shader") {
-                wallpaperShaders().filter { it.starts(last) }
-                    .map { Suggestion.Completion(it, "$head shader $it", icon = R.drawable.ic_palette) }
-            } else emptyList()
+            // `wallpaper shader d`: the shaders that can be a wallpaper. `wallpaper m`: the usage line's words. With Lab's
+            // pictures on, `wallpaper p` offers `picture` too, and `wallpaper picture d` the same shaders.
+            "wallpaper" -> {
+                val lab = LabCommands.words(cmd, Lab.features(Lab.on(config), android.os.Build.VERSION.SDK_INT))
+                val sub = parts.getOrNull(1)?.lowercase()
+                when {
+                    parts.size == 3 && (sub == "shader" || sub in lab) -> wallpaperShaders().filter { it.starts(last) }
+                        .map { Suggestion.Completion(it, "$head $sub $it", icon = R.drawable.ic_palette) }
+                    parts.size == 2 && lab.isNotEmpty() -> usageOptions(cmd, parts) +
+                        lab.filter { it.starts(last) }.map { Suggestion.Completion(it, "$head $it ") }
+                    else -> emptyList()
+                }
+            }
 
             "theme" -> Keys.THEME.choices.filter { it.starts(arg) }
                 .map { Suggestion.Completion(it, "$head $it", icon = R.drawable.ic_palette) }

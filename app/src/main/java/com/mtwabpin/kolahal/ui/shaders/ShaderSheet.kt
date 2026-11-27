@@ -107,7 +107,8 @@ import kotlinx.coroutines.launch
  *   compile, and which uniforms Kolahal sets), Share, and Save to folder (a copy in the script folder). Holding the eye shows home with the shader, in
  *   use or not ([onPeek]).
  * - Its parameters, under the preview, which follows them ([ShaderParamRows]).
- * - Set as wallpaper, for one that can be ([WallpaperChoice]).
+ * - Set as wallpaper, for one that can be ([WallpaperChoice]). Under it, with Lab's pictures on ([onPicture] not null),
+ *   Make a picture: a still picture of it, to save or set as the wallpaper.
  * - Update, for one from Get more shaders with a newer version. An edited one asks first.
  * - Remove, for the user's own. Undo puts it back.
  * - Its code is at the end.
@@ -130,7 +131,8 @@ internal fun ShaderSheet(
     onAskNotifications: () -> Unit,
     onPeek: (String?) -> Unit,
     onEdit: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onPicture: ((String) -> Unit)? = null,
 ) {
     GuiSheet(onDismiss, alpha = shown, sides = 0.dp) {
         val pager = rememberPagerState(initialPage = rows.indexOfFirst { it.name == name }.coerceAtLeast(0)) { rows.size }
@@ -152,7 +154,7 @@ internal fun ShaderSheet(
         ) { page ->
             ShaderDetails(
                 rows[page], "${page + 1} of ${rows.size}", inUse, wallpaper, problems[rows[page].name], actions,
-                front = page == pager.settledPage, shown, onPlay, onAskNotifications, onPeek, onEdit, onDismiss, opened,
+                front = page == pager.settledPage, shown, onPlay, onAskNotifications, onPeek, onEdit, onDismiss, opened, onPicture,
             )
         }
     }
@@ -175,6 +177,7 @@ private fun ShaderDetails(
     onEdit: (String) -> Unit,
     onDismiss: () -> Unit,
     opened: MutableMap<String, Boolean>,
+    onPicture: ((String) -> Unit)?,
 ) {
     var confirmReplace by remember(row.name) { mutableStateOf(false) }
     // Checked again only when asked: a changed file has no result yet.
@@ -301,6 +304,20 @@ private fun ShaderDetails(
                 Icon(painterResource(R.drawable.ic_wallpaper), null, Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                 Text(if (row.name == wallpaper) "Your wallpaper" else "Set as wallpaper")
+            }
+            if (onPicture != null && ShaderPage.makesPicture(row.meta, drawable, picturesOn = true)) {
+                Spacer(Modifier.height(8.dp))
+                FilledTonalButton(
+                    onClick = { onPicture(row.name) },
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("make-picture"),
+                ) {
+                    Icon(painterResource(R.drawable.ic_image), null, Modifier.size(ButtonDefaults.IconSize))
+                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+                    Text("Make a picture")
+                }
             }
         }
         Spacer(Modifier.height(8.dp))

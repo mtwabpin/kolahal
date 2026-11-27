@@ -163,6 +163,9 @@ class SystemCommands(
      *   set it for the home screen, the lock screen or both.
      * - `wallpaper live` opens Android's own list of live wallpapers, for a phone whose wallpaper settings don't
      *   link to it.
+     * - With Lab's pictures on ([com.mtwabpin.kolahal.data.Lab.Feature.PICTURE]), `wallpaper picture <name>` opens
+     *   the composer for a still picture of that scene, with the same refusals as `wallpaper shader`. While they are
+     *   off, it is the usage line, as any other word.
      */
     fun wallpaper(args: List<String>) {
         val match = com.mtwabpin.kolahal.control.WallpaperMatch
@@ -228,6 +231,18 @@ class SystemCommands(
 
             "live" -> if (runCatching { startActivity(Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)) }.isFailure) {
                 error(WallpaperStatus.NO_LIST)
+            }
+
+            com.mtwabpin.kolahal.commands.LabCommands.PICTURE if com.mtwabpin.kolahal.data.Lab.has(conf, com.mtwabpin.kolahal.data.Lab.Feature.PICTURE) -> {
+                val name = args.getOrNull(1)?.lowercase() ?: return error("Usage: wallpaper picture <name>")
+                val shaders = com.mtwabpin.kolahal.shader.Shaders
+                if (!shaders.exists(name)) return error("No shader '$name'\n'shader' lists them", LogContext.of(LogContext.COPY to "shader"))
+                val meta = shaders.source(context, name)?.let(com.mtwabpin.kolahal.shader.ShaderMeta::parse)
+                    ?: return error("Shader $name can't be read")
+                (com.mtwabpin.kolahal.shader.WallpaperChoice.problem(name, meta) ?: shaders.problem(context, name))
+                    ?.let { return error(shaders.problemLine(name, it)) }
+                com.mtwabpin.kolahal.terminal.PictureRequest.ask(name)
+                ui.openScreen(Screen.PICTURE)
             }
 
             else -> usage("wallpaper")

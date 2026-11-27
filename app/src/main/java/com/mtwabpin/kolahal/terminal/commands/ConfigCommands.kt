@@ -35,8 +35,10 @@ class ConfigCommands(context: Context, private val ui: TerminalUi) : CommandGrou
                 // long would get twice as long.
                 var group: String? = null
                 val tty = HomeStyles.ttyNow(conf)
-                // A setting that does nothing in the home style (log.item-spacing in tty) isn't listed.
-                Keys.ALL.filter { HomeStyles.applies(it, tty) }.forEach { k ->
+                // A setting that does nothing in the home style (log.item-spacing in tty) isn't listed, nor
+                // lab.on while Lab is off.
+                val lab = com.mtwabpin.kolahal.data.Lab.on(conf)
+                Keys.ALL.filter { HomeStyles.applies(it, tty) && com.mtwabpin.kolahal.data.Lab.shows(it, lab) }.forEach { k ->
                     val marker = if (conf.isDefault(k)) "" else " *"
                     val first = k.key.substringBefore(".") != group
                     group = k.key.substringBefore(".")

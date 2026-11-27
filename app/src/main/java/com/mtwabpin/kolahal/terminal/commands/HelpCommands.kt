@@ -13,11 +13,13 @@ import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.commands.CommandSpec
 import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
+import com.mtwabpin.kolahal.commands.LabCommands
 import com.mtwabpin.kolahal.commands.Pipes
 import com.mtwabpin.kolahal.commands.SkillText
 import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.HomeStyles
+import com.mtwabpin.kolahal.data.Lab
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.Script
 import com.mtwabpin.kolahal.data.ScriptRepository
@@ -73,6 +75,10 @@ class HelpCommands(
         LogContext(LogContext.ITEM),
     )
 
+    /** [spec] with what the Lab features that are on add to it ([LabCommands]): as it is while Lab is off. */
+    private fun withLab(spec: CommandSpec): CommandSpec =
+        LabCommands.spec(spec, Lab.features(Lab.on(conf), android.os.Build.VERSION.SDK_INT))
+
     /**
      * `help`: every command, in sections, one row each (name, what it does, its arguments).
      * Each built-in command is in a section of [HELP_SECTIONS]; the script commands come last. Only
@@ -81,7 +87,7 @@ class HelpCommands(
     fun help() {
         val off = off()
         val tty = HomeStyles.ttyNow(conf)
-        val offered = TtyCommands.offered(tty).filter { it.name !in off }
+        val offered = TtyCommands.offered(tty).filter { it.name !in off }.map(::withLab)
         val byName = offered.associateBy { it.name }
         val commandScripts = scripts.all().filter { ScriptMeta.isCommand(it.code) && TtyCommands.offersScript(it.code, tty) }
         // One column for the whole list, so the descriptions line up.
@@ -126,7 +132,7 @@ class HelpCommands(
         val offered = TtyCommands.offered(HomeStyles.ttyNow(conf)).filter { it.name !in off }
         // A command offered to nobody (`skill.md`) has its help too, when its name is typed in full.
         val hidden = CommandCatalog.COMMANDS.filter { it.name in CommandCatalog.HIDDEN }
-        (offered + hidden).firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
+        (offered + hidden).firstOrNull { it.name == InstantRun.canonical(typed) }?.let(::withLab)?.let { spec ->
             out(
                 StyledText.stats(listOf(spec.name to "")),
                 LogContext.of(LogContext.COMMAND to spec.name + " ")

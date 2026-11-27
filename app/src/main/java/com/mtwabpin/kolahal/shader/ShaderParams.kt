@@ -82,8 +82,12 @@ object ShaderParams {
 
     /** The formula for what [param] of [shader] follows: the one that was set, or the shader's own for the value it suggests. */
     fun formula(shader: String, param: ShaderParam): String? =
-        _formulas.value[shader]?.get(param.name)?.let { return it.ifEmpty { null } }
-            ?: param.formula.takeIf { follow(shader, param) == param.follow }
+        formula(_formulas.value[shader].orEmpty(), _follows.value[shader].orEmpty(), param)
+
+    /** The same where a shader's [worked] formulas and [followed] values are these. */
+    fun formula(worked: Map<String, String>, followed: Map<String, String>, param: ShaderParam): String? =
+        worked[param.name]?.let { return it.ifEmpty { null } }
+            ?: param.formula.takeIf { follow(followed, param) == param.follow }
 
     /** What [param] of [shader] is now: the value it follows, when there is one that it can have, else what was set. */
     fun now(shader: String, param: ShaderParam, phone: ShaderValues.Phone): Float = followed(shader, param, phone) ?: of(shader, param)
