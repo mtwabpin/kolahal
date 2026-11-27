@@ -2,7 +2,7 @@
 -- @title World clocks
 -- @desc The time in up to 4 places you list: a widget
 -- @author Kolahal
--- @version 1.1
+-- @version 1.2
 -- @widget clock 2x2
 -- @tags clock, time, zones
 -- @requires 0.5.8

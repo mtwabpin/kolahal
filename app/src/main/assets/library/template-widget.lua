@@ -1,7 +1,7 @@
 -- @title Template: widget
 -- @desc A starting point for a widget: a number from the web, large, on a card on the widgets page
 -- @author Kolahal
--- @version 1.0
+-- @version 1.1
 -- @widget stat 2x1
 -- @tags template, widget, github
 -- @requires 0.5.9

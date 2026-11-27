@@ -1,7 +1,7 @@
 // @title Template: checklist widget (JavaScript)
 // @desc A starting point for a widget you tap, in JavaScript: a checklist for each day, where a tap on a row ticks it
 // @author Kolahal
-// @version 1.0
+// @version 1.1
 // @widget list 2x2
 // @at 00:01
 // @tags template, widget, javascript, checklist

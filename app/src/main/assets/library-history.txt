@@ -259,6 +259,7 @@ template-timer-js.js e955a0fec12fc984
 template-timer.lua 0c68e84c129225a4
 template-timer.lua 5145a5c61ecd8c73
 template-timer.lua d9b29f717c37ae2c
+template-widget-js.js 7ff520d60c9bb3ee
 template-widget-js.js 88e92d287c4e4365
 template-widget-js.js 8d65fd8e8b778bad
 template-widget-js.js 9159070cd76f6768
@@ -268,11 +269,14 @@ template-widget-js.js d181722572cfc843
 template-widget-list-js.js 5600a7e957a235f8
 template-widget-list-js.js 985575481309d264
 template-widget-list-js.js acedd3ea6d47d555
+template-widget-list-js.js d084fb8b46d07354
 template-widget-list.lua 2f1e101f92df9e48
 template-widget-list.lua 45f0ca9a351f119b
 template-widget-list.lua 6b8651523674b187
+template-widget-list.lua f8d0fe4d5edde9ca
 template-widget.lua 4be2b8ad14d5fb1f
 template-widget.lua 57cf21fc091a0322
+template-widget.lua 594842be803e3bd9
 template-widget.lua 8f823571156e01e0
 template-widget.lua d647691c3b07e52b
 template-widget.lua dd492699d3befb15
@@ -325,6 +329,7 @@ wikipedia.js d8cfc1924462f818
 wikipedia.js f81a8abc18988c76
 wiktionary.js f962100b18dc8b21
 world-clocks.lua 14e613721794298b
+world-clocks.lua 1c49b9a456e551d5
 world-clocks.lua 54042d1cbeaca93b
 world-clocks.lua 5b898a5d85da5f9c
 world-clocks.lua c6488812542c5e06

@@ -570,7 +570,7 @@ class LibraryScriptsTest {
             assertEquals(file, "https://github.com/mtwabpin/kolahal", numbers.ctx.url)
             assertTrue(
                 file,
-                StyledText.plain(hint.text).startsWith("To see the card: tap + on the widgets page")
+                StyledText.plain(hint.text).startsWith("To see the card: run widget add")
             )
             shown()
 
@@ -1660,7 +1660,7 @@ class LibraryScriptsTest {
         assertEquals(
             Triple(
                 "World clocks",
-                "Kolkata (Asia/Kolkata)\nLondon (Europe/London)\nNew York (America/New_York)\nTheir time is on its widget: tap + on the widgets page",
+                "Kolkata (Asia/Kolkata)\nLondon (Europe/London)\nNew York (America/New_York)\nTheir time is on its widget: run widget add",
                 null
             ),
             only(),
