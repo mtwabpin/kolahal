@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- The prompt as a peak -->
+  <defs>
+    <radialGradient id="glowAmber" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F0A868" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#F0A868" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+    <rect width="512" height="512" fill="#3A3350"/>
+    <circle cx="256" cy="206" r="150" fill="url(#glowAmber)"/>
+    <circle cx="256" cy="206" r="84" fill="#F0A868"/>
+    <path d="M-20 430 L256 236 L532 430 V532 H-20 Z" fill="#231D2C"/>
+    <path d="M132 323 L256 236 L380 323" fill="none" stroke="#F2E2C4" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Sun over the ridge -->
+  <defs>
+    <radialGradient id="glowAmber" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F0A868" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#F0A868" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+    <rect width="512" height="512" fill="#3A3350"/>
+    <circle cx="256" cy="236" r="150" fill="url(#glowAmber)"/>
+    <circle cx="256" cy="236" r="80" fill="#F0A868"/>
+    <path d="M0 300 L96 276 L176 294 L262 266 L364 290 L512 272 V512 H0 Z" fill="#2E2740"/>
+    <path d="M0 336 L120 294 L212 324 L322 282 L512 340 V512 H0 Z" fill="#231D2C"/>
+</svg>

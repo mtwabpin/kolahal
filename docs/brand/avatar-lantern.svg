@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- A sky lantern -->
+  <defs>
+    <radialGradient id="glowAmber" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F0A868" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#F0A868" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="dusk" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2C2740"/>
+      <stop offset="0.5" stop-color="#3A3350"/>
+      <stop offset="0.72" stop-color="#5A4562"/>
+    </linearGradient>
+  </defs>
+    <rect width="512" height="512" fill="url(#dusk)"/>
+    <circle cx="256" cy="236" r="170" fill="url(#glowAmber)"/>
+    <path d="M378 102 H404 L398 140 H384 Z" fill="#F0A868" opacity="0.55"/>
+    <path d="M128 176 H146 L142 202 H132 Z" fill="#F0A868" opacity="0.4"/>
+    <path d="M190 138 H322 L298 310 H214 Z" fill="#F0A868" stroke="#F0A868" stroke-width="16" stroke-linejoin="round"/>
+    <path d="M218 152 L232 294" fill="none" stroke="#FAF4ED" stroke-width="14" stroke-linecap="round" opacity="0.7"/>
+    <path d="M256 318 C246 330 248 344 256 350 C264 344 266 330 256 318 Z" fill="#EB6F92"/>
+    <path d="M0 392 L118 360 L230 384 L350 356 L512 396 V512 H0 Z" fill="#231D2C"/>
+</svg>
