@@ -325,6 +325,7 @@ wikipedia.js d8cfc1924462f818
 wikipedia.js f81a8abc18988c76
 wiktionary.js f962100b18dc8b21
 world-clocks.lua 14e613721794298b
+world-clocks.lua 54042d1cbeaca93b
 world-clocks.lua 5b898a5d85da5f9c
 world-clocks.lua c6488812542c5e06
 world-clocks.lua f89791ab640ac7b2

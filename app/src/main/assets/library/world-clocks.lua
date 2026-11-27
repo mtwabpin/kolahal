@@ -52,5 +52,5 @@ if started == nil then
     if i > 4 then break end
     names[i] = place.label .. " (" .. place.zone .. ")"
   end
-  log("World clocks", table.concat(names, "\n") .. "\nTheir time is on its widget: tap + on the widgets page")
+  log("World clocks", table.concat(names, "\n") .. "\nTheir time is on its widget: run widget add")
 end
