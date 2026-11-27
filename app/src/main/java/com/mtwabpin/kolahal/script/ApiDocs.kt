@@ -4,6 +4,7 @@
 package com.mtwabpin.kolahal.script
 
 import com.mtwabpin.kolahal.data.ScriptLang
+import com.mtwabpin.kolahal.widgets.WidgetFields
 import com.mtwabpin.kolahal.widgets.WidgetKind
 import com.mtwabpin.kolahal.widgets.WidgetSize
 
@@ -48,33 +49,15 @@ object ApiDocs {
         "Fill this script's widget (it needs an @widget line); true when you placed it, false when it was only checked. " +
                 "kind is the card to draw; without it, the kind on the @widget line. " +
                 WidgetKind.forScripts.joinToString(" ") { "${it.id}: ${widgetFields(it)}." } + " " +
-                "Every kind: title, icon, color, shape (the Shape look's: cookie4, cookie6, cookie9, cookie12, clover4, clover8, sun, burst, circle, pixel, gem, slanted, arch, ghost or pill), tap ({ args } runs this script again, { url } opens a link; label is what a screen reader says, " +
-                "page = \"log\" turns home to the log after the run), staleAfter, refresh (seconds), note (a few words on a large card's last line). " +
+                "Every kind: " + WidgetFields.COMMON.drop(1).joinToString { it.described } + ". " +
                 "An unknown field is an error"
 
     /**
-     * The fields of a [kind] widget, as the reference lists them. Only the kinds a script can use are
-     * asked for. ApiDocsTest checks that they name every field and word the parser reads for the kind.
+     * The fields of a [kind] widget, as the reference lists them, from their one declaration
+     * ([WidgetFields]). Only the kinds a script can use are asked for.
      */
-    private fun widgetFields(kind: WidgetKind): String = when (kind) {
-        WidgetKind.STAT -> "value, label, unit, delta, trend (up, down or flat), more, progress, moving, points (numbers, a line behind the value), scene (a shader for the ground, such as pond)"
-        WidgetKind.TEXT -> "text, caption"
-        WidgetKind.LIST -> "items (each { title, detail, trailing, icon, color, tap, done, range }; a range is { low, high, value }, drawn as a bar), empty, " +
-                "lead ({ value, unit, label }, a big line over the rows)"
-
-        WidgetKind.PROGRESS -> "value, max, text, label, style (ring, bar, gauge or rings), moving, or items for bars or rings (each { label, value, max, text, color, unit, moving }; unit and moving only with rings); " +
-                "only a gauge takes min, unit, zones (each { from, color }); or stages (2 to 6 names) and stage (the one it is at, from 1)"
-        WidgetKind.CHART -> "points, style (line, bars or dots), min, max, value, label, labels, summary"
-        WidgetKind.COUNTDOWN -> "to, from (times in seconds), label, style (days, clock, dots: a dot a day, or page: a calendar page), reached"
-        WidgetKind.BUTTONS -> "items (1 to 8, each { label, icon, color, tap })"
-        WidgetKind.TOGGLES -> "items (1 to 6, each { label, icon, on, tap }; the tap is { args }, and the run shows the new state)"
-        WidgetKind.CLOCK -> "zones (each { zone, label }; a zone is a name such as Asia/Kolkata), seconds"
-        WidgetKind.AGENDA -> "events (each { title, starts, ends (times in seconds), allDay, where, color, tap }; the id of calendar.events() rows is ignored), days, empty"
-        WidgetKind.IMAGE -> "image (an https link to a picture), alt (what it shows, in words), caption, fit (crop or fit)"
-        WidgetKind.VERSUS -> "sides (two, each { name, mark, color, value, text }; the values make a bar between the sides), score, turn (1 or 2), moving, caption, badge"
-        WidgetKind.SKY -> "rises, sets (times in seconds), phase (0 to 1: the moon, lit this much), waxing, phases (up to 4, each { phase, waxing, at })"
-        WidgetKind.MEDIA -> ""
-    }
+    private fun widgetFields(kind: WidgetKind): String =
+        WidgetFields.ownOf(kind).joinToString { it.described }
 
     /** What `tty.screen` does, the same words for Lua and JavaScript: the editor shows the start on one line. */
     private val TTY_SCREEN =

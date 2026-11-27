@@ -144,15 +144,23 @@ ships (the release notes then say what changed).
   counted first. The second fix is a new rule for scripts.
 - Remark:
 
-** TODO [#B] A widget's fields are listed by hand in five places  :arch:
-- Checked 22 November 2026: the first two examples below are fixed. =ApiDocs.widgetFields= lists
-  =lead= (and a row's =range=), and =WidgetSpec.Agenda='s comment says 1 to 14 days, as
-  =WidgetParser.MAX_DAYS=. The fields are still listed by hand in each place, so the item stands.
-- =widgets/WidgetParser.kt= (the lists =COMMON= to =IMAGE=), =widgets/WidgetSpec.kt= (=toMap=,
-  =fromMap=), =script/ApiDocs.kt= (=widgetFields=), api.mdx.
-- The editor's one-line reference lacked =lead=; =WidgetSpec.Agenda='s comment said agenda days
-  are 1 to 7; a field missed in =toMap= is dropped without a word.
-- Fix: one list of fields per kind, with tests that the round trip and ApiDocs cover each. Small.
+** TODO [#C] A widget's stored form still reads and writes each field by hand  :arch:
+- Half done (27 November 2026): each kind's fields are declared once, in
+  =widgets/WidgetFields.kt=. The parser's known fields and its "has no field 'x'; use …", its
+  words for =style=, =trend= and =fit= (=WidgetParser.choicesOf=), the editor's reference
+  (=script/ApiDocs.kt=, =widgetFields=) and the tests that compare fields (ApiDocsTest,
+  SkillTextTest, ReferenceExamplesTest) all read that one list.
+- Left: =widgets/WidgetSpec.kt= (=WidgetJson.toMap=, =fromMap=) still writes and reads each field
+  by hand, and the site's API page (=site/src/content/docs/scripting/api.mdx=, "Kinds and their
+  fields") has a table row per field. A field missed in =toMap= or =fromMap= is no longer dropped
+  without a word: =WidgetFieldsTest= has descriptions that give every declared field and fails when
+  one isn't stored or read back. So a new field is: its entry in =WidgetFields=, the line that
+  parses it, a line in =toMap= and in =fromMap=, a sample in =WidgetFieldsTest=, its row on the API
+  page, and its drawing.
+- Fix: read the stored form with the parser's own readers in a strict mode, so =fromMap= goes;
+  =toMap= could then take each field's getter from its entry. Not small: the stored form refuses
+  what the parser cleans (a style marker in a plain field, a number for a text), and keeps what
+  older versions stored, so it needs its own mode in each reader.
 - Remark:
 
 ** TODO [#B] The model packages depend on each other in a circle  :arch:

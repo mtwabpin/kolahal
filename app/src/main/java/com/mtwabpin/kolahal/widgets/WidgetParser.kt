@@ -129,55 +129,41 @@ object WidgetParser {
     const val MIN_REFRESH = 10
     const val MAX_REFRESH = 3_600
 
-    private val COMMON =
-        listOf("kind", "title", "icon", "color", "shape", "tap", "staleAfter", "refresh", "note")
-    private val TAP = listOf("args", "url", "label", "page")
-    private val STAT =
-        listOf("value", "label", "unit", "delta", "trend", "more", "progress", "moving", "points", "scene")
-    private val SMALL = listOf("value", "label")
-    private val TEXT = listOf("text", "caption")
-    private val LIST = listOf("items", "empty", "lead")
-    private val LEAD = listOf("value", "unit", "label")
-    private val ROW = listOf("title", "detail", "trailing", "icon", "color", "tap", "done", "range")
-    private val RANGE = listOf("low", "high", "value")
-    private val PROGRESS = listOf(
-        "value", "max", "text", "label", "style", "items", "moving", "min", "unit", "zones", "stages", "stage"
-    )
-    private val BAR = listOf("label", "value", "max", "text", "color", "unit", "moving")
-    private val GAUGE_ZONE = listOf("from", "color")
-    private val PROGRESS_STYLES = listOf("ring", "bar", "gauge", "rings")
-    private val CHART =
-        listOf("points", "style", "min", "max", "value", "label", "labels", "summary")
-    private val CHART_STYLES = listOf("line", "bars", "dots")
-    private val COUNTDOWN = listOf("to", "from", "label", "style", "reached")
-    private val COUNTDOWN_STYLES = listOf("days", "clock", "dots", "page")
-    private val BUTTONS = listOf("items")
-    private val BUTTON = listOf("label", "icon", "color", "tap")
-    private val TOGGLES = listOf("items")
-    private val TOGGLE = listOf("label", "icon", "on", "tap")
-    private val CLOCK = listOf("zones", "seconds")
-    private val ZONE = listOf("zone", "label")
-    private val AGENDA = listOf("events", "days", "empty")
+    // The fields of each level, from their one declaration ([WidgetFields]).
+    private val TAP = WidgetFields.namesOf(WidgetFields.TAP)
+    private val SMALL = WidgetFields.namesOf(WidgetFields.SMALL)
+    private val LEAD = WidgetFields.namesOf(WidgetFields.LEAD)
+    private val ROW = WidgetFields.namesOf(WidgetFields.ROW)
+    private val RANGE = WidgetFields.namesOf(WidgetFields.RANGE)
+    private val BAR = WidgetFields.namesOf(WidgetFields.BAR)
+    private val GAUGE_ZONE = WidgetFields.namesOf(WidgetFields.GAUGE_ZONE)
+    private val BUTTON = WidgetFields.namesOf(WidgetFields.BUTTON)
+    private val TOGGLE = WidgetFields.namesOf(WidgetFields.TOGGLE)
+    private val ZONE = WidgetFields.namesOf(WidgetFields.ZONE)
 
-    /**
-     * An event may carry `id`. It is taken and not kept: `calendar.events()` gives its rows one, and
-     * those rows go straight into `events`.
-     */
-    private val EVENT = listOf("title", "starts", "ends", "allDay", "where", "color", "tap", "id")
-    private val IMAGE = listOf("image", "alt", "caption", "fit")
-    private val FITS = listOf("crop", "fit")
-    private val VERSUS = listOf("sides", "score", "turn", "moving", "caption", "badge")
-    private val SIDE = listOf("name", "mark", "color", "value", "text")
-    private val SKY = listOf("rises", "sets", "phase", "waxing", "phases")
-    private val PHASE = listOf("phase", "waxing", "at")
+    /** An event may carry `id`. It is taken and not kept ([WidgetFields.EVENT]). */
+    private val EVENT = WidgetFields.namesOf(WidgetFields.EVENT)
+    private val SIDE = WidgetFields.namesOf(WidgetFields.SIDE)
+    private val PHASE = WidgetFields.namesOf(WidgetFields.PHASE)
 
-    private val TRENDS = listOf("up", "down", "flat")
+    /** The words of the field [name] of a [kind] widget ([WidgetField.choices]). */
+    private fun words(kind: WidgetKind, name: String): List<String> =
+        WidgetFields.ownOf(kind).first { it.name == name }.choices
+
+    private val TRENDS = words(WidgetKind.STAT, "trend")
+    private val PROGRESS_STYLES = words(WidgetKind.PROGRESS, "style")
+    private val CHART_STYLES = words(WidgetKind.CHART, "style")
+    private val COUNTDOWN_STYLES = words(WidgetKind.COUNTDOWN, "style")
+    private val FITS = words(WidgetKind.IMAGE, "fit")
 
     /** The fields every kind takes. The editor's reference names each one: ApiDocsTest checks it. */
-    val COMMON_FIELDS: List<String> = COMMON
+    val COMMON_FIELDS: List<String> = WidgetFields.namesOf(WidgetFields.COMMON)
 
     /** The fields of a `tap`, which every kind and some items take. */
     val TAP_FIELDS: List<String> = TAP
+
+    /** The fields every [kind] widget takes, before its own. */
+    private fun common(kind: WidgetKind): List<String> = WidgetFields.namesOf(WidgetFields.commonOf(kind))
 
     /**
      * The fields of a [kind] widget after the common ones, at every level: its own, then those of its
@@ -185,35 +171,16 @@ object WidgetParser {
      * reference names each one with the kind (ApiDocsTest), and shows each that changes what the card
      * draws in an example (ReferenceExamplesTest).
      */
-    fun fieldsOf(kind: WidgetKind): List<String> = own(kind) + inner(kind)
-
-    /** The fields of the items, sides, zones, phases or events of a [kind] widget, and of a list's lead. */
-    private fun inner(kind: WidgetKind): List<String> = when (kind) {
-        WidgetKind.STAT -> SMALL
-        WidgetKind.LIST -> ROW + RANGE + LEAD
-        WidgetKind.PROGRESS -> BAR + GAUGE_ZONE
-        WidgetKind.BUTTONS -> BUTTON
-        WidgetKind.TOGGLES -> TOGGLE
-        WidgetKind.CLOCK -> ZONE
-        WidgetKind.AGENDA -> EVENT
-        WidgetKind.VERSUS -> SIDE
-        WidgetKind.SKY -> PHASE
-        WidgetKind.TEXT, WidgetKind.CHART, WidgetKind.COUNTDOWN, WidgetKind.IMAGE -> emptyList()
-        WidgetKind.MEDIA -> notForScripts(kind)
-    }
+    fun fieldsOf(kind: WidgetKind): List<String> =
+        own(kind) + WidgetFields.namesOf(WidgetFields.innerOf(WidgetFields.ownOf(kind)))
 
     /**
      * The fields of a [kind] widget that take one of a few words, with the words: `shape` on every
      * kind, and a kind's `style`, `trend` or `fit`. The parser reads them from these lists.
      */
-    fun choicesOf(kind: WidgetKind): Map<String, List<String>> = mapOf("shape" to WidgetShape.ids) + when (kind) {
-        WidgetKind.STAT -> mapOf("trend" to TRENDS)
-        WidgetKind.PROGRESS -> mapOf("style" to PROGRESS_STYLES)
-        WidgetKind.CHART -> mapOf("style" to CHART_STYLES)
-        WidgetKind.COUNTDOWN -> mapOf("style" to COUNTDOWN_STYLES)
-        WidgetKind.IMAGE -> mapOf("fit" to FITS)
-        else -> emptyMap()
-    }
+    fun choicesOf(kind: WidgetKind): Map<String, List<String>> =
+        (WidgetFields.commonOf(kind) + WidgetFields.ownOf(kind)).filter { it.choices.isNotEmpty() }
+            .associate { it.name to it.choices }
 
     /**
      * Every field name a description can have, at any level. No name may be a Lua keyword (a script
@@ -221,7 +188,7 @@ object WidgetParser {
      * switch on access items ([com.mtwabpin.kolahal.script.ScriptMeta.setsStatus]). A test checks this.
      */
     val FIELDS: Set<String> =
-        (COMMON + TAP + WidgetKind.forScripts.flatMap { fieldsOf(it) }).toSet()
+        (COMMON_FIELDS + TAP + WidgetKind.forScripts.flatMap { fieldsOf(it) }).toSet()
 
     /**
      * The fields whose text keeps its styles, as `<kind>.<field>`: bold, italic, underline, strike
@@ -244,20 +211,8 @@ object WidgetParser {
 
     /** The fields of a [kind] widget, after the common ones. */
     private fun own(kind: WidgetKind): List<String> = when (kind) {
-        WidgetKind.STAT -> STAT
-        WidgetKind.TEXT -> TEXT
-        WidgetKind.LIST -> LIST
-        WidgetKind.PROGRESS -> PROGRESS
-        WidgetKind.CHART -> CHART
-        WidgetKind.COUNTDOWN -> COUNTDOWN
-        WidgetKind.BUTTONS -> BUTTONS
-        WidgetKind.TOGGLES -> TOGGLES
-        WidgetKind.CLOCK -> CLOCK
-        WidgetKind.AGENDA -> AGENDA
-        WidgetKind.IMAGE -> IMAGE
-        WidgetKind.VERSUS -> VERSUS
-        WidgetKind.SKY -> SKY
         WidgetKind.MEDIA -> notForScripts(kind)
+        else -> WidgetFields.namesOf(WidgetFields.ownOf(kind))
     }
 
     /** A kind only Kolahal fills has no description a script can write. */
@@ -284,7 +239,7 @@ object WidgetParser {
         } ?: default
         // "an image widget", "an agenda widget".
         val a = if (kind.id.first() in "aeiou") "an" else "a"
-        val t = Table(raw, "", "$a ${kind.id} widget has no field", COMMON + own(kind), text, link)
+        val t = Table(raw, "", "$a ${kind.id} widget has no field", common(kind) + own(kind), text, link)
         val base = WidgetBase(
             title = t.text("title", MAX_TITLE),
             icon = t.icon(),
