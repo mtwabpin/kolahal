@@ -13,7 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.ui.editor.EditorIconButton
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
-import com.mtwabpin.kolahal.ui.widgets.WidgetsTitleRow
+import com.mtwabpin.kolahal.ui.widgets.PageEndAction
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -25,24 +25,21 @@ class LabeledIconButtonsUiTest {
     @get:Rule
     val compose = createComposeRule()
 
-    /** The widgets page's + and pencil: a long-press says what each does, and does nothing else. */
+    /** The widgets page's pencil: a long-press says what it does, and does nothing else; a tap opens Arrange. */
     @Test
     fun aLongPressShowsTheLabelAndATapActs() {
-        var added by mutableIntStateOf(0)
-        var edited by mutableIntStateOf(0)
+        var arranged by mutableIntStateOf(0)
         compose.setContent {
             KolahalTheme {
-                WidgetsTitleRow(
-                    onAdd = { added++ },
-                    onEdit = { edited++ })
+                PageEndAction(onArrange = { arranged++ })
             }
         }
-        compose.onNodeWithText("Add a widget").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Add a widget").performTouchInput { longClick() }
-        compose.waitUntil(3_000) { compose.onAllNodesWithTextCount("Add a widget") > 0 }
-        assertEquals(0, added)
-        compose.onNodeWithContentDescription("Edit widgets").performClick()
-        compose.runOnIdle { assertEquals(listOf(0, 1), listOf(added, edited)) }
+        compose.onNodeWithText("Arrange widgets").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Arrange widgets").performTouchInput { longClick() }
+        compose.waitUntil(3_000) { compose.onAllNodesWithTextCount("Arrange widgets") > 0 }
+        assertEquals(0, arranged)
+        compose.onNodeWithContentDescription("Arrange widgets").performClick()
+        compose.runOnIdle { assertEquals(1, arranged) }
     }
 
     /** The editor's Run keeps its own long-press (Run with…): no label covers it. Save shows its label. */

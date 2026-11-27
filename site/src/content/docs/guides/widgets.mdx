@@ -48,7 +48,12 @@ Other ways to open it:
 - Run `widget page`, or tap **Widgets page** in the quick actions (tap `$` on the prompt). You can also set a [gesture](/guides/gestures/) to `widget page`.
 - With TalkBack or Switch Access, use the **Widgets** action on home. On the widgets page, the **Log** action goes back.
 
-- **+** (add a widget) and **✎** (edit your widgets) are at the top of the page.
+- The top of the page shows its name and a mark for each of home's pages: a dot for each widgets
+  page, the one you are on longer, and the icons of the log and the Assistant (when it is on). With the status bar
+  hidden on a phone with a camera hole, they sit beside the camera.
+- Holding a widget opens [Arrange widgets](#arrange-and-resize) for the page, and so does the `widgets`
+  command. A page with no widgets shows **Add a widget**.
+- With TalkBack, the top of the page has the actions **Add a widget** and **Arrange widgets**.
 - Back or Home takes you back to the terminal.
 - The widgets pages are left of the log. To put them elsewhere, see [Page order](#page-order).
   **Settings → Widgets → Show the widgets pages** (`widgets.show`) turns them off.
@@ -85,8 +90,6 @@ first: there it is your way to open apps. Turn it on in **Settings → App selec
 - If you turn the app selector off, home opens on the log again. Turn the selector back on and home opens on the widgets page again.
 - If you type on a hardware keyboard, Kolahal switches to the log and puts the text in the prompt.
 - **Open the keyboard on Home** opens the keyboard when you reach the log.
-- The page has no add and edit buttons. Long-press a widget to arrange widgets, or use `widget add`.
-  With more than one page, each page has them, with its name.
 
 ### More than one page
 
@@ -97,8 +100,8 @@ the **+** after the page tabs.
 - A swipe goes one page at a time. Back or Home goes from any page straight to the log, in one step.
   With `widgets.start`, page 1 is the one home opens on, and Back and Home go there.
 - Each page scrolls up and down on its own.
-- With more than one page, the top of each page shows its name and a dot for each page, the one you
-  are on longer. The log shows nothing new.
+- The top of each page shows its name, and its marks show which of home's pages you are on. It
+  stays in place while you swipe. The log shows nothing new.
 - A page is "Page 2" until you name it. Long-press its tab in Arrange widgets to rename it. A name is
   up to 16 characters and not only digits, and two pages can't share one.
 - `widget page 2` turns home to page 2, and `widget page work` to the page called Work. The start of
@@ -131,7 +134,8 @@ to move it. The change applies at once. With TalkBack, each page has **Move up**
 
 You can add a widget in three ways:
 
-- Tap **+** at the top of the widgets page.
+- On a widgets page with no widgets, tap **Add a widget**. On a page with widgets, hold a
+  widget, then tap **Add widget** in the top bar.
 - Open **Settings → Widgets → Arrange widgets** (or run `widgets`) and tap **Add widget**.
 - Run `widget add` to go straight to the picker.
 

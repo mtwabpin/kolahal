@@ -4,18 +4,14 @@
 package com.mtwabpin.kolahal.ui.widgets
 
 import android.view.View
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -30,7 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
@@ -48,25 +43,20 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mtwabpin.kolahal.R
 import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.apps.ProfileKind
-import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.WidgetCardActions
 import com.mtwabpin.kolahal.ui.ActionMenu
 import com.mtwabpin.kolahal.ui.ActionSheet
-import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.home.HomeAppSelector
 import com.mtwabpin.kolahal.ui.theme.Term
 import com.mtwabpin.kolahal.ui.theme.cutoutSafePadding
@@ -273,10 +263,11 @@ internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Compos
 /**
  * A widgets page beside the terminal (`widgets.show`): the page at [location], page 1 unless said.
  * It shows every widget placed on that page where it was put, at its width and height
- * ([WidgetGrid]), on a page that scrolls, in the terminal's colors. Add and Edit open the GUI pages,
- * for this page. A long-press on a widget opens the Widgets screen with that widget chosen, and so
- * does one on the line that stands for a widget of a paused profile, a locked private space or a
- * gone app.
+ * ([WidgetGrid]), on a page that scrolls, in the terminal's colors. Its top is left free for the
+ * strip home draws over all its widgets pages ([WidgetsStrip]): the page's name and the marks. The pencil
+ * (Arrange widgets) follows the last card ([PageEndAction]); a page with none shows [EmptyWidgetsPage]. A long-press on
+ * a widget opens Arrange widgets with that widget chosen, and so does one on the line that stands for
+ * a widget of a paused profile, a locked private space or a gone app.
  */
 @Composable
 fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) {
@@ -296,14 +287,6 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val density = LocalDensity.current
     val version by vm.config.version.collectAsStateWithLifecycle()
-    // When home opens on this page (widgets.start), it has no title row; with more than one page, every
-    // page has one, for its name and the page dots.
-    val first = remember(version) { Keys.widgetsFirst(vm.config) }
-    // Home's pages in the order the pager shows them (HomeOrder, as MainActivity's HomePager builds it), for
-    // the page dots: shown while there is more than one widgets page, as before.
-    val marks = remember(version, pages, index) {
-        if (pages.size > 1) HomeOrder.of(vm.config, pages).let { pageMarks(it, it.placeOf(index)) } else emptyList()
-    }
     var menu by remember { mutableStateOf<ActionMenu?>(null) }
     val menuScope = rememberCoroutineScope()
     Box(
@@ -312,24 +295,13 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
             .page(wallpaper = remember(version) { vm.config[Keys.WIDGETS_WALLPAPER] })
             .testTag(if (index == 0) "widgets-page" else "widgets-page-${index + 1}")
     ) {
-        // As home's first page, it has no title row. A long-press on a widget opens the screen to arrange widgets.
-        // While the app selector is open, the widgets fade out, so only the page's background shows behind
-        // the list, as the log does on its page.
+        // A long-press on a widget opens the screen to arrange widgets. While the app selector is open, the
+        // widgets fade out, so only the page's background shows behind the list, as the log does on its page.
         Box(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = 1f - vm.widgetsSelectorFade.floatValue }) {
-            WidgetPanelContent(
-                vm,
-                widgets,
-                panel,
-                profiles,
-                density,
-                titleRow = !first || pages.size > 1,
-                location = location,
-                title = if (pages.size > 1) WidgetPages.title(pages, index) else "Widgets",
-                marks = marks,
-            )
+            WidgetPanelContent(vm, widgets, panel, profiles, density, location = location)
         }
         // The app selector is on this page too, whenever it is on (selector.rail): HomeAppSelector shows nothing otherwise.
         run {
@@ -365,8 +337,9 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
 }
 
 /**
- * A widgets page's content: its title row (if [titleRow]: [title], and the page dots, [marks], when there is
- * more than one page) and the widgets, or a hint when there are none. [location] is the page's.
+ * A widgets page's content, under the strip ([belowWidgetsStrip]): the widgets, then the pencil that opens
+ * Arrange widgets ([PageEndAction]); or, when there are none, the empty page ([EmptyWidgetsPage]) with its
+ * Add a widget. Both work on this page ([location]): a new widget goes on it, and Arrange widgets opens on it.
  */
 @Composable
 private fun WidgetPanelContent(
@@ -375,152 +348,97 @@ private fun WidgetPanelContent(
     panel: List<PlacedWidget>,
     profiles: List<Profile>,
     density: Density,
-    titleRow: Boolean,
     location: String,
-    title: String,
-    marks: List<PageMark>,
 ) {
     // Home is laid out again when a screen closes: the page opens scrolled where it was (vm.widgetsScroll).
     val scroll = rememberScrollState(vm.widgetsScroll[location] ?: 0)
     LaunchedEffect(scroll, location) { snapshotFlow { scroll.value }.collect { vm.widgetsScroll[location] = it } }
+    val onAdd = remember(location) { { widgets.addTo = location; vm.openScreen(Screen.WIDGET_PICKER) } }
+    val onArrange = remember(location) { { widgets.addTo = location; vm.openScreen(Screen.WIDGETS) } }
     Column(
         Modifier
             .fillMaxSize()
-            .cutoutSafePadding()
+            .belowWidgetsStrip()
             .navigationBarsPadding(),
     ) {
-        // Add and Edit work on this page: a new widget goes on it, and Arrange widgets opens on it.
-        if (titleRow) WidgetsTitleRow(
-            onAdd = { widgets.addTo = location; vm.openScreen(Screen.WIDGET_PICKER) },
-            onEdit = { widgets.addTo = location; vm.openScreen(Screen.WIDGETS) },
-            title = title,
-            marks = marks,
-        )
-        if (panel.isEmpty()) {
-            if (titleRow) {
-                Text(
-                    "No widgets here yet · tap + to add one",
-                    style = Term.text.copy(color = Term.dim),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
-                )
-            } else {
-                // There is no + button above, so tapping this line adds a widget.
-                Text(
-                    "No widgets here yet · tap to add one",
-                    style = Term.text.copy(color = Term.dim),
-                    modifier = Modifier
-                        .clickable { vm.openScreen(Screen.WIDGET_PICKER) }
-                        .heightIn(min = 48.dp)
-                        .wrapContentHeight()
-                        .padding(horizontal = 12.dp, vertical = 16.dp),
-                )
-            }
+        if (PageEnd.of(panel.size) == PageEnd.EMPTY_PAGE) {
+            EmptyWidgetsPage(onAdd)
             return@Column
         }
-        WidgetGrid(
-            WidgetLayout.GAP_DP.dp,
+        Column(
             Modifier
                 .fillMaxWidth()
                 .verticalScroll(scroll)
-                .padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp)
-                // The page width in dp. Square and the sizes reported to widgets are based on it.
-                .onSizeChanged {
-                    widgets.measuredPageDp = with(density) { it.width.toDp().value.toInt() }
-                },
         ) {
-            panel.forEach { w ->
-                key(w.key) {
-                    // A long-press opens the Widgets screen with this widget chosen.
-                    val arrange =
-                        remember(w.key) { { widgets.choose(w.key); vm.openScreen(Screen.WIDGETS) } }
-                    val actions = remember(w.key, vm.widgetActions) {
-                        ArrangeOnLongPress(
-                            vm.widgetActions,
-                            arrange
-                        )
-                    }
-                    // Give the grid exactly one child per widget, whatever HostedWidget shows.
-                    Box(Modifier.gridPlace(w)) {
-                        OnScreenCard {
-                            // A script's widget is a card that Kolahal draws. Its taps go to the view model.
-                            if (w.source != null) SourceWidget(
-                                w,
-                                w.heightDp.dp,
-                                actions,
-                                vm.widgetFeed
+            WidgetGrid(
+                WidgetLayout.GAP_DP.dp,
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = WidgetLayout.GAP_DP.dp, vertical = 4.dp)
+                    // The page width in dp. Square and the sizes reported to widgets are based on it.
+                    .onSizeChanged {
+                        widgets.measuredPageDp = with(density) { it.width.toDp().value.toInt() }
+                    },
+            ) {
+                panel.forEach { w ->
+                    key(w.key) {
+                        // A long-press opens the Widgets screen with this widget chosen.
+                        val arrange =
+                            remember(w.key) { { widgets.choose(w.key); vm.openScreen(Screen.WIDGETS) } }
+                        val actions = remember(w.key, vm.widgetActions) {
+                            ArrangeOnLongPress(
+                                vm.widgetActions,
+                                arrange
                             )
-                            else {
-                                // Android is asked only for a profile the list misses.
-                                val kind = remember(profiles, w.profileSerial) { profiles.kindOf(w.profileSerial, widgets::isLockedPrivate) }
-                                val paused = remember(profiles, w.profileSerial) { profiles.pausedKind(w.profileSerial, widgets::isLockedPrivate) }
-                                val haptics = LocalHapticFeedback.current
-                                HostedWidget(
-                                    w = w,
-                                    height = w.heightDp.dp,
-                                    pausedKind = paused,
-                                    onLongPress = arrange,
-                                ) { why ->
-                                    // A private space hides its apps: its widget doesn't name one, also
-                                    // where Android hides the space while it is locked ([namesApp]).
-                                    // A long-press opens Arrange widgets, as on a card: the only way there
-                                    // when the page has no title row. A tap does nothing.
-                                    Text(
-                                        placeholderLine(why, w.packageName, namesApp(kind)),
-                                        style = Term.text.copy(color = Term.dim),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .semantics { onLongClick(label = "arrange widgets") { arrange(); true } }
-                                            .pointerInput(arrange) {
-                                                detectTapGestures(onLongPress = {
-                                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    arrange()
-                                                })
-                                            }
-                                            .alpha(0.7f)
-                                            .padding(vertical = 6.dp, horizontal = 4.dp),
-                                    )
+                        }
+                        // Give the grid exactly one child per widget, whatever HostedWidget shows.
+                        Box(Modifier.gridPlace(w)) {
+                            OnScreenCard {
+                                // A script's widget is a card that Kolahal draws. Its taps go to the view model.
+                                if (w.source != null) SourceWidget(
+                                    w,
+                                    w.heightDp.dp,
+                                    actions,
+                                    vm.widgetFeed
+                                )
+                                else {
+                                    // Android is asked only for a profile the list misses.
+                                    val kind = remember(profiles, w.profileSerial) { profiles.kindOf(w.profileSerial, widgets::isLockedPrivate) }
+                                    val paused = remember(profiles, w.profileSerial) { profiles.pausedKind(w.profileSerial, widgets::isLockedPrivate) }
+                                    val haptics = LocalHapticFeedback.current
+                                    HostedWidget(
+                                        w = w,
+                                        height = w.heightDp.dp,
+                                        pausedKind = paused,
+                                        onLongPress = arrange,
+                                    ) { why ->
+                                        // A private space hides its apps: its widget doesn't name one, also
+                                        // where Android hides the space while it is locked ([namesApp]).
+                                        // A long-press opens Arrange widgets, as on a card. A tap does nothing.
+                                        Text(
+                                            placeholderLine(why, w.packageName, namesApp(kind)),
+                                            style = Term.text.copy(color = Term.dim),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .semantics { onLongClick(label = "arrange widgets") { arrange(); true } }
+                                                .pointerInput(arrange) {
+                                                    detectTapGestures(onLongPress = {
+                                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                        arrange()
+                                                    })
+                                                }
+                                                .alpha(0.7f)
+                                                .padding(vertical = 6.dp, horizontal = 4.dp),
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+            // Arrange widgets after the last card, scrolling with it: hidden for now ([PAGE_END_PENCIL]).
+            if (PAGE_END_PENCIL) PageEndAction(onArrange)
         }
-    }
-}
-
-/**
- * A widgets page's title row: its [title], the page dots for home's pages when [marks] has any (more than
- * one widgets page: [pageMarks], [WidgetPageDots]), then + ([onAdd]: the picker) and the pencil
- * ([onEdit]: Arrange widgets).
- */
-@Composable
-internal fun WidgetsTitleRow(
-    onAdd: () -> Unit,
-    onEdit: () -> Unit,
-    title: String = "Widgets",
-    marks: List<PageMark> = emptyList(),
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp)
-    ) {
-        // The title and the dots take all the room the buttons leave, so the buttons sit at the end. (A
-        // title weighted beside a weighted Spacer got half of that room, and what it didn't use was left
-        // empty after the buttons.) A long title is cut, not the buttons.
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                title,
-                style = Term.text.copy(color = Term.prompt, fontWeight = FontWeight.Bold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            if (marks.isNotEmpty()) WidgetPageDots(marks, Modifier.padding(start = 8.dp))
-        }
-        LabeledIconButton(R.drawable.ic_add, "Add a widget", onClick = onAdd, tint = Term.prompt)
-        LabeledIconButton(R.drawable.ic_edit, "Edit widgets", onClick = onEdit, tint = Term.fg)
     }
 }

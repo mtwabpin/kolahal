@@ -54,6 +54,11 @@ class HomePageOrderTest {
 
     private fun waitForTag(tag: String) = compose.waitUntil(10_000) { shown(tag) }
 
+    /** Waits until the widgets pages' strip reads [description]. */
+    private fun waitForStrip(description: String) = compose.waitUntil(10_000) {
+        runCatching { compose.onNodeWithContentDescription(description).assertExists() }.isSuccess
+    }
+
     /** No page but the log shows (homePageShown is null until home first turns, when the test pressed Home after it settled). */
     private fun TerminalViewModel.waitForLog() = compose.waitUntil(10_000) {
         homePageShown in listOf(null, "log") && listOf("widgets-page", "widgets-page-2").none(::shown)
@@ -105,11 +110,11 @@ class HomePageOrderTest {
                 compose.onNodeWithTag("home-pager").performSemanticsAction(SemanticsActions.PageRight)
                 waitForTag("widgets-page-2")
                 waitForNeighbors("Log", null)
-                // The page dots on both widgets pages count every page home shows, in its order:
-                // page 1 is the first, page 2 the last.
+                // The strip names the page shown and counts every page home shows, in its order: page 2 is
+                // the last. One strip for all the pages, so only the shown page's is there.
                 val count = if (assistant) 4 else 3
-                compose.onNodeWithContentDescription("Page $count of $count").assertExists()
-                compose.onNodeWithContentDescription("Page 1 of $count").assertExists()
+                waitForStrip("Page 2, page $count of $count")
+                compose.onNodeWithContentDescription("Page 1, page 1 of $count").assertDoesNotExist()
                 instrumentation.runOnMainSync { vm.onHomePressed() }
                 vm.waitForLog()
                 waitForNeighbors(beforeLog, "Page 2")
@@ -123,6 +128,7 @@ class HomePageOrderTest {
                 }
                 compose.onNodeWithTag("home-pager").performSemanticsAction(SemanticsActions.PageLeft)
                 waitForTag("widgets-page")
+                waitForStrip("Page 1, page 1 of $count")
                 waitForNeighbors(null, if (assistant) "Assistant" else "Log")
                 // Back goes to the log in one step, from the far end.
                 scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }

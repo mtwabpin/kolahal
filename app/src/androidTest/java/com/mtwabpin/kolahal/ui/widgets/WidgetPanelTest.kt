@@ -11,7 +11,9 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -23,13 +25,15 @@ import com.mtwabpin.kolahal.widgets.KolahalWidgetView
 import com.mtwabpin.kolahal.widgets.TestWidgets
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
  * The widgets page beside the log ([WidgetPanel]): a hold on any widget opens Arrange widgets with it
- * chosen, on the line that stands for a widget that can't show too, and a screen reader has it.
+ * chosen, on the line that stands for a widget that can't show too, and a screen reader has it. A page
+ * with widgets ends with the pencil; one without shows the empty page and its Add a widget.
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetPanelTest {
@@ -112,5 +116,34 @@ class WidgetPanelTest {
             assertEquals(Screen.WIDGETS, vm.screen.value)
             assertEquals(w.key, widgets.toChoose.value)
         }
+    }
+
+    /** A page with no widgets: the empty page's title and Add a widget, which opens the picker; no pencil. */
+    @Test
+    fun anEmptyPageOffersToAddOne() {
+        assumeTrue("widgets were placed before the test", widgets.widgets.value.isEmpty())
+        val vm = show()
+        compose.onNodeWithText("No widgets yet").assertExists()
+        compose.onNodeWithContentDescription(ARRANGE_WIDGETS).assertDoesNotExist()
+        compose.onNodeWithText(ADD_WIDGET).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
+    }
+
+    /** A page with widgets ends with the pencil, which opens Arrange widgets; no Add a widget there. */
+    @Test
+    fun aPageWithWidgetsEndsWithThePencil() {
+        val clock = t.clocks().first()
+        t.allowBinding(clock)
+        t.place(clock)
+        val vm = show()
+        compose.onNodeWithText("No widgets yet").assertDoesNotExist()
+        compose.onNodeWithText(ADD_WIDGET).assertDoesNotExist()
+        if (!PAGE_END_PENCIL) {
+            // Hidden for now: the page ends with its last card.
+            compose.onNodeWithContentDescription(ARRANGE_WIDGETS).assertDoesNotExist()
+            return
+        }
+        compose.onNodeWithContentDescription(ARRANGE_WIDGETS).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
     }
 }

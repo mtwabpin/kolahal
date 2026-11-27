@@ -12,7 +12,7 @@
 // thing in its items option, with a checkbox in front. A tap on a row ticks it, or takes the tick
 // away. Each new day starts with no ticks. Nothing leaves the phone.
 //
-// To see the card: install the script, tap + on the widgets page, and pick "Template: checklist
+// To see the card: install the script, run widget add, and pick "Template: checklist
 // widget (JavaScript)" in the Kolahal group.
 //
 // How a tap works:
@@ -67,5 +67,5 @@ const placed = widget.show({
 // Only a run by hand logs: the list, with a mark for each tick.
 if (started === null) {
   log(`Today · ${done} of ${things.length}`, things.map((t) => (ticked.has(t) ? "✓ " : "· ") + t).join("\n"));
-  if (!placed) log(fmt.color("muted", "To see the card: tap + on the widgets page and pick Template: checklist widget (JavaScript)"));
+  if (!placed) log(fmt.color("muted", "To see the card: run widget add and pick Template: checklist widget (JavaScript)"));
 }

@@ -87,8 +87,9 @@ class HomePagesTest {
                 vm.openScreen(Screen.TERMINAL)
             }
             waitFor(shown = true)
-            // As the first page it has no title row.
-            compose.onNodeWithContentDescription("Add a widget").assertDoesNotExist()
+            // As home's first page it has the strip, as every widgets page does: its name and the marks.
+            compose.onNodeWithTag("widgets-strip").assertExists()
+            compose.onNodeWithContentDescription("Widgets, page", substring = true).assertExists()
             // The app selector on both pages, the same: as far down, and as high. Where each starts and how
             // high it is, not its bounds: the log page is off screen, and those are cut to the screen.
             fun strips() = compose.onAllNodesWithTag("app-selector-strip", useUnmergedTree = true)
@@ -113,10 +114,10 @@ class HomePagesTest {
             assertEquals(true, config[Keys.WIDGETS_START])
             config.set(Keys.SELECTOR_RAIL, "on")
             waitFor(shown = true)
-            // Off again: home is the log, and the widgets page has its title row back.
+            // Off again: home is the log, and the strip is gone with the widgets page.
             config.reset(Keys.WIDGETS_START)
             waitFor(shown = false)
-            compose.onNodeWithContentDescription("Add a widget").assertExists()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("widgets-strip").fetchSemanticsNodes().isEmpty() }
         }
     }
 

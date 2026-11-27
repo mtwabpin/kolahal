@@ -12,7 +12,7 @@
 -- its repo option. A tap on the card opens the project. Talks to: api.github.com.
 -- template-widget-js does the same in JavaScript.
 --
--- To see the card: install the script, tap + on the widgets page, and pick "Template: widget" in
+-- To see the card: install the script, run widget add, and pick "Template: widget" in
 -- the Kolahal group.
 --
 -- The @widget line gives the kind of card and its size when placed. stat is one big value with up
@@ -76,5 +76,5 @@ log(repo.full_name, fmt.stats({
   { tostring(repo.open_issues_count), "open issues" },
 }), { url = repo.html_url })
 if not placed then
-  log(fmt.color("muted", "To see the card: tap + on the widgets page and pick Template: widget"))
+  log(fmt.color("muted", "To see the card: run widget add and pick Template: widget"))
 end

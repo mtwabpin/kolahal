@@ -88,6 +88,7 @@ import com.mtwabpin.kolahal.ui.theme.darkTheme
 import com.mtwabpin.kolahal.ui.wallpaper.WallpaperWriter
 import com.mtwabpin.kolahal.ui.widgets.LocalWidgetsShown
 import com.mtwabpin.kolahal.ui.widgets.WidgetPanel
+import com.mtwabpin.kolahal.ui.widgets.WidgetsStrip
 import com.mtwabpin.kolahal.ui.widgets.WidgetPickerScreen
 import com.mtwabpin.kolahal.ui.widgets.WidgetSettingsScreen
 import com.mtwabpin.kolahal.ui.widgets.WidgetsScreen
@@ -791,85 +792,98 @@ private fun HomePages(
     // the focus, and the pager would bring it into view: Back from Arrange widgets ended on the log.
     // The pages get the usual behavior back, so the log's own list still scrolls to what has the focus.
     val pageFocusSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
-    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides StayOnPage) {
-        androidx.compose.foundation.pager.HorizontalPager(
-            state = pager,
-            // Every page stays composed, the log too. A turn of more than one page (`widget page 3`)
-            // would otherwise drop the log while it is measured, prompt and keyboard with it, and
-            // Compose stops with "performMeasureAndLayout called during measure layout". At most six.
-            beyondViewportPageCount = count - 1,
-            userScrollEnabled = false,
-            key = { it },
-            modifier = androidx.compose.ui.Modifier
-                .testTag("home-pager")
-                .semantics {
-                    customActions = listOfNotNull(before, after).map { CustomAccessibilityAction(nameOf(it), turnTo(it)) }
-                    leftOf?.let { pageLeft(nameOf(it), turnTo(it)) }
-                    rightOf?.let { pageRight(nameOf(it), turnTo(it)) }
-                }
-                .pointerInput(pager) {
-                    val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
-                    // The page the drag started on: a fling turns one page from there. The pager's own
-                    // current page has moved on already once the drag passed half a page, and a fling
-                    // from that would skip one.
-                    var from = pager.currentPage
-                    detectHorizontalDragGestures(
-                        onDragStart = {
-                            tracker.resetTracking()
-                            from = pager.currentPage
-                        },
-                        onDragEnd = {
-                            val v = tracker.calculateVelocity().x
-                            val target = when {
-                                v < -800f -> from + 1
-                                v > 800f -> from - 1
-                                else -> (pager.currentPage + pager.currentPageOffsetFraction).let {
-                                    kotlin.math.round(
-                                        it
-                                    ).toInt()
-                                }
-                            }.coerceIn(0, count - 1)
-                            scope.launch { pager.animateScrollToPage(target) }
-                        },
-                        onDragCancel = { scope.launch { pager.animateScrollToPage(pager.currentPage) } },
-                    ) { change, dx ->
-                        tracker.addPosition(change.uptimeMillis, change.position)
-                        change.consume()
-                        pager.dispatchRawDelta(-dx)
+    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides StayOnPage) {
+            androidx.compose.foundation.pager.HorizontalPager(
+                state = pager,
+                // Every page stays composed, the log too. A turn of more than one page (`widget page 3`)
+                // would otherwise drop the log while it is measured, prompt and keyboard with it, and
+                // Compose stops with "performMeasureAndLayout called during measure layout". At most six.
+                beyondViewportPageCount = count - 1,
+                userScrollEnabled = false,
+                key = { it },
+                modifier = androidx.compose.ui.Modifier
+                    .fillMaxSize()
+                    .testTag("home-pager")
+                    .semantics {
+                        customActions = listOfNotNull(before, after).map { CustomAccessibilityAction(nameOf(it), turnTo(it)) }
+                        leftOf?.let { pageLeft(nameOf(it), turnTo(it)) }
+                        rightOf?.let { pageRight(nameOf(it), turnTo(it)) }
                     }
-                },
-        ) { page ->
-            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
-                val entry = order.at(page)
-                if (BuildConfig.ASSISTANT && entry == HomeEntry.Assistant) {
-                    com.mtwabpin.kolahal.ui.assistant.AssistantPage(vm.config, onSettings = {
-                        vm.settingsCategory.value = com.mtwabpin.kolahal.ui.settings.ASSISTANT_CATEGORY
-                        vm.openScreen(com.mtwabpin.kolahal.terminal.Screen.SETTINGS)
-                    })
-                } else if (entry == HomeEntry.Log) {
-                    // The prompt and the header measure the screen's corners from where they are on this page,
-                    // which slides while home turns, not from where they are in the window.
-                    val homePage = androidx.compose.runtime.remember { HomePage() }
-                    androidx.compose.runtime.CompositionLocalProvider(
-                        LocalTerminalShown provides (pager.currentPage == terminalPage),
-                        com.mtwabpin.kolahal.ui.home.LocalPageTypes provides (pager.currentPage == assistantPlace),
-                        LocalHomePage provides homePage,
-                    ) {
-                        androidx.compose.foundation.layout.Box(
-                            androidx.compose.ui.Modifier
-                                .fillMaxSize()
-                                .onPlaced { homePage.coordinates = it },
-                        ) { terminal() }
-                    }
-                } else if (entry is HomeEntry.Widgets) {
-                    // The pager keeps the pages next to the one shown composed. A page's cards move and ask
-                    // for runs only while the pager has settled on it.
-                    androidx.compose.runtime.CompositionLocalProvider(LocalWidgetsShown provides (pager.settledPage == page)) {
-                        WidgetPanel(vm, entry.page.location)
+                    .pointerInput(pager) {
+                        val tracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
+                        // The page the drag started on: a fling turns one page from there. The pager's own
+                        // current page has moved on already once the drag passed half a page, and a fling
+                        // from that would skip one.
+                        var from = pager.currentPage
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                tracker.resetTracking()
+                                from = pager.currentPage
+                            },
+                            onDragEnd = {
+                                val v = tracker.calculateVelocity().x
+                                val target = when {
+                                    v < -800f -> from + 1
+                                    v > 800f -> from - 1
+                                    else -> (pager.currentPage + pager.currentPageOffsetFraction).let {
+                                        kotlin.math.round(
+                                            it
+                                        ).toInt()
+                                    }
+                                }.coerceIn(0, count - 1)
+                                scope.launch { pager.animateScrollToPage(target) }
+                            },
+                            onDragCancel = { scope.launch { pager.animateScrollToPage(pager.currentPage) } },
+                        ) { change, dx ->
+                            tracker.addPosition(change.uptimeMillis, change.position)
+                            change.consume()
+                            pager.dispatchRawDelta(-dx)
+                        }
+                    },
+            ) { page ->
+                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageFocusSpec) {
+                    val entry = order.at(page)
+                    if (BuildConfig.ASSISTANT && entry == HomeEntry.Assistant) {
+                        com.mtwabpin.kolahal.ui.assistant.AssistantPage(vm.config, onSettings = {
+                            vm.settingsCategory.value = com.mtwabpin.kolahal.ui.settings.ASSISTANT_CATEGORY
+                            vm.openScreen(com.mtwabpin.kolahal.terminal.Screen.SETTINGS)
+                        })
+                    } else if (entry == HomeEntry.Log) {
+                        // The prompt and the header measure the screen's corners from where they are on this page,
+                        // which slides while home turns, not from where they are in the window.
+                        val homePage = androidx.compose.runtime.remember { HomePage() }
+                        androidx.compose.runtime.CompositionLocalProvider(
+                            LocalTerminalShown provides (pager.currentPage == terminalPage),
+                            com.mtwabpin.kolahal.ui.home.LocalPageTypes provides (pager.currentPage == assistantPlace),
+                            LocalHomePage provides homePage,
+                        ) {
+                            androidx.compose.foundation.layout.Box(
+                                androidx.compose.ui.Modifier
+                                    .fillMaxSize()
+                                    .onPlaced { homePage.coordinates = it },
+                            ) { terminal() }
+                        }
+                    } else if (entry is HomeEntry.Widgets) {
+                        // The pager keeps the pages next to the one shown composed. A page's cards move and ask
+                        // for runs only while the pager has settled on it.
+                        androidx.compose.runtime.CompositionLocalProvider(LocalWidgetsShown provides (pager.settledPage == page)) {
+                            WidgetPanel(vm, entry.page.location)
+                        }
                     }
                 }
             }
         }
+        // The widgets pages' name and marks: one line over the pager, so it stays put while the pages move. It
+        // shows over the widgets pages only, and its actions work on the page it names.
+        if (pages.isNotEmpty()) WidgetsStrip(
+            pager,
+            order,
+            pages,
+            fade = { vm.widgetsSelectorFade.floatValue },
+            onAdd = { location -> widgets.addTo = location; vm.openScreen(Screen.WIDGET_PICKER) },
+            onArrange = { location -> widgets.addTo = location; vm.openScreen(Screen.WIDGETS) },
+        )
     }
 }
 

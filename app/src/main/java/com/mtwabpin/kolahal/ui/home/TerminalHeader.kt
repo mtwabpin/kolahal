@@ -180,6 +180,44 @@ internal fun rememberNow(): Pair<Date, Int> {
 /** Room kept clear on each side of the camera's cutout. */
 private val CUTOUT_GAP = 4.dp
 
+/**
+ * The camera cutout's x ranges in the window, across a line in the band beside it, [band] pixels high
+ * from the window's top. None while the status bar shows ([barTop] above 0): the bar keeps clear of
+ * the cutout then. The header and the widgets pages' strip
+ * ([com.mtwabpin.kolahal.ui.widgets.WidgetsStrip]) both measure the camera this way.
+ */
+internal fun bandCutouts(view: android.view.View, band: Int, barTop: Int): List<IntRange> =
+    if (barTop > 0 || band == 0) emptyList()
+    else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }
+        .map { it.left..it.right }
+
+/**
+ * The free stretches of a line [width] wide, its left end at [x] and its top at [y] in the window,
+ * [height] tall with its content [contentHeight] tall centered in it ([HeaderLayout.zones]): 8 dp in
+ * from each end, clear of the camera's [cutouts] (window x ranges, [bandCutouts]) and of what the
+ * screen's rounded [corners] hide over the content's rows.
+ */
+internal fun androidx.compose.ui.unit.Density.lineZones(
+    width: Int,
+    x: Int,
+    y: Int,
+    height: Int,
+    contentHeight: Int,
+    cutouts: List<IntRange>,
+    corners: TopCorners,
+): List<IntRange> {
+    val top = y + (height - contentHeight) / 2
+    val bottom = top + contentHeight
+    return HeaderLayout.zones(
+        width,
+        8.dp.roundToPx(),
+        cutouts.map { (it.first - x)..(it.last - x) },
+        CUTOUT_GAP.roundToPx(),
+        cornerLeft = ScreenCorners.hiddenLeft(corners.left, top, bottom, edge = x),
+        cornerRight = ScreenCorners.hiddenRight(corners.right, top, bottom, edge = x + width),
+    )
+}
+
 /** Space between the header's parts. */
 private val HEADER_SPACING = 4.dp
 
@@ -335,11 +373,7 @@ internal fun Header(
     }
     val view = LocalView.current
     // The cutout's x ranges across the line. When the status bar is shown, the bar avoids the cutout, so there are none.
-    val cutouts = remember(band, barTop, view) {
-        if (barTop > 0 || band == 0) emptyList()
-        else view.rootWindowInsets?.displayCutout?.boundingRects.orEmpty().filter { it.top < band }
-            .map { it.left..it.right }
-    }
+    val cutouts = remember(band, barTop, view) { bandCutouts(view, band, barTop) }
     // The line's x, used to shift the cutout zones and to measure the corners from. It is its x on home's
     // page, which slides while home turns to the widgets page (cornerX): the line keeps its parts where
     // they are at rest. It is known only after placement, so the measure below reads it as state and
@@ -485,16 +519,7 @@ internal fun Header(
         // What the screen's corners hide at each end, over the rows of the line's content.
         val y = originY.floatValue.let { if (it.isNaN()) expectedY else it.toInt() }
         val corners = if (preview) TopCorners.NONE else givenCorners ?: windowTopCorners(view)
-        val top = y + (h - contentHeight) / 2
-        val bottom = top + contentHeight
-        val zones = HeaderLayout.zones(
-            width,
-            8.dp.roundToPx(),
-            cutouts.map { (it.first - shift)..(it.last - shift) },
-            CUTOUT_GAP.roundToPx(),
-            cornerLeft = ScreenCorners.hiddenLeft(corners.left, top, bottom, edge = shift),
-            cornerRight = ScreenCorners.hiddenRight(corners.right, top, bottom, edge = shift + width),
-        )
+        val zones = lineZones(width, shift, y, h, contentHeight, cutouts, corners)
         val n = left.size
         val places = HeaderLayout.place(
             zones,

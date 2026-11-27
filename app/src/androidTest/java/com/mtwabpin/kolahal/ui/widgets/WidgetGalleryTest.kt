@@ -225,8 +225,8 @@ class WidgetGalleryTest {
     }
 
     /**
-     * The website's picture of the widgets page (site/src/assets/parts/widgets-page.png): the page's
-     * title row, and a few ready-made cards laid out as the page lays them out. It goes to
+     * The website's picture of the widgets page (site/src/assets/parts/widgets-page.png): the strip with
+     * the page's name and marks, and a few ready-made cards laid out as the page lays them out. It goes to
      * `files/gallery-page/widgets-page.png`.
      */
     @Test
@@ -266,7 +266,7 @@ class WidgetGalleryTest {
                             .background(Term.bg)
                             .padding(vertical = 8.dp),
                     ) {
-                        WidgetsTitleRow(onAdd = {}, onEdit = {})
+                        WidgetsStripLine("Widgets", listOf(PageMark(PageKind.WIDGETS, current = true), PageMark(PageKind.LOG, current = false)))
                         WidgetGrid(
                             WidgetLayout.GAP_DP.dp,
                             Modifier

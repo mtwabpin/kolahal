@@ -11,7 +11,7 @@
 // forks and open issues under them: Kolahal's, until you change its repo option. A tap on the
 // card opens the project. Talks to: api.github.com.
 //
-// To see the card: install the script, tap + on the widgets page, and pick "Template: widget
+// To see the card: install the script, run widget add, and pick "Template: widget
 // (JavaScript)" in the Kolahal group.
 //
 // The @widget line gives the kind of card and its size when placed. stat is one big value with up
@@ -74,4 +74,4 @@ log(repo.full_name, fmt.stats([
   [String(repo.forks_count), "forks"],
   [String(repo.open_issues_count), "open issues"],
 ]), { url: repo.html_url });
-if (!placed) log(fmt.color("muted", "To see the card: tap + on the widgets page and pick Template: widget (JavaScript)"));
+if (!placed) log(fmt.color("muted", "To see the card: run widget add and pick Template: widget (JavaScript)"));

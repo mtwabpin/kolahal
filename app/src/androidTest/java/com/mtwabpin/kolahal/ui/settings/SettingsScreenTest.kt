@@ -304,7 +304,8 @@ class SettingsScreenTest {
             vm.peek.value
         )
         assertEquals(100, config[Keys.WIDGETS_WALLPAPER])
-        compose.onNodeWithContentDescription("Add a widget").assertExists()
+        // The widgets page shows instead of the log.
+        compose.onNodeWithTag("widgets-page").assertExists()
         home.assertDoesNotExist()
         widgets.performTouchInput { up() }
         compose.waitForIdle()

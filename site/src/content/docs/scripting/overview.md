@@ -268,7 +268,7 @@ widget.show{
   - The sizes are `1x1`, `2x1`, `2x2`, `4x1`, `4x2` and `4x4`, in cells of a 4-column grid.
 - `widget.show{…}` fills the card. Each kind has its own fields:
   [the API reference](/scripting/api/#widgets) lists them.
-- You place the widget yourself. Tap **+** at the top of the widgets page (or run `widget add`) and pick
+- You place the widget yourself. Run `widget add` (or tap **Add widget** in Arrange widgets) and pick
   it in the **Kolahal** group. A script can't place itself.
 - Until you place it, `widget.show` only checks what it gets, and stores nothing.
 - A tap on the card can run the script again with arguments, or open a web link
