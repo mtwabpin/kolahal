@@ -4,7 +4,9 @@ name: Release
 # - a GitHub release with the mapping zip, whose notes are docs/release/notes/X.Y.Z.md. With
 #   PUBLISH_APKS below "true", also kolahal-X.Y.Z.apk (the full build) and kolahal-X.Y.Z-play.apk (the
 #   Play build, for phones where Play Protect blocks the full one), both signed with the release key;
-# - both APKs kept with this run for 90 days (kolahal-X.Y.Z-apks), also when the release has none;
+# - both APKs kept with this run for 90 days (kolahal-X.Y.Z-apks), also when the release has none.
+#   The repository is public, so anyone signed in to GitHub can download a run's artifacts: these
+#   release-signed APKs and the Play bundle too, whether or not the release publishes them;
 # - kolahal-X.Y.Z-play.aab, signed with the upload key, kept with this run for Play Console, and,
 #   once the PLAY_ variables are set, uploaded to Google Play on a testing track: a draft, or sent
 #   for review with PLAY_SEND_FOR_REVIEW true.
@@ -202,6 +204,7 @@ jobs:
 
       # Both APKs, signed with the release key, kept with this run whether or not the release
       # carries them (PUBLISH_APKS): gh run download <run id> -n kolahal-X.Y.Z-apks.
+      # On a public repository anyone signed in to GitHub can download them, PUBLISH_APKS false too.
       - name: Keep the APKs
         uses: actions/upload-artifact@v7
         with:
