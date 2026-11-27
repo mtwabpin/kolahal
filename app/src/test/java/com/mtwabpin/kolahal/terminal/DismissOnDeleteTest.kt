@@ -13,7 +13,8 @@ import org.junit.Test
 
 /**
  * Deleting a notification's line dismisses the notification ([DismissOnDelete]): only once the delete's Undo is
- * gone, never on Undo, not for an ongoing one, not with the setting off or without notification access.
+ * gone, never on Undo, not for an ongoing one, not for one posted again since the line (a chat's later message),
+ * not with the setting off or without notification access.
  */
 class DismissOnDeleteTest {
     private val message = LogContext.of(
@@ -87,6 +88,55 @@ class DismissOnDeleteTest {
         offer(null).expire()
         offer(DismissOnDelete.keyOf(message, on = false) { true }).expire()
         offer(DismissOnDelete.keyOf(message, on = true) { false }).expire()
+        assertTrue(dismissed.isEmpty())
+    }
+
+    /**
+     * A chat's three messages are three lines with one key, the notification posted again for each. Only the
+     * newest line is about the notification showing: deleting an older one leaves the newer message in the shade.
+     */
+    @Test
+    fun onlyTheLineAboutWhatShowsDismissesIt() {
+        // Each line is written a moment after its post: the listener hears of it after the system stamps it.
+        val posts = listOf(1_000_000L, 1_060_000L, 1_125_000L)
+        val lines = posts.map { it + 40 }
+        val showing = posts.last()
+        assertEquals(listOf(false, false, true), lines.map { DismissOnDelete.about(it, showing) })
+        // Before the second message came, the first line was the one showing.
+        assertTrue(DismissOnDelete.about(lines[0], posts[0]))
+    }
+
+    /** A reminder posted again (the next day, or after it was dismissed) is newer than yesterday's line. */
+    @Test
+    fun aNotificationPostedAgainStays() {
+        val line = 1_000_040L
+        assertFalse(DismissOnDelete.about(line, line + 86_400_000L))
+        // Its new line is about it.
+        assertTrue(DismissOnDelete.about(line + 86_400_040L, line + 86_400_000L))
+    }
+
+    /** A clock that moved a little doesn't keep a line from its own notification; a second later is another post. */
+    @Test
+    fun aSmallSlack() {
+        val line = 5_000_000L
+        assertTrue(DismissOnDelete.about(line, line))
+        assertTrue(DismissOnDelete.about(line, line + DismissOnDelete.SLACK_MS))
+        assertFalse(DismissOnDelete.about(line, line + DismissOnDelete.SLACK_MS + 1))
+    }
+
+    /**
+     * The check runs when the notification would go, not when the line is deleted: a message that comes while
+     * the swipe's Undo is offered keeps the notification in the shade.
+     */
+    @Test
+    fun aMessageDuringUndoKeepsTheNotification() {
+        val line = 2_000_040L
+        var showing = 2_000_000L
+        val offer = DismissOnDelete.undoOffer("Line deleted", key, dismiss = { k ->
+            if (DismissOnDelete.about(line, showing)) dismissed += k
+        }) { restored++ }
+        showing = 2_003_000L
+        offer.expire()
         assertTrue(dismissed.isEmpty())
     }
 

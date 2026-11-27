@@ -75,7 +75,7 @@ class HomeOrderTest {
         )
         // An order already set stays.
         assertEquals(mapOf("home.pages" to "widgets,log"), Keys.migrate(mapOf("widgets.page" to "right", "home.pages" to "widgets,log")))
-        assertTrue(HomeOrder.pagesRight(Keys.migrate(mapOf("widgets.page" to "right")).getValue("home.pages")))
+        assertTrue(right(Keys.migrate(mapOf("widgets.page" to "right")).getValue("home.pages")))
     }
 
     @Test
@@ -152,12 +152,34 @@ class HomeOrderTest {
         assertEquals("widgets:3", HomeOrder.idOf("panel:3"))
     }
 
+    /** Whether the log is first with pages right of it, in the order home shows for `home.pages` [order]. */
+    private fun right(order: String, pages: List<WidgetPage> = one, assistant: Boolean = false) =
+        HomeOrder.of(HomeOrder.listed(order), pages, assistant).pagesRight
+
     @Test
     fun logLinesSwipeTowardThePagesToCopy() {
-        assertFalse(HomeOrder.pagesRight(""))
-        assertFalse(HomeOrder.pagesRight("log"))
-        assertTrue(HomeOrder.pagesRight("log,widgets"))
-        assertFalse(HomeOrder.pagesRight("widgets,log"))
-        assertFalse(HomeOrder.pagesRight("widgets,log,assistant"))
+        assertFalse(right(""))
+        assertFalse(right("log"))
+        assertTrue(right("log,widgets"))
+        assertFalse(right("widgets,log"))
+        assertFalse(right("widgets,log,assistant"))
+        assertTrue(right("log,widgets", three, assistant = true))
+        // The log alone: no page to turn to.
+        assertFalse(right("log,widgets", emptyList()))
+    }
+
+    /**
+     * From the order home shows, not the setting's text: `log,assistant` with the Assistant off and the widgets
+     * on shows widgets page 1 left of the log (it isn't listed), so the log isn't first.
+     */
+    @Test
+    fun theOrderHomeShowsDecidesNotTheText() {
+        assertFalse(right("log,assistant", one, assistant = false))
+        assertTrue(right("log,assistant", emptyList(), assistant = true))
+        // The Assistant on too: page 1, not listed, still goes left of the log.
+        assertFalse(right("log,assistant", one, assistant = true))
+        // A listed page that isn't there (removed) doesn't put the log second.
+        assertTrue(right("widgets:2,log,widgets", one))
+        assertFalse(right("widgets:2,log,widgets", three))
     }
 }

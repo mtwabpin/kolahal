@@ -15,6 +15,7 @@ import com.mtwabpin.kolahal.data.SettingTitles
 import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ScreenSaver
+import com.mtwabpin.kolahal.widgets.WidgetPage
 
 /**
  * Sliders that show home through Settings while the user drags them, like the brightness slider in
@@ -95,13 +96,20 @@ internal fun shownChoices(key: ConfigKey.Choice, config: Config): List<String> =
  * The value Settings marks as chosen for a choice: the stored one, but
  * - for a screensaver the gui style doesn't run, which shows as off there ([ScreenSaver.inEffect]);
  * - for a line's swipe, what that side does now: the defaults trade sides with the page order
- *   ([LineSwipes]), in a layout that is right-to-left when [rtl] is.
+ *   ([LineSwipes]) as home shows them, with the widgets [pages] there are, in a layout that is right-to-left
+ *   when [rtl] is.
  * The stored value stays.
  */
-internal fun shownChoice(key: ConfigKey.Choice, value: String, config: Config, rtl: Boolean = false): String = when (key) {
+internal fun shownChoice(
+    key: ConfigKey.Choice,
+    value: String,
+    config: Config,
+    pages: List<WidgetPage>,
+    rtl: Boolean = false,
+): String = when (key) {
     Keys.SCREEN_SAVER -> ScreenSaver.inEffect(value, HomeStyles.ttyNow(config))
-    Keys.LOG_SWIPE_LEFT -> LineSwipes.of(config, rtl).left.id
-    Keys.LOG_SWIPE_RIGHT -> LineSwipes.of(config, rtl).right.id
+    Keys.LOG_SWIPE_LEFT -> LineSwipes.of(config, rtl, pages).left.id
+    Keys.LOG_SWIPE_RIGHT -> LineSwipes.of(config, rtl, pages).right.id
     else -> value
 }
 

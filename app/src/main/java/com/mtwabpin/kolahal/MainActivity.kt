@@ -662,7 +662,7 @@ private fun HomePager(
 ) {
     val version by vm.config.version.collectAsStateWithLifecycle()
     val widgetsOn = androidx.compose.runtime.remember(version) { vm.config[Keys.WIDGETS_SHOW] }
-    // The Assistant's page (`assistant.page`, full build only) comes after the widgets pages.
+    // The Assistant's page (`assistant.page`, full build only), placed by the page order (`home.pages`).
     val assistant = androidx.compose.runtime.remember(version) { BuildConfig.ASSISTANT && vm.config[Keys.ASSISTANT_PAGE] }
     if (!widgetsOn && !assistant) {
         terminal()
@@ -674,12 +674,21 @@ private fun HomePager(
     val pages = if (widgetsOn) widgetPages else emptyList()
     val listed = androidx.compose.runtime.remember(version) { vm.config[Keys.HOME_PAGES] }
     val order = HomeOrder.of(HomeOrder.listed(listed), pages, assistant)
-    // The page home shows, by its id: when home is laid out again here, it stays on that page.
-    val shownId = androidx.compose.runtime.remember { java.util.concurrent.atomic.AtomicReference<String?>(null) }
     // A page added or removed (a backup's), or a new order, lays home out again: each page's place on the pager moves.
     androidx.compose.runtime.key(pages.size, assistant, listed) {
-        HomePages(vm, widgets, pages, order, shownId, terminal)
+        HomePages(vm, widgets, pages, order, terminal)
     }
+}
+
+/**
+ * The place home's pager opens on. [keptId] is the page it showed last ([TerminalViewModel.homePageShown]),
+ * null after a Home press: then [homePage], home's first page. A page that is gone by now (widgets
+ * pages turned off while a screen was open) opens the log. Never a place outside the pager.
+ */
+internal fun homeStartPlace(keptId: String?, order: HomeOrder, homePage: Int): Int {
+    val log = order.logPlace.coerceAtLeast(0)
+    val place = if (keptId == null) homePage else order.placeOf(keptId)
+    return place.takeIf { it in 0 until order.count } ?: log
 }
 
 /** [HomePager] for [pages] in [order]. */
@@ -690,7 +699,6 @@ private fun HomePages(
     widgets: WidgetHost,
     pages: List<com.mtwabpin.kolahal.widgets.WidgetPage>,
     order: HomeOrder,
-    shownId: java.util.concurrent.atomic.AtomicReference<String?>,
     terminal: @androidx.compose.runtime.Composable () -> Unit
 ) {
     val version by vm.config.version.collectAsStateWithLifecycle()
@@ -700,28 +708,19 @@ private fun HomePages(
     // The pager's place of the widgets page at [index] (from 0).
     fun placeOf(index: Int): Int = order.placeOf(index)
     val widgetsFirst = androidx.compose.runtime.remember(version) { Keys.widgetsFirst(vm.config) }
-    // The page that home opens on, and that Home and Back return to.
-    val homePage = if (widgetsFirst) placeOf(0) else terminalPage
-    // Home is laid out again each time a screen closes. It opens on the page it showed before
-    // (vm.homeOnWidgets, vm.widgetsPageShown): Back from Arrange widgets returns to that widgets page.
-    val shown = com.mtwabpin.kolahal.widgets.WidgetPages.indexOf(pages, vm.widgetsPageShown).coerceAtLeast(0)
-    // Laid out again for a new order or a page added: the page it showed, wherever that is now.
-    val startPage = shownId.get()?.let(order::placeOf)?.takeIf { it >= 0 } ?: when (vm.homeOnWidgets) {
-        true -> placeOf(shown)
-        false -> terminalPage
-        null -> homePage
-    }
+    // The page that home opens on, and that Home and Back return to. The log while page 1 isn't there yet.
+    val homePage = if (widgetsFirst) placeOf(0).takeIf { it >= 0 } ?: terminalPage else terminalPage
+    // Home is laid out again each time a screen closes, and for a new order or a page added. It opens
+    // on the page it showed before (vm.homePageShown), wherever that is now: Back from Arrange widgets
+    // returns to that widgets page, and from the Assistant's settings to the Assistant.
+    val startPage = homeStartPlace(vm.homePageShown, order, homePage)
     val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = startPage) { count }
     androidx.compose.runtime.LaunchedEffect(pager, terminalPage) {
         androidx.compose.runtime.snapshotFlow { pager.settledPage }
             .collect { place ->
-                vm.homeOnWidgets = place != terminalPage
-                shownId.set(order.at(place)?.id)
+                vm.homePageShown = order.at(place)?.id
                 // The page shown last is where `widget add` puts a new widget.
-                (order.at(place) as? HomeEntry.Widgets)?.page?.let {
-                    vm.widgetsPageShown = it.location
-                    widgets.addTo = it.location
-                }
+                (order.at(place) as? HomeEntry.Widgets)?.page?.let { widgets.addTo = it.location }
             }
     }
     val homePresses by vm.homePresses.collectAsStateWithLifecycle()

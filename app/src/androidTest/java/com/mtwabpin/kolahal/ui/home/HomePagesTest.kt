@@ -313,7 +313,7 @@ class HomePagesTest {
                     runCatching { compose.onNodeWithTag("widgets-page-2").assertIsNotDisplayed() }.isSuccess
                 }
                 waitFor(shown = false)
-                assertEquals(false, vm.homeOnWidgets)
+                assertEquals("log", vm.homePageShown)
             }
         } finally {
             t.close()

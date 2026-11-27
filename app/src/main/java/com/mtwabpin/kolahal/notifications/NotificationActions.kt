@@ -81,15 +81,16 @@ object NotificationActions {
     }
 
     /**
-     * Dismisses the notification [key] if it is still showing and can be dismissed ([clearable]): deleting its
-     * line does this (`notifs.dismiss-on-delete`). One that is gone, or ongoing (music, a call), is left as it
-     * is, and nothing is said.
+     * Dismisses the notification [key] if it is still showing, its post time is one [about] accepts (the line
+     * deleted is about it, not about an earlier post of the same key), and it can be dismissed ([clearable]):
+     * deleting its line does this (`notifs.dismiss-on-delete`). One that is gone, newer, or ongoing (music, a
+     * call) is left as it is, and nothing is said.
      */
-    fun dismissIfClearable(key: String) {
+    fun dismissIfClearable(key: String, about: (postTime: Long) -> Boolean) {
         val listener = KolahalNotificationListener.connected ?: return
         val sbn = runCatching { listener.getActiveNotifications(arrayOf(key)) }.getOrNull()
             ?.firstOrNull { it?.key == key } ?: return
-        if (clearable(sbn.notification.flags)) dismiss(key)
+        if (about(sbn.postTime) && clearable(sbn.notification.flags)) dismiss(key)
     }
 
     /** Whether a notification with these [flags] can be dismissed, as by the shade's Clear all: not an ongoing one. */

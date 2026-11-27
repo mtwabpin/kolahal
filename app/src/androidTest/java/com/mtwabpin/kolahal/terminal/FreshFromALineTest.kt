@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.TestViewModels
+import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.LogRepository
@@ -76,6 +77,26 @@ class FreshFromALineTest {
         logs.hideAbove(ids[2])
         assertEquals(ids.drop(3), shown())
         assertEquals(before + 3, logs.hiddenCount())
+    }
+
+    /**
+     * A locked private space's lines don't show: above the first line that does, they don't make the menu offer
+     * Fresh from here, which would hide only them and count them in "▴ N earlier lines". Unlocked, they show.
+     */
+    @Test
+    fun aLockedSpacesLinesAboveDontCount() {
+        logs.hideScreen()
+        val serial = 987_654L
+        val space = LogContext.of(LogContext.USER to serial.toString())
+        val locked = (0 until 2).map { logs.add(LogKind.SCRIPT, "$token private $it", ctx = space) }
+        val first = logs.add(LogKind.OUTPUT, "$token shown")
+        ids += locked + first
+        assertFalse(logs.shownBefore(first, setOf(serial)))
+        assertTrue(logs.shownBefore(first))
+        // A line below shows above it either way.
+        val next = logs.add(LogKind.OUTPUT, "$token next")
+        ids += next
+        assertTrue(logs.shownBefore(next, setOf(serial)))
     }
 
     /** After `fresh`, a fresh from a newer line hides up to it, and the count covers both. */

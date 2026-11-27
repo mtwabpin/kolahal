@@ -1119,7 +1119,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
     /**
      * A swipe that deletes a log line (and TalkBack's Delete on it). A notification's line also dismisses its
-     * notification, once Undo is no longer offered ([DismissOnDelete]).
+     * notification, once Undo is no longer offered, if it is still the one the line is about ([DismissOnDelete]).
      */
     fun swipeDelete(entry: LogEntry) {
         viewModelScope.launch(deleteIo) { runCatching { logs.delete(entry.id) } }
@@ -1128,7 +1128,9 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         }
         offerUndo(DismissOnDelete.undoOffer("Line deleted", key, dismiss = { k ->
             viewModelScope.launch(deleteIo) {
-                runCatching { com.mtwabpin.kolahal.notifications.NotificationActions.dismissIfClearable(k) }
+                runCatching {
+                    com.mtwabpin.kolahal.notifications.NotificationActions.dismissIfClearable(k) { DismissOnDelete.about(entry.ts, it) }
+                }
             }
         }) {
             viewModelScope.launch(deleteIo) {
@@ -1777,22 +1779,18 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
 
     /**
-     * Whether home showed a widgets page (true) or the log (false) when it was last on screen, and
-     * which page ([widgetsPageShown]). Home is laid out again when a screen closes, so it opens on
-     * that page: Back from Arrange widgets returns to the widgets page. Null: home's own first page.
-     * A Home press forgets it.
+     * The page home showed when it was last on screen, by its id ([com.mtwabpin.kolahal.data.HomeEntry.id]):
+     * the log, a widgets page or the Assistant. Home is laid out again when a screen closes, so it
+     * opens on that page: Back from Arrange widgets returns to the widgets page. A page that is gone
+     * by then opens the log. Null: home's own first page. A Home press forgets it.
      */
     @Volatile
-    var homeOnWidgets: Boolean? = null
-
-    /** The widgets page home showed last, by its location ([com.mtwabpin.kolahal.widgets.WidgetPage.location]). */
-    @Volatile
-    var widgetsPageShown: String = com.mtwabpin.kolahal.widgets.WidgetLocation.PANEL
+    var homePageShown: String? = null
 
     /**
      * How far each widgets page was scrolled, in pixels, by its location, when it was last on screen.
      * Home is laid out again when a screen closes, so a page opens scrolled where it was: after
-     * Arrange widgets too. A Home press from another screen forgets it, as it forgets [homeOnWidgets].
+     * Arrange widgets too. A Home press from another screen forgets it, as it forgets [homePageShown].
      */
     val widgetsScroll = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
@@ -1872,7 +1870,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     /** Pressing Home while already home resets the prompt. */
     fun onHomePressed() {
         settingsCategory.value = null
-        homeOnWidgets = null
+        homePageShown = null
         // Home is laid out again only when it comes from another screen; then its widgets page starts at the top.
         if (screen.value != Screen.TERMINAL) widgetsScroll.clear()
         _ttyScreen.value = null

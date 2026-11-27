@@ -53,10 +53,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.mtwabpin.kolahal.BuildConfig
 import com.mtwabpin.kolahal.apps.Profile
@@ -67,7 +65,6 @@ import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.Status
-import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -77,6 +74,7 @@ import com.mtwabpin.kolahal.ui.home.HomeState
 import com.mtwabpin.kolahal.ui.home.LogArea
 import com.mtwabpin.kolahal.ui.home.pinchToZoomFont
 import com.mtwabpin.kolahal.ui.home.rememberFontSizeToast
+import com.mtwabpin.kolahal.ui.home.rememberLineSwipes
 import com.mtwabpin.kolahal.ui.theme.Term
 import com.mtwabpin.kolahal.ui.theme.page
 import kotlinx.coroutines.launch
@@ -217,10 +215,9 @@ internal fun TtyHome(
                 )
             }
             // What a swipe each way does on a line, as in the gui style: while both are the defaults, with the log
-            // first and the pages right of it, a line swiped as the page turns toward them is copied, not deleted;
-            // in a right-to-left layout the sides swap with the page.
-            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-            val swipes = remember(configVersion, rtl) { LineSwipes.of(config, rtl) }
+            // first and the pages right of it (in the order home shows), a line swiped as the page turns toward them is
+            // copied, not deleted; in a right-to-left layout the sides swap with the page.
+            val swipes = rememberLineSwipes(config, configVersion)
             Column(
                 Modifier
                     .weight(1f)

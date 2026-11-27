@@ -1208,7 +1208,7 @@ internal object AssistantConfig {
     val PAGE = ConfigKey.Bool(
         "assistant.page",
         false,
-        "Show the Assistant's page after the widgets pages, to chat with ${Services.ALL.joinToString { it.name }}.\nNeeds your own API key for the service"
+        "Show the Assistant's page on home, to chat with ${Services.ALL.joinToString { it.name }}.\nSettings → Widgets → Page order (home.pages) places it.\nNeeds your own API key for the service"
     )
     val SERVICE = ConfigKey.Choice(
         "assistant.service",

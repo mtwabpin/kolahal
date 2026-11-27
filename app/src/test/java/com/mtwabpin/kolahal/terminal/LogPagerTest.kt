@@ -338,6 +338,26 @@ class LogPagerTest {
         )
     }
 
+    /**
+     * Fresh from here is not offered on the first line shown. A locked private space's lines above it don't show,
+     * so they don't make it the second: a fresh from it would hide them only, and "▴ N earlier lines" would count them.
+     */
+    @Test
+    fun theFirstLineShownSkipsALockedSpacesLines() {
+        val log = FakeLog()
+        val first = log.add("a launch", ctx = inPrivateSpace)
+        log.add("a message", ctx = inPrivateSpace)
+        val shown = log.add("battery")
+        log.add("time")
+        assertEquals(shown.id, firstShownOf(atStart = true, log.lines, locked))
+        // Unlocked, its lines show: the first of them is the first line shown.
+        assertEquals(first.id, firstShownOf(atStart = true, log.lines, emptySet()))
+        // A page that doesn't reach the log's start: lines older than it may show.
+        assertEquals(0L, firstShownOf(atStart = false, log.lines, locked))
+        // Nothing shows: no line is the first.
+        assertEquals(0L, firstShownOf(atStart = true, log.lines.take(2), locked))
+    }
+
     /** More than the page holds: the newest stay, and the count is of them all. */
     @Test
     fun theFiltersPageKeepsItsNewestLines() {

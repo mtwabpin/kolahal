@@ -18,11 +18,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.apps.AppEntry
 import com.mtwabpin.kolahal.apps.ProfileKind
+import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.StyledText
@@ -93,6 +94,8 @@ import com.mtwabpin.kolahal.terminal.commands.AppListing
 import com.mtwabpin.kolahal.terminal.lineModel
 import com.mtwabpin.kolahal.terminal.plainOf
 import com.mtwabpin.kolahal.ui.theme.Term
+import com.mtwabpin.kolahal.widgets.WidgetHost
+import com.mtwabpin.kolahal.widgets.WidgetPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -188,8 +191,29 @@ fun LogLine(
 }
 
 /**
+ * The widgets pages there are (WidgetHost.pages), kept up to date. With the settings they give the order home
+ * shows ([com.mtwabpin.kolahal.data.HomeOrder.of]), which the sides of a line's default swipes follow.
+ */
+@Composable
+internal fun rememberWidgetPages(): List<WidgetPage> {
+    val context = LocalContext.current
+    return remember { WidgetHost.get(context) }.pages.collectAsStateWithLifecycle().value
+}
+
+/**
+ * What a swipe each way does on a log line ([LineSwipes.of]), in the GUI and the TTY log: read again when the
+ * settings change ([configVersion]), and with them the order home shows, the widgets pages, or the layout's direction.
+ */
+@Composable
+internal fun rememberLineSwipes(config: Config, configVersion: Int): LineSwipes {
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val pages = rememberWidgetPages()
+    return remember(configVersion, rtl, pages) { LineSwipes.of(config, rtl, pages) }
+}
+
+/**
  * A sideways drag on a log line, as [detectHorizontalDragGestures] has it, but only one that [takes] by
- * the way it goes past the touch slop. A drag the other way is left to what is under the line (home's
+ * the way it goes past the touch slop. A drag it refuses is left unconsumed to what is under the line (home's
  * pager turns the page) for the rest of the gesture. [onDrag] gets each move, the first one past the slop
  * included.
  */
@@ -404,10 +428,13 @@ fun LogLine(
             contentAlignment = Alignment.CenterStart,
             modifier = Modifier
                 .onSizeChanged { rowWidth = it.width.coerceAtLeast(1) }
-                .offset { androidx.compose.ui.unit.IntOffset(swipe.value.toInt(), 0) }
+                // The swipe is in the screen's pixels, as the finger moves: not mirrored in a right-to-left layout.
+                .absoluteOffset { androidx.compose.ui.unit.IntOffset(swipe.value.toInt(), 0) }
                 .then(if (!swipes.any) Modifier else Modifier.pointerInput(entry.id, swipes) {
+                    // Only a side that does something on this line takes the drag; any other goes to the pager.
+                    fun does(act: LineSwipe) = currentSwipeDoes(currentEntry, act)
                     detectLineSwipe(
-                        takes = { dx -> swipes.toward(dx) != LineSwipe.NONE },
+                        takes = { dx -> swipes.takes(dx, ::does) },
                         onDragEnd = {
                             val limit = rowWidth / 3f
                             swipeScope.launch {
@@ -433,8 +460,8 @@ fun LogLine(
                         },
                         onDragCancel = { swipeScope.launch { swipe.animateTo(0f) } },
                     ) { dx ->
-                        // A side that does nothing keeps the line from moving that way.
-                        swipeScope.launch { swipe.snapTo(swipes.reach(swipe.value + dx)) }
+                        // A side that does nothing on the line keeps it from moving that way.
+                        swipeScope.launch { swipe.snapTo(swipes.reach(swipe.value + dx, ::does)) }
                     }
                 })
                 .fillMaxWidth()

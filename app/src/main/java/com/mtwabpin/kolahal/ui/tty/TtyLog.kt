@@ -576,7 +576,7 @@ internal class TtyLineCalls(
  * - A tap goes to the target under the finger, or the nearest one within reach, else the line.
  *   While pressed, the target (or the whole line) is on the surface color.
  * - A swipe slides it by whole cells and uncovers what it does ("⧉ Copy", "✕ Delete", [LineSwipe.label]);
- *   past a third of the width it does it, as in the GUI ([swipes]: a side that is none takes no drag).
+ *   past a third of the width it does it, as in the GUI ([swipes]: a side that is none, or does nothing on the line, takes no drag).
  * - TalkBack reads it as one row (what [LineModel.spoken] says), with its links, buttons, fold,
  *   and what its swipes do (Copy, Delete) as actions. Buttons, apps and the fold are also nodes of their own, where
  *   they show, so switch access reaches them.
@@ -631,8 +631,10 @@ private fun TtyLineRow(
             .fillMaxWidth()
             .cellHeight(block.rows * m.cellH)
             .then(if (!swipes.any) Modifier else Modifier.pointerInput(entry.id, swipes) {
+                // Only a side that does something on this line takes the drag; any other goes to the pager.
+                fun does(act: LineSwipe) = currentCalls.swipeDoes(current.model.entry, act)
                 detectLineSwipe(
-                    takes = { dx -> swipes.toward(dx) != LineSwipe.NONE },
+                    takes = { dx -> swipes.takes(dx, ::does) },
                     onDragEnd = {
                         val width = size.width
                         val limit = width / 3f
@@ -659,8 +661,8 @@ private fun TtyLineRow(
                     },
                     onDragCancel = { scope.launch { swipe.animateTo(0f) } },
                 ) { dx ->
-                    // A side that is none keeps the line from moving that way.
-                    scope.launch { swipe.snapTo(swipes.reach(swipe.value + dx)) }
+                    // A side that does nothing on the line keeps it from moving that way.
+                    scope.launch { swipe.snapTo(swipes.reach(swipe.value + dx, ::does)) }
                 }
             })
             .pointerInput(entry.id, m, originX, slop) {

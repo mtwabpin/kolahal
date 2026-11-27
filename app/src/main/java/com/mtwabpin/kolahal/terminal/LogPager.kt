@@ -145,6 +145,15 @@ internal fun mayRemoveCommand(lines: List<LogEntry>, gone: Set<Long>): Boolean =
     gone.isNotEmpty() && lines.filter { it.id in gone }
         .let { had -> had.size < gone.size || had.any { it.kind == LogKind.COMMAND } }
 
+/**
+ * The log's first shown line, for Fresh from here ([LogPager.shownBefore]): the first of the page's [lines] (oldest
+ * first) that isn't a locked private space's ([locked], by serial), when the page reaches back to the log's start
+ * ([atStart]). 0 otherwise. A locked space's lines don't show, so they don't make the line below them anything
+ * but the first, and a fresh from it would hide only them.
+ */
+internal fun firstShownOf(atStart: Boolean, lines: List<LogEntry>, locked: Set<Long>): Long =
+    if (!atStart) 0L else lines.firstOrNull { it.ctx.userSerial !in locked }?.id ?: 0L
+
 /** What `log only …` shows: its newest lines, oldest first, and how many lines of the whole log the filter lets through ([count]). */
 internal data class FilterPage(val lines: List<LogEntry>, val count: Int)
 
@@ -495,7 +504,7 @@ class LogPager(
         updatedSeen = updatedSeq
         logStart = page.atStart
         loaded = all
-        firstShown = if (page.atStart) all.firstOrNull()?.id ?: 0L else 0L
+        firstShown = firstShownOf(page.atStart, all, locked)
         // The newest line, with or without a filter. A pause records it as seen. It is kept when the
         // page is empty (`fresh`, `clear`), because those lines were seen before they were hidden.
         all.lastOrNull()?.let { newestLoaded = it.id }

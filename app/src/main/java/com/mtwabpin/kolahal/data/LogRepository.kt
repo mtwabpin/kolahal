@@ -581,13 +581,32 @@ class LogRepository private constructor(private val context: Context) {
      */
     fun hideAbove(id: Long) = hideScreen(id - 1)
 
-    /** Whether a line older than [id] shows in the log, so that [hideAbove] would hide something. */
-    fun shownBefore(id: Long): Boolean =
-        db.readableDatabase.number(
+    /**
+     * Whether a line older than [id] shows in the log, so that [hideAbove] would hide something. The lines of a
+     * locked private space ([locked], by serial) don't show, so they don't count: Fresh from here isn't offered
+     * on the first line shown just because such lines are above it.
+     */
+    fun shownBefore(id: Long, locked: Set<Long> = emptySet()): Boolean {
+        val after = visibleAfter().toString()
+        if (locked.isEmpty()) return db.readableDatabase.number(
             "SELECT COUNT(*) FROM (SELECT 1 FROM logs WHERE id > ? AND id < ? LIMIT 1)",
-            visibleAfter().toString(),
+            after,
             id.toString()
         ) > 0
+        // Newest first: the line just above is nearly always one that shows, so this reads one row.
+        return db.readableDatabase.rawQuery(
+            "SELECT substr(ctx, 1, $MAX_FIELD) FROM logs WHERE id > ? AND id < ? ORDER BY id DESC",
+            arrayOf(after, id.toString()),
+        ).use { c ->
+            var shown = false
+            while (!shown && c.moveToNext()) {
+                val raw = c.getString(0)
+                // Only a line from a profile has a serial: the others aren't parsed.
+                shown = raw?.contains("\"${LogContext.USER}\"") != true || LogContext.fromJson(raw).userSerial !in locked
+            }
+            shown
+        }
+    }
 
     fun unhide() {
         marks.set(LogMarks.HIDDEN_UP_TO to 0L)

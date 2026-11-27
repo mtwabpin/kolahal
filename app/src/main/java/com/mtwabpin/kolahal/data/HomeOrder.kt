@@ -59,6 +59,14 @@ class HomeOrder(val entries: List<HomeEntry>) {
 
     val ids get() = entries.map { it.id }
 
+    /**
+     * Whether the log is the first page, with pages to its right: while a line's swipes are the defaults, one
+     * swiped toward them copies, never deletes ([com.mtwabpin.kolahal.terminal.LineSwipes]). From the order home
+     * shows, not from `home.pages`' text: a page it lists may not be there (the Assistant off, a widgets page
+     * removed), and one it doesn't list may be left of the log.
+     */
+    val pagesRight: Boolean get() = logPlace == 0 && count > 1
+
     companion object {
         /** A widgets page's id: `widgets` for page 1, `widgets:3` for the page at `panel:3`. */
         fun idOf(location: String): String = WIDGETS + location.removePrefix(WidgetLocation.PANEL)
@@ -120,13 +128,17 @@ class HomeOrder(val entries: List<HomeEntry>) {
         }
 
         /**
-         * Whether the log is the first page, with pages to its right: while a line's swipes are the
-         * defaults, one swiped toward them copies, never deletes. The log listed first in `home.pages`,
-         * with another page after it.
+         * The order home shows with [c]'s settings: `home.pages`, the widgets [pages] while `widgets.show` is on,
+         * and the Assistant's page while `assistant.page` is (full build only). [pages] are the widgets pages
+         * there are (WidgetHost.pages), whether they show or not.
          */
-        fun pagesRight(c: Config): Boolean = pagesRight(c[Keys.HOME_PAGES])
+        fun of(c: Config, pages: List<WidgetPage>): HomeOrder = of(
+            listed(c[Keys.HOME_PAGES]),
+            if (c[Keys.WIDGETS_SHOW]) pages else emptyList(),
+            com.mtwabpin.kolahal.BuildConfig.ASSISTANT && c[Keys.ASSISTANT_PAGE],
+        )
 
-        /** [pagesRight] for `home.pages`' value [order]. */
-        fun pagesRight(order: String): Boolean = listed(order).let { it.size > 1 && it.first() == HomeEntry.Log.id }
+        /** [HomeOrder.pagesRight] for the order home shows with [c]'s settings and the widgets [pages] ([of]). */
+        fun pagesRight(c: Config, pages: List<WidgetPage>): Boolean = of(c, pages).pagesRight
     }
 }

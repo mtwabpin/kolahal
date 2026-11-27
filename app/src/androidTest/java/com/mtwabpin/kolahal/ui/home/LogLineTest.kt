@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -18,6 +19,7 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.layout.AlignmentLine
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.LastBaseline
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
@@ -40,6 +42,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -390,7 +393,10 @@ class LogLineTest {
         staysPut()
     }
 
-    /** Run on a line without a command: the line moves, shows nothing, does nothing and springs back. A command's line runs. */
+    /**
+     * Run on a line without a command: the line takes no drag (it goes to the pager under it), so it doesn't move,
+     * shows nothing and does nothing. A command's line runs.
+     */
     @Test
     fun runOnlyRunsALineWithACommand() {
         val output = entry("plain output")
@@ -402,16 +408,37 @@ class LogLineTest {
             }
         }
         line(output).performTouchInput { down(center); moveBy(Offset(width * 0.4f, 0f)) }
-        compose.waitUntil(5_000) { bounds(output).left > 0.dp }
+        compose.waitForIdle()
+        assertEquals(0.dp, bounds(output).left)
         compose.onAllNodesWithText("▸ Run").assertCountEquals(0)
         line(output).performTouchInput { moveBy(Offset(width * 0.2f, 0f)); up() }
         staysPut()
-        compose.waitUntil(5_000) { bounds(output).left == 0.dp }
+        assertEquals(0.dp, bounds(output).left)
         line(command).performTouchInput { down(center); moveBy(Offset(width * 0.4f, 0f)) }
         compose.onNodeWithText("▸ Run").assertExists()
         line(command).performTouchInput { moveBy(Offset(width * 0.2f, 0f)); up() }
         compose.waitUntil(5_000) { swiped.isNotEmpty() }
         assertEquals(listOf(command to LineSwipe.RUN), swiped.toList())
+    }
+
+    /**
+     * In a right-to-left layout the line follows the finger: dragged right, it moves right and uncovers the right
+     * side's label on the left, where it moved from. Past a third it acts; a delete slides out to the right.
+     */
+    @Test
+    fun aRightToLeftLineFollowsTheFinger() {
+        val e = entry("mirrored")
+        show {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                Line(row(e), swipes = LineSwipes(LineSwipe.COPY, LineSwipe.DELETE))
+            }
+        }
+        line(e).performTouchInput { down(center); moveBy(Offset(width * 0.3f, 0f)) }
+        compose.waitUntil(5_000) { bounds(e).left > 0.dp }
+        compose.onNodeWithText("✕ Delete").assertExists()
+        line(e).performTouchInput { moveBy(Offset(width * 0.2f, 0f)); up() }
+        compose.waitUntil(5_000) { deleted.isNotEmpty() }
+        compose.waitUntil(5_000) { bounds(e).left >= 300.dp }
     }
 
     /** A dimmed line swipes as a bright one does: the press it watches gives way to the swipe. */

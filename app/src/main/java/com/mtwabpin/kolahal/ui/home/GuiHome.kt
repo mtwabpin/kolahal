@@ -66,7 +66,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
@@ -75,7 +74,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.BuildConfig
@@ -89,7 +87,6 @@ import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.LineModel
-import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.LineOptions
 import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.LogRow
@@ -280,10 +277,9 @@ internal fun GuiHome(
         }
         // What a swipe each way does on a line (log.swipe-left, log.swipe-right). While both are the defaults, they
         // follow the page order: with the log first and the pages right of it, a line swiped left (as the page turns
-        // toward them) is copied, not deleted. In a right-to-left layout those pages are on the left, so the sides
-        // swap with them.
-        val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-        val swipes = remember(configVersion, rtl) { LineSwipes.of(config, rtl) }
+        // toward them) is copied, not deleted. The page order is the one home shows (HomeOrder.of). In a right-to-left
+        // layout those pages are on the left, so the sides swap with them.
+        val swipes = rememberLineSwipes(config, configVersion)
         // The log and the suggestions share the space the header, key bar and prompt leave. Those
         // are measured first, so a long suggestion list can't push the prompt off the screen.
         Column(

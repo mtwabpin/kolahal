@@ -8,13 +8,15 @@ import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
+import com.mtwabpin.kolahal.widgets.WidgetPage
 
 /**
  * What a swipe on a log line does (`log.swipe-left`, `log.swipe-right`), in the GUI log, the TTY log and a
  * search's results. Pure, so the rules are tested on the JVM (LineSwipesTest).
  * - The line shows the action's icon and word behind it while it moves ([label]), a delete in the error color.
  * - Past a third of the width it acts. A delete slides the line out; the others let it spring back.
- * - An action that does nothing on a line (run on a line without a command) draws nothing there and does nothing.
+ * - An action that does nothing on a line (run on a line without a command) draws nothing there and does nothing,
+ *   and the line doesn't take the drag: home's pager turns the page ([LineSwipes.takes]).
  * - none: the line doesn't move that way, and the drag goes to what is under the line (home's pager turns the page).
  */
 enum class LineSwipe(val id: String, private val glyph: String, private val word: String) {
@@ -88,6 +90,16 @@ data class LineSwipes(val left: LineSwipe, val right: LineSwipe) {
     /** How far a line moves for a drag that took it [x]: no further than 0 toward a side that is none. */
     fun reach(x: Float): Float = if (toward(x) == LineSwipe.NONE) 0f else x
 
+    /**
+     * Whether a line takes a drag that went [dx] past the touch slop: only when that side's action does something
+     * on it ([does], the log's swipeDoes). Otherwise the drag is left to what is under the line, and home's pager
+     * turns the page: run on a line without a command, fresh on the first line shown.
+     */
+    fun takes(dx: Float, does: (LineSwipe) -> Boolean): Boolean = toward(dx).let { it != LineSwipe.NONE && does(it) }
+
+    /** [reach] on a line where [does] says which actions do something: no further than 0 toward a side that does nothing there. */
+    fun reach(x: Float, does: (LineSwipe) -> Boolean): Float = if (takes(x, does)) x else 0f
+
     /** Whether a line takes a sideways drag at all. With both none, it leaves every drag to what is under it. */
     val any: Boolean get() = left != LineSwipe.NONE || right != LineSwipe.NONE
 
@@ -98,9 +110,12 @@ data class LineSwipes(val left: LineSwipe, val right: LineSwipe) {
         /** Right copies, left deletes: what nobody changed. */
         val DEFAULT = LineSwipes(LineSwipe.DELETE, LineSwipe.COPY)
 
-        /** What [config] sets, in a layout that is right-to-left when [rtl] is. */
-        fun of(config: Config, rtl: Boolean): LineSwipes =
-            of(config[Keys.LOG_SWIPE_LEFT], config[Keys.LOG_SWIPE_RIGHT], HomeOrder.pagesRight(config), rtl)
+        /**
+         * What [config] sets, in a layout that is right-to-left when [rtl] is. The sides the defaults take follow
+         * the order home shows ([HomeOrder.of]), with the widgets [pages] there are (WidgetHost.pages).
+         */
+        fun of(config: Config, rtl: Boolean, pages: List<WidgetPage>): LineSwipes =
+            of(config[Keys.LOG_SWIPE_LEFT], config[Keys.LOG_SWIPE_RIGHT], HomeOrder.pagesRight(config, pages), rtl)
 
         /**
          * The swipes [left] and [right] set. With both the defaults, the sides trade when the pages are on the

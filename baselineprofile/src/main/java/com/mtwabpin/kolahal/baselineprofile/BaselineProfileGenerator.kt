@@ -113,7 +113,7 @@ class BaselineProfileGenerator {
         device.pressBack()
         device.waitForIdle()
 
-        // The widgets page, left of the log (widgets.page), and back to the log.
+        // The widgets page, left of the log in the default order (home.pages empty), and back to the log.
         device.swipe(w / 3, h / 2, w * 5 / 3, h / 2, 20)
         device.waitForIdle()
         device.swipe(w * 5 / 3, h / 2, w / 3, h / 2, 20)

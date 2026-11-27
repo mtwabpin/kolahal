@@ -76,6 +76,7 @@ import com.mtwabpin.kolahal.ui.LabeledIconButton
 import com.mtwabpin.kolahal.ui.TypeValueDialog
 import com.mtwabpin.kolahal.ui.TypedNumber
 import com.mtwabpin.kolahal.ui.fieldColors
+import com.mtwabpin.kolahal.ui.home.rememberWidgetPages
 import com.mtwabpin.kolahal.ui.rememberHoldToType
 import com.mtwabpin.kolahal.ui.theme.Palettes
 import com.mtwabpin.kolahal.ui.theme.segColors
@@ -203,10 +204,12 @@ internal fun SettingItem(
                             // doesn't run shows as off there, a line's swipe as its side does now (choiceWrites keeps the
                             // other side so). Read with the version, so a change of style redraws them.
                             val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                            // A swipe's side follows the order home shows, which the widgets pages are part of.
+                            val pages = rememberWidgetPages()
                             val choices = run { version.value; shownChoices(key, config) }
-                            val chosen = run { version.value; shownChoice(key, value, config, rtl) }
+                            val chosen = run { version.value; shownChoice(key, value, config, pages, rtl) }
                             val pick = { v: String ->
-                                choiceWrites(key, v, LineSwipes.of(config, rtl)).forEach { (k, raw) -> vm.setConfig(k, raw) }
+                                choiceWrites(key, v, LineSwipes.of(config, rtl, pages)).forEach { (k, raw) -> vm.setConfig(k, raw) }
                             }
                             if (choices.size > 4) {
                                 ChipChoices(

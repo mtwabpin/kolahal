@@ -497,13 +497,13 @@ was seen to go wrong on a device.
 - The live wallpaper reads its state file on its main thread and draws it also when it isn't
   visible (=ui/wallpaper/ShaderWallpaper.kt=, =load=).
 - Other apps' widgets get their updates applied on the main thread while they are out of view, and
-  the host listens and checks them with =widgets.page off= (=widgets/WidgetHost.kt=).
+  the host listens and checks them with =widgets.show off= (=widgets/WidgetHost.kt=).
 - The baseline profile has no start in the TTY style, and the startup profile records the tour
   (=baselineprofile/=, =BaselineProfileGenerator=).
 - Checked 23 November 2026. Worth doing, if any: =http.cached= entries that never expire, the two
   listings of every app, a battery condition for the automatic backup, the one-off shader's frame
   rate, a screen's frame rate (and whether it stands still) decided once, the widget host with
-  =widgets.page off=, and the two points about the profiles. The rest costs nothing measurable.
+  =widgets.show off=, and the two points about the profiles. The rest costs nothing measurable.
 - Found then: the live wallpaper reads its whole state again on every change of configuration,
   not only dark or light (=ui/wallpaper/ShaderWallpaper.kt=, =onConfigurationChanged=).
 - Remark:

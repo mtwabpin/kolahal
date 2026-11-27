@@ -98,6 +98,29 @@ class LineSwipesTest {
         assertEquals(emptyList<LineSwipe>(), LineSwipes(NONE, NONE).both)
     }
 
+    /**
+     * A line takes a drag only toward a side that does something on it: with left set to run, an output line
+     * leaves a left drag to the pager (the page turns) and doesn't move that way, while a command's line takes it.
+     */
+    @Test
+    fun aSideThatDoesNothingOnTheLineLeavesTheDragToThePager() {
+        val s = LineSwipes(RUN, COPY)
+        val output = line("Battery 81%")
+        val command = line("battery", LogKind.COMMAND)
+        fun on(e: LogEntry): (LineSwipe) -> Boolean = { it.doesOn(e) }
+        assertFalse(s.takes(-12f, on(output)))
+        assertTrue(s.takes(12f, on(output)))
+        assertTrue(s.takes(-12f, on(command)))
+        assertEquals(0f, s.reach(-40f, on(output)))
+        assertEquals(40f, s.reach(40f, on(output)))
+        assertEquals(-40f, s.reach(-40f, on(command)))
+        // None never takes a drag, whatever the line; nor does a drag that went nowhere.
+        assertFalse(LineSwipes(NONE, COPY).takes(-12f) { true })
+        assertFalse(LineSwipes.DEFAULT.takes(0f) { true })
+        // Fresh on the first line shown: the log says it does nothing there, so the page turns.
+        assertFalse(LineSwipes(FRESH, COPY).takes(-12f) { it != FRESH })
+    }
+
     /** Run needs the line's command, as the menu's Run again does: on any other line it does nothing. */
     @Test
     fun runOnlyOnALineWithACommand() {

@@ -53,9 +53,9 @@ class HomePageOrderTest {
 
     private fun waitForTag(tag: String) = compose.waitUntil(10_000) { shown(tag) }
 
-    /** No page but the log shows (homeOnWidgets is null until home first turns, when the test pressed Home after it settled). */
+    /** No page but the log shows (homePageShown is null until home first turns, when the test pressed Home after it settled). */
     private fun TerminalViewModel.waitForLog() = compose.waitUntil(10_000) {
-        homeOnWidgets != true && listOf("widgets-page", "widgets-page-2").none(::shown)
+        homePageShown in listOf(null, "log") && listOf("widgets-page", "widgets-page-2").none(::shown)
     }
 
     /** The labels of the pager's page actions: the page on its left and the one on its right. */
@@ -177,6 +177,51 @@ class HomePageOrderTest {
             Thread.sleep(1_500)
             compose.waitForIdle()
             assertTrue("the keyboard stays up on the Assistant's page", imeUp())
+        }
+    }
+
+    /** A screen opened from the Assistant's page, with no widgets pages, returns to the Assistant (it had asked for widgets page 1: place -1). */
+    @Test
+    fun backFromAScreenReturnsToTheAssistant() {
+        assumeTrue(BuildConfig.ASSISTANT)
+        config.set(Keys.WIDGETS_SHOW, "off")
+        config.set(Keys.ASSISTANT_PAGE, "on")
+        val (scenario, vm) = start()
+        scenario.use {
+            vm.waitForLog()
+            waitForNeighbors("Assistant", null)
+            compose.onNodeWithTag("home-pager").performCustomAccessibilityActionWithLabel("Assistant")
+            waitForNeighbors(null, "Log")
+            instrumentation.runOnMainSync { vm.openScreen(Screen.SETTINGS) }
+            compose.waitForIdle()
+            instrumentation.runOnMainSync { vm.closeScreen() }
+            waitForNeighbors(null, "Log")
+            assertEquals("assistant", vm.homePageShown)
+        }
+    }
+
+    /** The widgets pages turned off while Settings is open over one: Back opens the log, beside the Assistant. */
+    @Test
+    fun aWidgetsPageGoneWhileAwayOpensTheLog() {
+        assumeTrue(BuildConfig.ASSISTANT)
+        config.set(Keys.WIDGETS_SHOW, "on")
+        config.set(Keys.ASSISTANT_PAGE, "on")
+        val (scenario, vm) = start()
+        scenario.use {
+            vm.waitForLog()
+            instrumentation.runOnMainSync { vm.runCommand("widget page") }
+            waitForTag("widgets-page")
+            compose.waitUntil(10_000) { vm.homePageShown == "widgets" }
+            instrumentation.runOnMainSync {
+                vm.settingsCategory.value = "widgets"
+                vm.openScreen(Screen.SETTINGS)
+            }
+            compose.waitForIdle()
+            config.set(Keys.WIDGETS_SHOW, "off")
+            instrumentation.runOnMainSync { vm.closeScreen() }
+            vm.waitForLog()
+            waitForNeighbors("Assistant", null)
+            compose.waitUntil(10_000) { vm.homePageShown == "log" }
         }
     }
 

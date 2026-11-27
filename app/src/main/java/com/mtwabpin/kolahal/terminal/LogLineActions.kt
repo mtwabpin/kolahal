@@ -414,17 +414,20 @@ class LogLineActions(
                 ctx.copy?.let(StyledText::plain) ?: entry.shownText, sensitive(entry)
             )
         }
-        // Fresh from here: the lines above this one are hidden, as `fresh` hides the screen. Not on the first line shown.
-        if (logs.shownBefore(entry.id)) {
+        // Fresh from here: the lines above this one are hidden, as `fresh` hides the screen. Not on the first line
+        // shown, which a locked private space's lines above it don't change: they don't show.
+        val locked = appsRepo.profiles.value.filter { com.mtwabpin.kolahal.apps.PrivateSpace.locked(it) }.mapTo(HashSet()) { it.serial }
+        if (logs.shownBefore(entry.id, locked)) {
             actions += LogAction("Fresh from here") { host.io { logs.hideAbove(entry.id) } }
         }
-        // No Undo follows, so a notification's line dismisses its notification at once ([DismissOnDelete]).
+        // No Undo follows, so a notification's line dismisses its notification at once, while it is still the
+        // one the line is about ([DismissOnDelete.about]).
         danger += LogAction("Delete line", destructive = true, short = "Delete", icon = icon(R.drawable.ic_delete), place = ActionPlace.DELETE) {
             host.io {
                 logs.delete(entry.id)
                 DismissOnDelete.keyOf(ctx, Config.get(context)[Keys.NOTIFS_DISMISS_ON_DELETE]) {
                     NotificationActions.isEnabled(context)
-                }?.let(NotificationActions::dismissIfClearable)
+                }?.let { key -> NotificationActions.dismissIfClearable(key) { DismissOnDelete.about(entry.ts, it) } }
             }
         }
         return (actions + danger).map(MenuLayout::placeKnown)
