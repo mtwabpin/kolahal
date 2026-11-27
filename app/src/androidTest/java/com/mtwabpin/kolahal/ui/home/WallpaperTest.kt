@@ -24,7 +24,7 @@ class WallpaperTest {
         config.preview(Keys.LOG_WALLPAPER, null)
         config.reset(Keys.LOG_WALLPAPER)
         config.reset(Keys.WIDGETS_WALLPAPER)
-        config.reset(Keys.WIDGETS_PAGE)
+        config.reset(Keys.WIDGETS_SHOW)
     }
 
     /**
@@ -53,7 +53,7 @@ class WallpaperTest {
 
     @Test
     fun eachPageLetsTheWallpaperThroughOnlyWhenItShowsIt() {
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         ActivityScenario.launch(MainActivity::class.java).use {
             it.showsWallpaper(false)
             config.set(Keys.LOG_WALLPAPER, "50")
@@ -63,7 +63,7 @@ class WallpaperTest {
             config.set(Keys.WIDGETS_WALLPAPER, "30")
             it.showsWallpaper(true)
             // With no widgets page, its wallpaper has nowhere to show.
-            config.set(Keys.WIDGETS_PAGE, "off")
+            config.set(Keys.WIDGETS_SHOW, "off")
             it.showsWallpaper(false)
             // Dragged in Settings: home shows it as the slider moves, and goes back when it is dropped.
             config.preview(Keys.LOG_WALLPAPER, "40")

@@ -197,7 +197,7 @@ class TtyLogTest {
         val id = logs.add(LogKind.OUTPUT, "copy me ${System.nanoTime()}")
         show()
         waitForLine(id)
-        // widgets.page is on the left by default: a swipe right copies.
+        // The widgets pages are left of the log by default: a swipe right copies.
         compose.onNodeWithTag("line-$id").performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isNotEmpty() }
     }

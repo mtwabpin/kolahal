@@ -30,7 +30,7 @@ object SettingTitles {
         "header.pinned-bar-below" to "Space below the bar",
         "clock.24h" to "24-hour clock",
         "user.name" to "Your name",
-        "widgets.page" to "Widgets page (swipe sideways)",
+        "widgets.show" to "Show the widgets pages",
         "home.pages" to "Page order",
         "widgets.start" to "Start on the widgets page",
         "widgets.wallpaper" to "Transparency (%)",

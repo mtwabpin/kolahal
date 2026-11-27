@@ -216,7 +216,7 @@ internal fun TtyHome(
                     onMediaLongPress = calls.onMediaLongPress,
                 )
             }
-            // With the widgets page on the right, a line swiped toward it is copied, not deleted; in a
+            // With the log first and the pages right of it, a line swiped toward them is copied, not deleted; in a
             // right-to-left layout the sides swap with the page.
             val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
             val deleteRight = remember(configVersion, rtl) { HomeOrder.pagesRight(config) != rtl }

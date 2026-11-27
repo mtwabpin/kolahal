@@ -243,7 +243,7 @@ class TerminalViewModelTest {
         assertEquals(Screen.TERMINAL, vm.screen.value)
         assertTrue(added().none { it.kind == LogKind.COMMAND && it.text.startsWith("widgets") })
         // With the page off, the quick actions don't offer it.
-        config.set(Keys.WIDGETS_PAGE, "off")
+        config.set(Keys.WIDGETS_SHOW, "off")
         assertFalse("Widgets page" in vm.quickActions().map { it.label })
         tap("Unlocks this week")
         tap("Apps")

@@ -45,7 +45,7 @@ class HomePageOrderTest {
     private val config = Config.get(instrumentation.targetContext)
 
     @After
-    fun tearDown() = listOf(Keys.HOME_PAGES, Keys.WIDGETS_PAGE, Keys.WIDGETS_START, Keys.SELECTOR_RAIL)
+    fun tearDown() = listOf(Keys.HOME_PAGES, Keys.WIDGETS_SHOW, Keys.WIDGETS_START, Keys.SELECTOR_RAIL)
         .plus(if (BuildConfig.ASSISTANT) listOf(Keys.ASSISTANT_PAGE) else emptyList())
         .forEach(config::reset)
 
@@ -89,7 +89,7 @@ class HomePageOrderTest {
     @Test
     fun thePagesFollowTheOrder() {
         val assistant = BuildConfig.ASSISTANT
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         if (assistant) config.set(Keys.ASSISTANT_PAGE, "on")
         val t = TestWidgets()
         try {
@@ -136,7 +136,7 @@ class HomePageOrderTest {
     /** With widgets.start, Home returns to widgets page 1 wherever the order puts it. */
     @Test
     fun homeReturnsToWidgetsPageOneWhereverItIs() {
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         config.set(Keys.WIDGETS_START, "on")
         config.set(Keys.SELECTOR_RAIL, "on")
         config.set(Keys.HOME_PAGES, "log,widgets")
@@ -156,7 +156,7 @@ class HomePageOrderTest {
     @Test
     fun theAssistantKeepsTheKeyboardInTheMiddle() {
         assumeTrue(BuildConfig.ASSISTANT)
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         config.set(Keys.ASSISTANT_PAGE, "on")
         config.set(Keys.HOME_PAGES, "widgets,assistant,log")
         val (scenario, vm) = start()
@@ -183,7 +183,7 @@ class HomePageOrderTest {
     /** Page order lists the pages; a move sets home.pages, and Reset to default empties it. */
     @Test
     fun pageOrderMovesAPageAndResets() {
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         val (scenario, vm) = start()
         scenario.use {
             vm.waitForLog()

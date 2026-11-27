@@ -41,7 +41,7 @@ class HeaderActions(private val taps: TapGate, private val host: Host) {
         val status: Status
         val profiles: List<Profile>
 
-        /** Whether home has a widgets page (`widgets.page` isn't off). */
+        /** Whether home has a widgets page (`widgets.show` is on). */
         val widgetsPage: Boolean
 
         /** Turns home to the widgets page. */

@@ -42,27 +42,53 @@ class HomeOrderTest {
         }
     }
 
-    private fun of(order: String, pages: List<WidgetPage>, side: String = "left", assistant: Boolean = false) =
-        HomeOrder.of(HomeOrder.listed(order), if (side == "off") emptyList() else pages, side, assistant)
 
+    private fun of(order: String, pages: List<WidgetPage>, widgets: Boolean = true, assistant: Boolean = false) =
+        HomeOrder.of(HomeOrder.listed(order), if (widgets) pages else emptyList(), assistant)
+
+    /** Home after an old `widgets.page` [side] is carried over ([Keys.migrate]), as the pager builds it. */
+    private fun migrated(side: String, pages: List<WidgetPage>, assistant: Boolean): HomeOrder {
+        val saved = mapOf("widgets.page" to side, "assistant.page" to if (assistant) "on" else "off")
+        val out = Keys.migrate(saved)
+        assertFalse(out.containsKey("widgets.page"))
+        val widgets = out[Keys.WIDGETS_SHOW.key] != "off"
+        return of(out[Keys.HOME_PAGES.key].orEmpty(), pages, widgets, assistant)
+    }
+
+    /** Every old side, with and without the Assistant, keeps home as it was: nobody's home flips. */
     @Test
-    fun withoutAnOrderThePagesAreWhereTheyWere() {
+    fun anOldSideCarriedOverKeepsThePagesWhereTheyWere() {
         for (side in listOf("left", "right", "off")) for (assistant in listOf(false, true)) for (pages in listOf(one, three)) {
-            assertEquals("$side $assistant ${pages.size}", formulas(pages, side, assistant), of("", pages, side, assistant).places())
+            assertEquals("$side $assistant ${pages.size}", formulas(pages, side, assistant), migrated(side, pages, assistant).places())
         }
     }
 
     @Test
+    fun anOldSideBecomesTheSwitchAndAnOrder() {
+        // left was the default: nothing to keep.
+        assertEquals(emptyMap<String, String>(), Keys.migrate(mapOf("widgets.page" to "left")))
+        assertEquals(mapOf("home.pages" to "log,widgets"), Keys.migrate(mapOf("widgets.page" to "right")))
+        assertEquals(mapOf("widgets.show" to "off"), Keys.migrate(mapOf("widgets.page" to "off")))
+        assertEquals(
+            mapOf("assistant.page" to "on", "widgets.show" to "off", "home.pages" to "log,assistant"),
+            Keys.migrate(mapOf("widgets.page" to "off", "assistant.page" to "on")),
+        )
+        // An order already set stays.
+        assertEquals(mapOf("home.pages" to "widgets,log"), Keys.migrate(mapOf("widgets.page" to "right", "home.pages" to "widgets,log")))
+        assertTrue(HomeOrder.pagesRight(Keys.migrate(mapOf("widgets.page" to "right")).getValue("home.pages")))
+    }
+
+    @Test
     fun theDefaultOrderPlacesTheLogAndTheAssistantAtTheEnds() {
-        assertEquals(listOf("assistant", "widgets:4", "widgets:2", "widgets", "log"), of("", three, "left", true).ids)
-        assertEquals(listOf("log", "widgets", "widgets:2", "widgets:4", "assistant"), of("", three, "right", true).ids)
-        assertEquals(listOf("log", "assistant"), of("", three, "off", true).ids)
-        assertEquals(listOf("log"), of("", three, "off", false).ids)
+        assertEquals(listOf("assistant", "widgets:4", "widgets:2", "widgets", "log"), of("", three, assistant = true).ids)
+        assertEquals(formulas(three, "left", true), of("", three, assistant = true).places())
+        assertEquals(listOf("assistant", "log"), of("", three, widgets = false, assistant = true).ids)
+        assertEquals(listOf("log"), of("", three, widgets = false).ids)
     }
 
     @Test
     fun anOrderPutsThePagesInIt() {
-        val order = of("widgets:2,log,assistant,widgets,widgets:4", three, "left", true)
+        val order = of("widgets:2,log,assistant,widgets,widgets:4", three, assistant = true)
         assertEquals(listOf("widgets:2", "log", "assistant", "widgets", "widgets:4"), order.ids)
         assertEquals(1, order.logPlace)
         assertEquals(2, order.assistantPlace)
@@ -75,37 +101,41 @@ class HomeOrderTest {
     }
 
     @Test
-    fun anIdOfNoPageIsSkippedAndAPageNotListedGoesAtItsSidesEnd() {
-        // widgets:3 is gone, and widgets:4 and the Assistant came after the order was set.
-        assertEquals(
-            listOf("assistant", "widgets:4", "widgets", "log", "widgets:2"),
-            of("widgets:3,widgets,log,widgets:2", three, "left", true).ids,
-        )
+    fun anIdOfNoPageIsSkippedAndAPageNotListedGoesBeyondItsNeighbor() {
+        // widgets:3 is gone, and widgets:4 and the Assistant came after the order was set: each goes
+        // beyond its neighbor toward the log, as the default order has them.
         assertEquals(
             listOf("widgets", "log", "widgets:2", "widgets:4", "assistant"),
-            of("widgets:3,widgets,log,widgets:2", three, "right", true).ids,
+            of("widgets:3,widgets,log,widgets:2", three, assistant = true).ids,
         )
-        // A log left out is still there, once.
-        assertEquals(listOf("assistant", "widgets", "log"), of("assistant,widgets", one, "right", true).ids)
+        assertEquals(
+            listOf("assistant", "widgets:4", "widgets:2", "widgets", "log"),
+            of("widgets:2,widgets,log", three, assistant = true).ids,
+        )
+        // Page 1 left out goes left of the log; the log alone is the default order.
+        assertEquals(listOf("widgets", "log", "assistant"), of("log,assistant", one, assistant = true).ids)
+        assertEquals(of("", three, assistant = true).ids, of("log", three, assistant = true).ids)
+        // A log left out is still there, once, on the right.
+        assertEquals(listOf("assistant", "widgets", "log"), of("assistant,widgets", one, assistant = true).ids)
     }
 
     @Test
     fun pagesTurnedOffLeaveTheOrder() {
-        // widgets.page off, and the Assistant off (or a Play build): only what is on stays.
-        assertEquals(listOf("assistant", "log"), of("widgets,assistant,log", three, "off", true).ids)
-        assertEquals(listOf("widgets", "log"), of("widgets,assistant,log", one, "left", false).ids)
-        assertEquals(listOf("log"), of("widgets,assistant,log", three, "off", false).ids)
-        assertEquals(-1, of("widgets,log", one, "left", false).assistantPlace)
+        // widgets.show off, and the Assistant off (or a Play build): only what is on stays.
+        assertEquals(listOf("assistant", "log"), of("widgets,assistant,log", three, widgets = false, assistant = true).ids)
+        assertEquals(listOf("widgets", "log"), of("widgets,assistant,log", one).ids)
+        assertEquals(listOf("log"), of("widgets,assistant,log", three, widgets = false).ids)
+        assertEquals(-1, of("widgets,log", one).assistantPlace)
     }
 
     @Test
     fun theNeighborsAreNamedInTheNewOrder() {
-        val order = of("widgets:2,log,assistant,widgets", three, "left", true)
+        val order = of("widgets:2,log,assistant,widgets", three, assistant = true)
         assertEquals(
             listOf("Page 3", "Travel", "Log", "Assistant", "Page 1"),
             order.entries.map { HomeOrder.name(it, three) },
         )
-        assertEquals(listOf("Log", "Widgets", "Assistant"), of("log,widgets,assistant", one, "left", true).entries.map { HomeOrder.name(it, one) })
+        assertEquals(listOf("Log", "Widgets", "Assistant"), of("log,widgets,assistant", one, assistant = true).entries.map { HomeOrder.name(it, one) })
     }
 
     @Test
@@ -124,11 +154,10 @@ class HomeOrderTest {
 
     @Test
     fun logLinesSwipeTowardThePagesToCopy() {
-        assertTrue(HomeOrder.pagesRight("", "right"))
-        assertFalse(HomeOrder.pagesRight("", "left"))
-        assertFalse(HomeOrder.pagesRight("", "off"))
-        assertTrue(HomeOrder.pagesRight("log,widgets", "left"))
-        assertFalse(HomeOrder.pagesRight("widgets,log", "right"))
-        assertFalse(HomeOrder.pagesRight("widgets,log,assistant", "right"))
+        assertFalse(HomeOrder.pagesRight(""))
+        assertFalse(HomeOrder.pagesRight("log"))
+        assertTrue(HomeOrder.pagesRight("log,widgets"))
+        assertFalse(HomeOrder.pagesRight("widgets,log"))
+        assertFalse(HomeOrder.pagesRight("widgets,log,assistant"))
     }
 }

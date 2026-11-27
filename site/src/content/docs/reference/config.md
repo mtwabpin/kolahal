@@ -24,7 +24,8 @@ The old names still work in `config`, which tells you the new name. Older backup
 | --- | --- |
 | `theme` | `theme.name` |
 | `gui.colors` | removed in 0.3.1: Settings always use the theme's colors |
-| `widgets.home`, `widgets.height` | removed: widgets are on the widgets page (`widgets.page`) |
+| `widgets.home`, `widgets.height` | removed: widgets are on the widgets page (`widgets.show`) |
+| `widgets.page` | `widgets.show` (on or off) and `home.pages` (the order). `off` carries over as `widgets.show off`; `right` as `home.pages log,widgets`, so home keeps its shape; `left` was the default order |
 | `font` | `font.family` |
 | `statusbar`, `screen.bars` | `screen.hide-bars`. Its values changed too: `show`, `hide` and `immersive` are `none`, `status` and `both`; a saved one carries over |
 | `suggestions` | `suggestions.max` |
@@ -204,8 +205,8 @@ See [Widgets](/guides/widgets/).
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `widgets.page` | choice: `left` `right` `off` | `left` | the widgets pages next to the terminal, page 1 nearest it. Swipe sideways on the home screen to reach them, a page at a time. With `home.pages` set, only a page it doesn't list follows this side |
-| `home.pages` | text | (empty) | the order of home's pages from the left, separated by commas: `log`, `widgets` (widgets page 1), `widgets:2` and on (a later page, by an id that stays with it when a page before it is removed) and `assistant`. Empty: the log at one end, the widgets pages on `widgets.page`'s side, the Assistant outermost. An id of no page is refused, with the ids there are. A page left out goes at `widgets.page`'s end. In Settings → Widgets → Page order |
+| `widgets.show` | bool | `on` | show the widgets pages next to the terminal. Swipe sideways on the home screen to reach them, a page at a time. `home.pages` sets where they are |
+| `home.pages` | text | (empty) | the order of home's pages from the left, separated by commas: `log`, `widgets` (widgets page 1), `widgets:2` and on (a later page, by an id that stays with it when a page before it is removed) and `assistant`. Empty: the Assistant, the widgets pages from the last to page 1, then the log. An id of no page is refused, with the ids there are. A page left out goes where the empty order puts it, next to its neighbor. In Settings → Widgets → Page order |
 | `widgets.start` | bool | `off` | start on widgets page 1. Home opens on it, and Home and Back return to it. Swipe sideways to see the log. Needs the app selector (`selector.rail`) |
 | `widgets.wallpaper` | number 0–100 | `0` | how much of the phone's wallpaper shows behind the widgets page, in percent. `0` is none. A higher number shows less of the theme's color |
 | `widgets.agenda-days` | choice: `auto` `1` `3` `7` `14` | `auto` | the days the Agenda widget shows from today. `auto` looks up to 14 days ahead and shows as many events as the card fits. Also under Days on the Agenda card's settings page |

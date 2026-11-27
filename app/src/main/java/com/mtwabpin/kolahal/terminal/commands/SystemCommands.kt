@@ -106,9 +106,9 @@ class SystemCommands(
         val host = com.mtwabpin.kolahal.widgets.WidgetHost.get(context)
         when (WidgetWords.of(name, args)) {
             WidgetWords.Action.ARRANGE -> ui.openScreen(Screen.WIDGETS)
-            WidgetWords.Action.PAGE -> if (conf[Keys.WIDGETS_PAGE] == "off") fix(
+            WidgetWords.Action.PAGE -> if (!conf[Keys.WIDGETS_SHOW]) fix(
                 "The widgets page is off\nTap to turn it on",
-                "config set widgets.page left"
+                "config set widgets.show on"
             ) else {
                 val words = args.drop(1).joinToString(" ")
                 if (words.isBlank()) return ui.showWidgetsPage()

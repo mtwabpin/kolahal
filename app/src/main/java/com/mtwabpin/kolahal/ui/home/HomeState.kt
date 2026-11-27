@@ -86,7 +86,7 @@ internal data class TtyParts(
  * Draws home's log in place of the GUI's list: the log, or a search's [results] in its place when
  * there are any. The lists' modifiers come from home's body: [log] (the "log" tag, the selector's
  * fade, pinch to zoom, taps on empty space) and [found] (the fade). [deleteRight]: a swipe right
- * deletes a line (`widgets.page right`).
+ * deletes a line (the log first in `home.pages`).
  */
 internal typealias LogArea = @Composable (
     results: com.mtwabpin.kolahal.terminal.TerminalViewModel.LogSearch?,

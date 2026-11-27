@@ -191,8 +191,8 @@ fun WidgetsScreen(
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val version by vm.config.version.collectAsStateWithLifecycle()
-    // With widgets.page off, no page next to the terminal shows the widgets, so this screen says so.
-    val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
+    // With widgets.show off, no page next to the terminal shows the widgets, so this screen says so.
+    val pageOff = remember(version) { !vm.config[Keys.WIDGETS_SHOW] }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     // The page being arranged, by its location: at first the page the person came from.
     val pages by widgets.pages.collectAsStateWithLifecycle()
@@ -542,7 +542,7 @@ fun WidgetsScreen(
                                     "Turn on the widgets page",
                                     "Beside the terminal: swipe sideways on the home screen to reach it"
                                 ) {
-                                    vm.config.set(Keys.WIDGETS_PAGE, "left")
+                                    vm.config.set(Keys.WIDGETS_SHOW, "on")
                                 },
                             )
                         )

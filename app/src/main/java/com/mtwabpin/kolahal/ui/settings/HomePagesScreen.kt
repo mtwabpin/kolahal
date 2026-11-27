@@ -59,7 +59,7 @@ import com.mtwabpin.kolahal.widgets.WidgetHost
  * Assistant's, in the order home shows them now ([HomeOrder]).
  * - Each page has a handle: drag it up or down, as in Arrange the header ([HeaderPartsScreen]).
  * - For screen readers, every page has Move up and Move down.
- * - A move applies at once. Reset to default empties the setting: `widgets.page`'s side again.
+ * - A move applies at once. Reset to default empties the setting: the default order again.
  */
 @Composable
 internal fun HomePagesScreen(vm: TerminalViewModel) {
@@ -68,10 +68,10 @@ internal fun HomePagesScreen(vm: TerminalViewModel) {
     val version by config.version.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val widgetPages by remember { WidgetHost.get(context) }.pages.collectAsStateWithLifecycle()
-    val side = remember(version) { config[Keys.WIDGETS_PAGE] }
-    val pages = if (side == "off") emptyList() else widgetPages
+    val widgetsOn = remember(version) { config[Keys.WIDGETS_SHOW] }
+    val pages = if (widgetsOn) widgetPages else emptyList()
     val listed = remember(version) { HomeOrder.listed(config[Keys.HOME_PAGES]) }
-    val current = HomeOrder.of(listed, pages, side, BuildConfig.ASSISTANT && config[Keys.ASSISTANT_PAGE]).entries
+    val current = HomeOrder.of(listed, pages, BuildConfig.ASSISTANT && config[Keys.ASSISTANT_PAGE]).entries
     // The rows as shown: a move shows at once. Reset, or a page added or removed elsewhere, comes in from the setting.
     var rows by remember { mutableStateOf(current) }
     LaunchedEffect(current) { rows = current }

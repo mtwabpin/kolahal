@@ -270,7 +270,7 @@ internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Compos
 }
 
 /**
- * A widgets page beside the terminal (`widgets.page`): the page at [location], page 1 unless said.
+ * A widgets page beside the terminal (`widgets.show`): the page at [location], page 1 unless said.
  * It shows every widget placed on that page where it was put, at its width and height
  * ([WidgetGrid]), on a page that scrolls, in the terminal's colors. Add and Edit open the GUI pages,
  * for this page. A long-press on a widget opens the Widgets screen with that widget chosen, and so

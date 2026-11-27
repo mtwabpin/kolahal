@@ -275,7 +275,7 @@ fun WidgetPickerScreen(vm: TerminalViewModel, onPick: (ProviderEntry) -> Unit) {
     val providersVersion by widgets.providersVersion.collectAsStateWithLifecycle()
     val profiles by vm.profiles.collectAsStateWithLifecycle()
     val version by vm.config.version.collectAsStateWithLifecycle()
-    val pageOff = remember(version) { vm.config[Keys.WIDGETS_PAGE] == "off" }
+    val pageOff = remember(version) { !vm.config[Keys.WIDGETS_SHOW] }
     // With more than one page, a new widget goes on the page being arranged, or the one home showed last.
     val pages by widgets.pages.collectAsStateWithLifecycle()
     val addingTo = if (pages.size > 1) {

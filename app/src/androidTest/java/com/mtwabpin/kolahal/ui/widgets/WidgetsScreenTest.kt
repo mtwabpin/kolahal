@@ -86,7 +86,7 @@ class WidgetsScreenTest {
 
     @After
     fun tearDown() {
-        config.reset(Keys.WIDGETS_PAGE)
+        config.reset(Keys.WIDGETS_SHOW)
         config.reset(Keys.AGENDA_WIDGET_DAYS)
         t.close()
         widgets.releaseViews(compose.activity)
@@ -167,12 +167,12 @@ class WidgetsScreenTest {
     /** With the widgets page off, the screen says so, rather than "swipe sideways", and turns it on in a tap. */
     @Test
     fun withThePageOffItSaysSoAndTurnsItOn() {
-        config.set(Keys.WIDGETS_PAGE, "off")
+        config.set(Keys.WIDGETS_SHOW, "off")
         show()
         compose.onNodeWithText("The widgets page is off").assertExists()
         compose.onNodeWithText("Turn on the widgets page").performClick()
         compose.waitForIdle()
-        assertEquals("left", config[Keys.WIDGETS_PAGE])
+        assertEquals(true, config[Keys.WIDGETS_SHOW])
         compose.onNodeWithText("Turn on the widgets page").assertDoesNotExist()
         compose.onNodeWithText("The widgets page is off").assertDoesNotExist()
     }

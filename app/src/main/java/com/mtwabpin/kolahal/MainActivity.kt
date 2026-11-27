@@ -616,7 +616,7 @@ class MainActivity : ComponentActivity(), HidesBars {
         // log.wallpaper, widgets.wallpaper: the window shows the phone's wallpaper, and each home page
         // draws its color over it, as faintly as its setting says (Modifier.page).
         val wallpaper = vm.config[Keys.LOG_WALLPAPER] > 0 ||
-                (vm.config[Keys.WIDGETS_PAGE] != "off" && vm.config[Keys.WIDGETS_WALLPAPER] > 0)
+                (vm.config[Keys.WIDGETS_SHOW] && vm.config[Keys.WIDGETS_WALLPAPER] > 0)
         // Change the window only when the look changes. Each flag change lays out the window again,
         // and dragging a slider in Settings previews (and calls this) on almost every frame.
         val look = wallpaper to Term.bg.toArgb()
@@ -642,18 +642,18 @@ class MainActivity : ComponentActivity(), HidesBars {
 }
 
 /**
- * `widgets.page`: the terminal with the widgets pages beside it (left or right), page 1 nearest the
- * log, then page 2 and so on outward ([com.mtwabpin.kolahal.widgets.WidgetPages]).
+ * `widgets.show`: the terminal with the widgets pages beside it, page 1 nearest the log, then page 2
+ * and so on outward ([com.mtwabpin.kolahal.widgets.WidgetPages]), in the order `home.pages` sets.
  * - Swipe sideways on home to reach them, a page at a time. Back or Home returns to the terminal
  *   from any page, in one step.
  * - A swipe that starts on a log line still belongs to the line (copy / delete). So the page swipe
- *   works from the header, empty space or the prompt. With the pages on the right, the line's swipes
+ *   works from the header, empty space or the prompt. With the log first, the line's swipes
  *   are swapped: a swipe toward them copies, never deletes ([com.mtwabpin.kolahal.ui.home.LogLine]'s
  *   deleteRight).
  * - With `widgets.start`, page 1 is home's first page instead. Home opens on it, and Back and Home
  *   return to it. A key typed on a page brings up the log and shows the key in it.
  * - `home.pages` puts the pages in an order of its own ([HomeOrder]). Every place below comes from
- *   that one list, built by today's rule while the setting is empty.
+ *   that one list, the default order while the setting is empty.
  */
 @androidx.compose.runtime.Composable
 private fun HomePager(
@@ -661,28 +661,28 @@ private fun HomePager(
     terminal: @androidx.compose.runtime.Composable () -> Unit
 ) {
     val version by vm.config.version.collectAsStateWithLifecycle()
-    val side = androidx.compose.runtime.remember(version) { vm.config[Keys.WIDGETS_PAGE] }
+    val widgetsOn = androidx.compose.runtime.remember(version) { vm.config[Keys.WIDGETS_SHOW] }
     // The Assistant's page (`assistant.page`, full build only) comes after the widgets pages.
     val assistant = androidx.compose.runtime.remember(version) { BuildConfig.ASSISTANT && vm.config[Keys.ASSISTANT_PAGE] }
-    if (side == "off" && !assistant) {
+    if (!widgetsOn && !assistant) {
         terminal()
         return
     }
     val context = androidx.compose.ui.platform.LocalContext.current
     val widgets = androidx.compose.runtime.remember { WidgetHost.get(context) }
     val widgetPages by widgets.pages.collectAsStateWithLifecycle()
-    val pages = if (side == "off") emptyList() else widgetPages
+    val pages = if (widgetsOn) widgetPages else emptyList()
     val listed = androidx.compose.runtime.remember(version) { vm.config[Keys.HOME_PAGES] }
-    val order = HomeOrder.of(HomeOrder.listed(listed), pages, side, assistant)
+    val order = HomeOrder.of(HomeOrder.listed(listed), pages, assistant)
     // The page home shows, by its id: when home is laid out again here, it stays on that page.
     val shownId = androidx.compose.runtime.remember { java.util.concurrent.atomic.AtomicReference<String?>(null) }
     // A page added or removed (a backup's), or a new order, lays home out again: each page's place on the pager moves.
     androidx.compose.runtime.key(pages.size, assistant, listed) {
-        HomePages(vm, widgets, pages, order, side, shownId, terminal)
+        HomePages(vm, widgets, pages, order, shownId, terminal)
     }
 }
 
-/** [HomePager] for [pages] in [order]. [side] is `widgets.page`'s: a change returns to home's first page. */
+/** [HomePager] for [pages] in [order]. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class) // LocalBringIntoViewSpec
 @androidx.compose.runtime.Composable
 private fun HomePages(
@@ -690,7 +690,6 @@ private fun HomePages(
     widgets: WidgetHost,
     pages: List<com.mtwabpin.kolahal.widgets.WidgetPage>,
     order: HomeOrder,
-    side: String,
     shownId: java.util.concurrent.atomic.AtomicReference<String?>,
     terminal: @androidx.compose.runtime.Composable () -> Unit
 ) {
@@ -726,11 +725,11 @@ private fun HomePages(
             }
     }
     val homePresses by vm.homePresses.collectAsStateWithLifecycle()
-    // A Home press, or a change of the pages' side, returns to home's first page. Not the first run:
+    // A Home press, or a change of home's first page, returns to it. Not the first run:
     // that is home appearing again, on the page it had.
     val firstRun =
         androidx.compose.runtime.remember { java.util.concurrent.atomic.AtomicBoolean(true) }
-    androidx.compose.runtime.LaunchedEffect(homePresses, side, widgetsFirst) {
+    androidx.compose.runtime.LaunchedEffect(homePresses, widgetsFirst) {
         if (firstRun.getAndSet(false)) return@LaunchedEffect
         if (pager.currentPage != homePage) pager.animateScrollToPage(homePage)
     }

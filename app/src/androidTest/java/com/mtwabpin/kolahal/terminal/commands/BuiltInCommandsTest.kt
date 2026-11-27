@@ -22,6 +22,7 @@ import com.mtwabpin.kolahal.CrashReportsAside
 import com.mtwabpin.kolahal.LogKept
 import com.mtwabpin.kolahal.LogLinesSince
 import com.mtwabpin.kolahal.TerminalUiStub
+import com.mtwabpin.kolahal.homeOrder
 import com.mtwabpin.kolahal.apps.AppPrefs
 import com.mtwabpin.kolahal.data.AutoBackup
 import com.mtwabpin.kolahal.data.Config
@@ -751,12 +752,12 @@ class BuiltInCommandsTest {
 
     /**
      * `widget page` (and `widgets page`) turns home to the widgets page and opens no screen. With the
-     * page off, it says so, and a tap on the line puts the page on the left.
+     * page off, it says so, and a tap on the line turns it on.
      */
     @Test
     fun widgetsPageTurnsHomeToIt() {
         try {
-            config.set(Keys.WIDGETS_PAGE, "right")
+            homeOrder("log", "widgets")
             assertEquals(emptyList<String>(), run("widget page"))
             assertEquals(1, widgetsPageTurns)
             assertEquals(emptyList<String>(), run("widgets page"))
@@ -765,16 +766,17 @@ class BuiltInCommandsTest {
             assertEquals(emptyList<String>(), run("widget page 1"))
             assertEquals(listOf(1), widgetsPagesShown.toList())
             assertEquals(3, widgetsPageTurns)
-            config.set(Keys.WIDGETS_PAGE, "off")
+            config.set(Keys.WIDGETS_SHOW, "off")
             assertEquals(listOf("The widgets page is off\nTap to turn it on"), run("widget page"))
             with(logs.recent(1).single()) {
                 assertEquals(LogKind.ERROR, kind)
-                assertEquals("config set widgets.page left", ctx.values[LogContext.RUN])
+                assertEquals("config set widgets.show on", ctx.values[LogContext.RUN])
             }
             assertEquals(3, widgetsPageTurns)
             assertEquals(emptyList<Screen>(), screens.toList())
         } finally {
-            config.reset(Keys.WIDGETS_PAGE)
+            config.reset(Keys.WIDGETS_SHOW)
+            config.reset(Keys.HOME_PAGES)
         }
     }
 

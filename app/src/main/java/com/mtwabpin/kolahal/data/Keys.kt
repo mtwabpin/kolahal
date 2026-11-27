@@ -740,21 +740,15 @@ object Keys {
         "Keyboard suggestions in the prompt.\nOff: no autocorrect, because the prompt is then a password-type field. Some keyboards type only Latin letters there",
     )
 
-    val WIDGETS_PAGE = ConfigKey.Choice(
-        "widgets.page",
-        "left",
-        listOf("left", "right", "off"),
-        "Widgets pages beside the terminal: swipe sideways on the home screen to reach them, a page at a time.\nWith a page order (home.pages), only pages it doesn't list follow this side",
-        notes = mapOf(
-            "left" to "The widgets pages to the left of the log",
-            "right" to "The widgets pages to the right of the log",
-            "off" to "No widgets pages",
-        ),
+    val WIDGETS_SHOW = ConfigKey.Bool(
+        "widgets.show",
+        true,
+        "Show the widgets pages beside the terminal: swipe sideways on the home screen to reach them, a page at a time.\nPage order (home.pages) sets where they are",
     )
     val HOME_PAGES = ConfigKey.Text(
         "home.pages",
         "",
-        "The order of home's pages from the left: log, widgets (page 1), widgets:2 and on (later pages) and assistant, separated by commas.\nEmpty: the log at one end, the widgets pages on widgets.page's side.\nA page left out goes at that side's end",
+        "The order of home's pages from the left: log, widgets (page 1), widgets:2 and on (later pages) and assistant, separated by commas.\nEmpty: the Assistant, the widgets pages from the last to page 1, then the log.\nA page left out goes where that order puts it",
         HomeOrder::parse,
     )
     val WIDGETS_START = ConfigKey.Bool(
@@ -769,7 +763,7 @@ object Keys {
      * the log; widgets.start keeps its value for when the selector is back.
      */
     fun widgetsFirst(c: Config): Boolean =
-        c[WIDGETS_START] && c[WIDGETS_PAGE] != "off" && c[SELECTOR_RAIL]
+        c[WIDGETS_START] && c[WIDGETS_SHOW] && c[SELECTOR_RAIL]
 
     val WIDGETS_WALLPAPER = ConfigKey.Num(
         "widgets.wallpaper",
@@ -922,7 +916,7 @@ object Keys {
         FEEDS_INTERVAL,
         FEEDS_NOTIFY,
         FEEDS_WIFI,
-        WIDGETS_PAGE,
+        WIDGETS_SHOW,
         HOME_PAGES,
         WIDGETS_START,
         WIDGETS_WALLPAPER,
@@ -1013,8 +1007,8 @@ object Keys {
         OLD_SWIPE_UP_ON to "set gesture.swipe-up to an action to turn swiping up on, or none to turn it off",
         "theme.settings-colors" to "Settings always use the theme's colors",
         "gui.colors" to "Settings always use the theme's colors",
-        "widgets.home" to "widgets are on the widgets page (widgets.page)",
-        "widgets.height" to "widgets are on the widgets page (widgets.page)",
+        "widgets.home" to "widgets are on the widgets page (widgets.show)",
+        "widgets.height" to "widgets are on the widgets page (widgets.show)",
         "theme.paper" to "the home screen's background is the theme's color; the phone's wallpaper can show behind it (log.wallpaper)",
         "header.media-always" to "what's playing always shows in the pinned header, under the header",
         // 0.4.16: always on.
@@ -1032,7 +1026,12 @@ object Keys {
         "header.compact-carried" to "the header is one line",
         "a2ui.page" to "the trial page is now the Assistant (assistant.page)",
         "a2ui.model" to "the Assistant asks the model in assistant.model",
+        // 0.5.20: the side became the order of home's pages ([migrate] carries it over).
+        OLD_WIDGETS_PAGE to "widgets.show turns the widgets pages on or off, and home.pages (Settings → Widgets → Page order) sets where they are",
     )
+
+    /** The widgets pages' side, left, right or off (to 0.5.19): now [WIDGETS_SHOW] and [HOME_PAGES]. */
+    const val OLD_WIDGETS_PAGE = "widgets.page"
 
     // These are getters because [REMOVED], which is created first, reads them.
     /** The full header's own items before it became one line (0.4.14), in the order it showed them. */
@@ -1095,7 +1094,23 @@ object Keys {
                 saved["gesture.swipeup"] ?: "apps" else out.remove(swipeUp)
         }
         carryRight(saved)?.let { if (HEADER_RIGHT.key !in saved) out[HEADER_RIGHT.key] = it }
+        saved[OLD_WIDGETS_PAGE]?.let { side ->
+            if (side == "off" && WIDGETS_SHOW.key !in saved) out[WIDGETS_SHOW.key] = "off"
+            carryPages(side, saved["assistant.page"] == "on")?.let { if (HOME_PAGES.key !in saved) out[HOME_PAGES.key] = it }
+        }
         return out
+    }
+
+    /**
+     * The order that keeps home as `widgets.page` [side] laid it out, or null when the default order
+     * already does (left). Right put the log first, the widgets pages after it; off, with the
+     * Assistant on, put the Assistant right of the log. [HomeOrder.of] adds the pages not named, each
+     * beyond its neighbor, so naming the log and page 1 keeps the rest in place.
+     */
+    internal fun carryPages(side: String, assistant: Boolean): String? = when {
+        side == "right" -> "log,widgets"
+        side == "off" && assistant -> "log,assistant"
+        else -> null
     }
 
     /**

@@ -278,8 +278,8 @@ internal fun GuiHome(
                 onMediaLongPress = calls.onMediaLongPress,
             )
         }
-        // With the widgets page on the right, a line swiped left (toward it) is copied, not deleted. In a
-        // right-to-left layout the page set as "right" is on the left, so the sides swap with it.
+        // With the log first and the pages right of it, a line swiped left (toward them) is copied, not deleted. In a
+        // right-to-left layout those pages are on the left, so the sides swap with them.
         val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
         val deleteRight =
             remember(configVersion, rtl) { HomeOrder.pagesRight(config) != rtl }

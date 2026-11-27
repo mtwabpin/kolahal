@@ -58,9 +58,9 @@ private val SHOWN_WHEN: Map<ConfigKey<*>, (Config) -> Boolean> = run {
         Keys.KEYBAR2 to on(Keys.KEYBAR_SHOW),
         Keys.SELECTOR_BROWSE to on(Keys.SELECTOR_RAIL),
         Keys.SELECTOR_FILTER to { c: Config -> c[Keys.SELECTOR_RAIL] && c[Keys.SELECTOR_BROWSE] == "letters" },
-        Keys.WIDGETS_WALLPAPER to { c: Config -> c[Keys.WIDGETS_PAGE] != "off" },
+        Keys.WIDGETS_WALLPAPER to { c: Config -> c[Keys.WIDGETS_SHOW] },
         // The widgets page as home's first page needs the app selector, its way to open apps.
-        Keys.WIDGETS_START to { c: Config -> c[Keys.WIDGETS_PAGE] != "off" && c[Keys.SELECTOR_RAIL] },
+        Keys.WIDGETS_START to { c: Config -> c[Keys.WIDGETS_SHOW] && c[Keys.SELECTOR_RAIL] },
         Keys.SELECTOR_SIDE to on(Keys.SELECTOR_RAIL),
         Keys.SELECTOR_POSITION to on(Keys.SELECTOR_RAIL),
         Keys.SELECTOR_HANDLE to on(Keys.SELECTOR_RAIL),
@@ -205,7 +205,7 @@ private val CATEGORIES = listOf(
         "widgets", "Widgets", "Add, resize and arrange widgets", R.drawable.ic_widgets,
         listOf(
             null to listOf(
-                Keys.WIDGETS_PAGE,
+                Keys.WIDGETS_SHOW,
                 Keys.WIDGETS_START,
                 Keys.WIDGETS_WALLPAPER,
                 Keys.AGENDA_WIDGET_DAYS,

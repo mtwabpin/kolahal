@@ -1240,7 +1240,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
 
         override val status get() = this@TerminalViewModel.status.value
         override val profiles get() = this@TerminalViewModel.profiles.value
-        override val widgetsPage get() = config[Keys.WIDGETS_PAGE] != "off"
+        override val widgetsPage get() = config[Keys.WIDGETS_SHOW]
         override fun showWidgetsPage() = this@TerminalViewModel.showWidgetsPage()
     })
 

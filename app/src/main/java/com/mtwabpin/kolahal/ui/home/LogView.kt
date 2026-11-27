@@ -218,7 +218,7 @@ fun LogLine(
     onSwipeDelete: (LogEntry) -> Unit,
     /**
      * A swipe right deletes and a swipe left copies, the other way round from the default. On with
-     * the widgets page on the right (`widgets.page`): a swipe toward that page copies, never deletes.
+     * the log first and the pages right of it (`home.pages`): a swipe toward them copies, never deletes.
      */
     deleteRight: Boolean,
     /** A tap on button `index` under a script's line (`ctx.actions`). */

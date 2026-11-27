@@ -50,7 +50,7 @@ class WidgetPickerScreenTest {
 
     @After
     fun tearDown() {
-        config.reset(Keys.WIDGETS_PAGE)
+        config.reset(Keys.WIDGETS_SHOW)
         t.close()
     }
 
@@ -178,7 +178,7 @@ class WidgetPickerScreenTest {
     /** With the widgets page off, the picker says where the widget goes is off. */
     @Test
     fun itSaysWhenTheWidgetsPageIsOff() {
-        config.set(Keys.WIDGETS_PAGE, "off")
+        config.set(Keys.WIDGETS_SHOW, "off")
         show()
         compose.onNodeWithText("Added to the widgets page, which is off").assertExists()
     }

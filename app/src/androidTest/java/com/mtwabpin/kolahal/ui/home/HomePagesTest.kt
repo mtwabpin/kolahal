@@ -38,7 +38,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import kotlin.math.abs
 
-/** Home's two pages: the log, and the widgets page beside it (`widgets.page`), which can come first (`widgets.start`). */
+/** Home's two pages: the log, and the widgets page beside it (`widgets.show`), which can come first (`widgets.start`). */
 @RunWith(AndroidJUnit4::class)
 class HomePagesTest {
     @get:Rule
@@ -49,7 +49,7 @@ class HomePagesTest {
 
     @After
     fun tearDown() =
-        listOf(Keys.WIDGETS_PAGE, Keys.WIDGETS_START, Keys.SELECTOR_RAIL).forEach(config::reset)
+        listOf(Keys.WIDGETS_SHOW, Keys.HOME_PAGES, Keys.WIDGETS_START, Keys.SELECTOR_RAIL).forEach(config::reset)
 
     private fun widgetsPage() = compose.onNodeWithTag("widgets-page")
 
@@ -71,7 +71,7 @@ class HomePagesTest {
             android.content.Context.MODE_PRIVATE
         )
             .edit().putBoolean("intro_shown", true).commit()
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         config.set(Keys.WIDGETS_START, "on")
         config.set(Keys.SELECTOR_RAIL, "on")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -126,7 +126,7 @@ class HomePagesTest {
             android.content.Context.MODE_PRIVATE
         )
             .edit().putBoolean("intro_shown", true).commit()
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             lateinit var vm: TerminalViewModel
             scenario.onActivity {
@@ -165,7 +165,7 @@ class HomePagesTest {
             android.content.Context.MODE_PRIVATE
         )
             .edit().putBoolean("intro_shown", true).commit()
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         config.set(Keys.WIDGETS_START, "on")
         config.set(Keys.SELECTOR_RAIL, "on")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
@@ -208,7 +208,7 @@ class HomePagesTest {
             android.content.Context.MODE_PRIVATE
         )
             .edit().putBoolean("intro_shown", true).commit()
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         val t = TestWidgets()
         try {
             // Tall widgets: a page longer than the screen.
@@ -253,7 +253,7 @@ class HomePagesTest {
             android.content.Context.MODE_PRIVATE
         )
             .edit().putBoolean("intro_shown", true).commit()
-        config.set(Keys.WIDGETS_PAGE, "left")
+        config.set(Keys.WIDGETS_SHOW, "on")
         val t = TestWidgets()
         try {
             assertEquals(1, t.host.pages.value.size)

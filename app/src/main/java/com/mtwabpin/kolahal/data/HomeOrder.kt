@@ -34,10 +34,10 @@ sealed interface HomeEntry {
 /**
  * Home's pages from left to right ([entries]), and the places on the pager that everything else asks
  * for. Pure, so it can be unit tested.
- * - Without `home.pages`, the order is today's rule ([of] with no ids): the log at one end, widgets
- *   page 1 next to it and the others further out on `widgets.page`'s side, the Assistant outermost.
- * - With `home.pages`, its ids in their order. The same function builds both: the rule is the order
- *   of an empty list.
+ * - Without `home.pages`, the default order ([of] with no ids): the log on the right, widgets page 1
+ *   left of it and the others further out, the Assistant outermost.
+ * - With `home.pages`, its ids in their order. The same function builds both: the default is the
+ *   order of an empty list.
  */
 class HomeOrder(val entries: List<HomeEntry>) {
     val count get() = entries.size
@@ -70,21 +70,30 @@ class HomeOrder(val entries: List<HomeEntry>) {
         private const val WIDGETS = "widgets"
 
         /**
-         * The pages in order: the ids in [order] (`home.pages`) that exist, then each page that exists
-         * but isn't listed, at the end where today's rule puts it ([side]), outward from the log.
-         * - [pages] are the widgets pages; empty when `widgets.page` is off.
-         * - [side]: `left` puts them left of the log; anything else, right.
+         * The pages in order: the ids in [order] (`home.pages`) that exist, and each page that exists
+         * but isn't listed where the default order puts it: next to its neighbor toward the log, on
+         * the side away from the log (left of the log for page 1 or the Assistant alone; the log
+         * itself, unlisted, on the right).
+         * - [pages] are the widgets pages; empty when `widgets.show` is off.
          * - [assistant]: the Assistant's page is on (never in the Play build).
          */
-        fun of(order: List<String>, pages: List<WidgetPage>, side: String, assistant: Boolean): HomeOrder {
-            // From the log outward, as today's rule lays them out.
+        fun of(order: List<String>, pages: List<WidgetPage>, assistant: Boolean): HomeOrder {
+            // From the log outward, as the default order lays them out.
             val outward = listOf(HomeEntry.Log) +
                     pages.mapIndexed { i, p -> HomeEntry.Widgets(i, p) } +
                     listOfNotNull(HomeEntry.Assistant.takeIf { assistant })
             val byId = outward.associateBy { it.id }
             val list = order.mapNotNull { byId[it] }.distinct().toMutableList()
-            for (entry in outward) if (entry !in list) {
-                if (side == "left") list.add(0, entry) else list.add(entry)
+            outward.forEachIndexed { i, entry ->
+                if (entry in list) return@forEachIndexed
+                if (entry == HomeEntry.Log) {
+                    list.add(entry)
+                    return@forEachIndexed
+                }
+                // Its neighbor toward the log is placed already: the pages go from the log outward.
+                val inward = list.indexOf(outward[i - 1])
+                val log = list.indexOf(HomeEntry.Log)
+                list.add(if (inward <= log) inward else inward + 1, entry)
             }
             return HomeOrder(list)
         }
@@ -111,15 +120,12 @@ class HomeOrder(val entries: List<HomeEntry>) {
         }
 
         /**
-         * Whether the pages are to the right of the log, and none to its left: a log line swiped toward
-         * them copies, never deletes. Without an order, `widgets.page right`; with one, the log listed first.
+         * Whether the log is the first page, with pages to its right: a log line swiped toward them
+         * copies, never deletes. The log listed first in `home.pages`, with another page after it.
          */
-        fun pagesRight(c: Config): Boolean = pagesRight(c[Keys.HOME_PAGES], c[Keys.WIDGETS_PAGE])
+        fun pagesRight(c: Config): Boolean = pagesRight(c[Keys.HOME_PAGES])
 
-        /** [pagesRight] for `home.pages`' value [order] and `widgets.page`'s [side]. */
-        fun pagesRight(order: String, side: String): Boolean {
-            val ids = listed(order)
-            return if (ids.isEmpty()) side == "right" else ids.first() == HomeEntry.Log.id && ids.size > 1
-        }
+        /** [pagesRight] for `home.pages`' value [order]. */
+        fun pagesRight(order: String): Boolean = listed(order).let { it.size > 1 && it.first() == HomeEntry.Log.id }
     }
 }

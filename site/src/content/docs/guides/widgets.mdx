@@ -41,7 +41,7 @@ playing, and [widgets that scripts fill](#widgets-from-scripts).
 ## The widgets page
 
 To open the widgets page, swipe sideways on the home screen. Start the swipe on the header, on empty space or on the prompt.
-A swipe that starts on a log line copies or deletes that line instead. A swipe toward the page always copies: with the page on the right, a swipe left copies a line and a swipe right deletes it.
+A swipe that starts on a log line copies or deletes that line instead. A swipe toward the pages always copies: with the log first in [Page order](#page-order), a swipe left copies a line and a swipe right deletes it.
 
 Other ways to open it:
 
@@ -50,8 +50,8 @@ Other ways to open it:
 
 - **+** (add a widget) and **✎** (edit your widgets) are at the top of the page.
 - Back or Home takes you back to the terminal.
-- `widgets.page` sets the side of the page: `left` (the default) or `right`. `off` turns the page off.
-  To put the pages in an order of your own, see [Page order](#page-order).
+- The widgets pages are left of the log. To put them elsewhere, see [Page order](#page-order).
+  **Settings → Widgets → Show the widgets pages** (`widgets.show`) turns them off.
 
 <Cards items={[{ src: widgetsPage, alt: "The widgets page: the + and pencil buttons at the top, then weather and battery cards, todos and a habit streak, and a row of shortcuts", width: 380 }]} />
 
@@ -88,8 +88,8 @@ first: there it is your way to open apps. Turn it on in **Settings → App selec
 
 ### More than one page
 
-You can have up to five widgets pages. They are all on the side `widgets.page` sets: page 1 next to
-the log, then page 2, and so on outward. Add a page in [Arrange widgets](#arrange-and-resize) with
+You can have up to five widgets pages. Page 1 is next to the log, then page 2, and so on outward,
+unless [Page order](#page-order) puts them elsewhere. Add a page in [Arrange widgets](#arrange-and-resize) with
 the **+** after the page tabs.
 
 - A swipe goes one page at a time. Back or Home goes from any page straight to the log, in one step.
@@ -113,9 +113,10 @@ to move it. The change applies at once. With TalkBack, each page has **Move up**
 - Home still opens on the log, or on widgets page 1 with `widgets.start`, wherever that page now is.
   Back and Home return to it.
 - `widget page 2` turns to page 2 wherever it is, and a widget's tap that prints in the log turns to the log.
-- While an order is set, `widgets.page` decides only where a page that isn't in it goes: a page you
-  add later, or the Assistant turned on later, goes at that side's end.
-- **Reset to default** puts the pages back on the side `widgets.page` sets.
+- A page you add later, or the Assistant turned on later, goes next to its neighbor: a new widgets
+  page beyond the last one, the Assistant beyond the widgets pages.
+- **Reset to default** puts the pages back in the default order: the Assistant, the widgets pages
+  from the last to page 1, then the log.
 - In the terminal: `config set home.pages widgets,log,assistant` ([the ids](/reference/config/#widgets)).
 
 <Cards items={[

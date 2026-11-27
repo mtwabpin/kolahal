@@ -197,3 +197,12 @@ class TableRows private constructor(
         }
     }
 }
+
+/**
+ * Puts home's pages in the order of [ids] (`home.pages`), from the left: `homeOrder("log", "widgets")`
+ * has the log first and the widgets pages right of it. No ids is the default order.
+ */
+fun homeOrder(vararg ids: String) {
+    com.mtwabpin.kolahal.data.Config.get(InstrumentationRegistry.getInstrumentation().targetContext)
+        .set(com.mtwabpin.kolahal.data.Keys.HOME_PAGES, ids.joinToString(","))
+}

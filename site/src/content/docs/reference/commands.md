@@ -236,7 +236,7 @@ See [Widgets](/guides/widgets/).
 | `widgets` | | open Settings → Widgets → Arrange widgets: your placed widgets; add, resize and arrange them. `widgets <sub>` works like `widget <sub>` |
 | `widget add` | | open the widget picker; the widget goes on the widgets page shown last, page 1 at first |
 | `widget ls` | | list placed widgets as text lines (tap one to open Arrange widgets); with more than one page, under each page's name (tap a name to turn home to that page); plain `widget` does the same |
-| `widget page [<page>]` | | turn home to the widgets page: page 1, or the page in that place (`widget page 2`) or with that name, or the start of one (`widget page work`). If `widgets.page` is `off`, it says so; tap the line to turn the page on |
+| `widget page [<page>]` | | turn home to the widgets page: page 1, or the page in that place (`widget page 2`) or with that name, or the start of one (`widget page work`). If `widgets.show` is `off`, it says so; tap the line to turn the page on |
 
 ## Device
 

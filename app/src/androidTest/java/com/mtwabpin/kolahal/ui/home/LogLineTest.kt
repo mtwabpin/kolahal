@@ -281,7 +281,7 @@ class LogLineTest {
     }
 
     /**
-     * With the widgets page on the right (deleteRight), the swipes trade places: a swipe left, toward
+     * With the log first and the pages right of it (deleteRight), the swipes trade places: a swipe left, toward
      * the page, copies; a swipe right deletes, and the line slides out to the right.
      */
     @Test
