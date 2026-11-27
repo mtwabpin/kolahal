@@ -221,6 +221,7 @@ class JsEngine : ScriptEngine {
             function("play") { args -> host.shaderPlay(args.req(), args.getOrNull(1)) }
         }
         js.define("launcher") { function("run") { args -> host.runCommand(args.req()) } }
+        js.define("web") { function("open") { args -> host.webOpen(args.req()) } }
         // Your own lists, each behind the `@uses` item of its name ([HostData]). They read what is on the
         // phone and wait for nothing, so they are plain functions: no await. One HostData for the run: it
         // counts the todos the run changes. Each namespace must also be in guard.js `spaces`, below.
@@ -462,7 +463,7 @@ class JsEngine : ScriptEngine {
               const g = globalThis;
               for (const name of ["log", "logs", "status", "allowed", "notify", "__kolahal_done", "__kolahal_set", "__kolahal_screen_done"]) install(g, name, false);
               install(g, "sleep", true);
-              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "rss", "store", "md", "fmt", "secrets", "widget", "todos", "notes", "reminders", "calendar", "feeds", "usage", "shader", "tty", "__kolahal_grid"];
+              const spaces = ["console", "http", "clipboard", "device", "apps", "notifications", "launcher", "web", "rss", "store", "md", "fmt", "secrets", "widget", "todos", "notes", "reminders", "calendar", "feeds", "usage", "shader", "tty", "__kolahal_grid"];
               for (const ns of spaces) {
                 const o = g[ns];
                 const ks = names(o);

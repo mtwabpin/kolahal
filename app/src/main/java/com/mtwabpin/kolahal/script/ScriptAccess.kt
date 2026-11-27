@@ -91,7 +91,7 @@ object ScriptAccess {
     }
 
     fun help(item: String): String = when (item) {
-        INTERNET -> "Web requests and feeds to any address, including your local network, and links and images in its output; when off, a run that needs a request stops"
+        INTERNET -> "Web requests and feeds to any address, including your local network, links and images in its output, and links it opens; when off, a run that needs a request or opens a link stops"
         HEADER -> "Its status line at the top of home, in turns with what's playing and other pinned scripts; when off, it shows in its card and in status"
         WIDGET -> "Its widget on the widgets page, on while the widget is placed there; when off, what it shows is not stored"
         "notifications" -> "Reads your recent notifications; when off, it sees none"

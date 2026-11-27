@@ -187,7 +187,7 @@ object ScriptMeta {
     /** Whether the code opens a screen of its own (`tty.screen`): its run may go on as long as the screen does. */
     fun opensScreen(code: String) = screenCall.containsMatchIn(code)
 
-    private val internetRef = Regex("""\b(http|rss|url|image)\b|\blauncher\s*\.\s*run\b""")
+    private val internetRef = Regex("""\b(http|rss|url|image)\b|\blauncher\s*\.\s*run\b|\bweb\s*\.\s*open\b""")
     private val statusRef = Regex("""(?<![.:\w])status\b""")
     private val notifyRef = Regex("""(?<![.:\w@])notify\b""")
 
@@ -195,7 +195,8 @@ object ScriptMeta {
      * What a script uses beyond `@uses`, read from the names in its code. [ScriptAccess] switches and
      * allows only these:
      * - the internet, for `http` and `rss`, for the links and pictures its lines carry (`url`,
-     *   `image`), and for `launcher.run` (a search sends its words to a site),
+     *   `image`), for `launcher.run` (a search sends its words to a site), and for `web.open` (an
+     *   address can carry data to its site),
      * - its header line, for `status`,
      * - posting notifications, for `notify`.
      * Any mention of the name counts (a comment, `local status`), so a script that calls one by name

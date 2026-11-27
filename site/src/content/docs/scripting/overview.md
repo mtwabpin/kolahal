@@ -406,6 +406,8 @@ Scripts run in a separate `:script` process. If an engine crashes, the home scre
   line's link and other details. Past either limit, one line says that the rest wasn't logged.
 - A run can send at most **10 commands** with `launcher.run`. A script started by another script's
   `launcher.run` can't send any. This stops scripts from starting each other without end.
+- A run can open at most **3 links** with [`web.open`](/scripting/api/#webopenurl), and only a run you
+  started opens any.
 - **Lua**:
   - Each run gets a fresh state.
   - These are removed: `java`, `io`, `package`, `require`, `debug`, `dofile`, `loadfile` and the
@@ -469,7 +471,7 @@ The pills in the card's details switch the same things, in the same two groups.
 Kolahal reads what a script uses from its code:
 
 - **Internet**: when it uses `http` or `rss`, puts links or pictures on its lines (`url`, `image`),
-  or runs commands (`launcher.run`, because a search goes to a site).
+  runs commands (`launcher.run`, because a search goes to a site), or opens links (`web.open`).
 - **Pinned at the top**: when it calls `status`.
 - **Post notifications**: when it calls `notify`.
 - Everything its `@uses` line names.
@@ -480,7 +482,7 @@ When a switch is off, a call returns nothing if that is a valid result. Otherwis
 
 | Switch | When it is off, the script… |
 | --- | --- |
-| Internet | stops at its first `http` or `rss` call, with a line you can tap to allow it again. Its lines have no links or pictures. |
+| Internet | stops at its first `http`, `rss` or `web.open` call, with a line you can tap to allow it again. Its lines have no links or pictures. |
 | Pinned at the top | is off until you pin it. Its `status()` line shows only on its card and in `status`, not at the top of home. |
 | Post notifications | runs as before. `notify()` returns false. |
 | An `@uses` item | gets nothing. `apps.list()`, `notifications.recent()` and the calls for [your lists](/scripting/api/#your-lists) return empty lists, `clipboard.get()` returns nil, `clipboard.set()` does nothing, and `launcher.run` and `todos.setDone` return false. |

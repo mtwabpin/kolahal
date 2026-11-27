@@ -110,6 +110,7 @@ In the descriptions below, a Lua table and a JS object mean the same thing. For 
 | [`usage.unused(days?)`](#usageunuseddays) | `[{ app, pkg, days, bytes }]` |
 | [`usage.summary(period, app?)`](#usagesummaryperiod-app) | `{ perDay, rows, top }` over weeks, months or years |
 | [`launcher.run(command)`](#launcherruncommand) | `true` if sent |
+| [`web.open(url)`](#webopenurl) | `true` if the link went to open |
 | [`sleep(ms)`](#sleepms) | nothing |
 | [`args`, `argline`](#args-and-argline) | arguments of a command run |
 | [`event`](#event) | what started an event run |
@@ -991,7 +992,8 @@ You switch these on and off for each script
 ([switching access off](/scripting/overview/#switching-access-off)). When one is off, the script
 can do something else instead.
 
-- A script has `"internet"` only if its code uses `http`, `rss`, `url`, `image` or `launcher.run`.
+- A script has `"internet"` only if its code uses `http`, `rss`, `url`, `image`, `launcher.run` or
+  `web.open`.
 - `"header"` means you pinned the script, so its status line shows at the top of home. A script has
   it only if it calls `status`.
 - `"widget"` means you placed the script's [widget](#widgets) on the widgets page. A script has it
@@ -4040,6 +4042,43 @@ Runs a terminal command as if you typed it. This includes another script's comma
 launcher.run("weather")
 launcher.run("open news")
 ```
+
+### web.open(url)
+
+Opens a web link, as a tap on a link in a line does: in your browser, or in the app Android chooses
+for that link. Returns `true` if the link went to open, `false` if it didn't.
+
+- It opens a link **only in a run you started**: a command script, `script run`, a one-liner, a tap
+  on the script's widget, button or line, or Run in the editor. In a timer or event run, a widget's
+  own refresh, or a run another script started, it opens nothing. It logs an error once and returns
+  `false`.
+- The link is an `http` or `https` address, up to 2000 characters. Anything else is an error, and
+  nothing opens: another kind of address (`intent:`, `tel:`, `content:`, `file:`, `javascript:` and
+  so on), an empty link, one with spaces, or a longer one.
+- It needs the script's internet access, as every link does: an address can carry data to its site.
+  Without it, the run stops at the call, as at a request.
+- A run opens at most 3 links. Past that, it logs an error once and returns `false`. A link that
+  holds one of the script's [secrets](#secretsgetname) doesn't open either.
+- It needs Kolahal 0.5.20 or newer. A script that calls it has `@requires 0.5.20`.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- @command
+-- @desc Open a page in the browser
+-- @requires 0.5.20
+web.open("https://example.org")
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// @command
+// @desc Open a page in the browser
+// @requires 0.5.20
+web.open("https://example.org");
+```
+</TabItem>
+</Tabs>
 
 ### sleep(ms)
 

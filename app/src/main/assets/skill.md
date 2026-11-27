@@ -1,6 +1,6 @@
 # Writing scripts and shaders for Kolahal
 
-Kolahal is an Android launcher that works like a terminal: home is a log of lines with a prompt under it, and a page of widgets beside it. People extend it with **scripts** (Lua 5.4 or JavaScript, run by Kolahal in a sandbox) and **shaders** (AGSL, drawn over home or as the live wallpaper).
+Kolahal is an Android launcher that works like a terminal: home is a log of lines with a prompt under it, and a page of widgets beside it. People extend it with **scripts** (Lua 5.4 or JavaScript, in a sandbox) and **shaders** (AGSL, drawn over home or as the live wallpaper).
 
 This text is for an AI assistant that writes one of these for a user. It describes the Kolahal that copied it. Anything it doesn't name (a function, a field, an event, a uniform) doesn't exist: never guess one.
 
@@ -21,7 +21,7 @@ Commands are typed at Kolahal's prompt.
 **A script**, on the phone:
 
 1. `script new <name>` for Lua, `script new <name>.js` for JavaScript. The editor opens with a template. A name is lowercase letters, digits, `-` and `_`, at most 40, and not a built-in command's name.
-2. Replace the template with the code, then tap **Save**. Saving points out unknown API names, a call that lacks its `@uses` line, and header lines Kolahal can't read. A script you made and saved may use what its `@uses` line names. `@every` and `@at` lines set its timers on saving.
+2. Replace the template with the code, then tap **Save**. Saving points out unknown API names, a call that lacks its `@uses` line, and header lines it can't read. A script you made and saved may use what its `@uses` line names. `@every` and `@at` lines set its timers on saving.
 3. Run it: a command by its name (`<name> args…`), any script with `script run <name> [args…]`.
 4. As needed: `script notify <name> on` lets `notify` post; `script pin <name>` shows its status line at the top of home; for a widget, tap **+** on the widgets page (or type `widget add`) and pick it in the **Kolahal** group. A script can't do any of these itself.
 
@@ -48,7 +48,7 @@ return "hello, " .. (argline ~= "" and argline or "world")
 
 In JavaScript the last line is ``return `hello, ${argline || "world"}`;`` with `//` comments. Saved as `hello`, `hello Asha` prints the line. What a run returns is printed (tables and objects as JSON). An error stops the run with a red line; a tap on it opens the editor at the failing line.
 
-Lua and JavaScript have the same API. In Lua every call blocks (scripts never run on the UI thread). In JavaScript the code runs inside an async function, so top-level `await` and `return` work, and `Promise.all` runs requests side by side. There is no `require`, and no file, process or network access but the API below.
+Lua and JavaScript have the same API. In Lua every call blocks. In JavaScript the code runs inside an async function, so top-level `await` and `return` work, and `Promise.all` runs requests side by side. There is no `require`, and no file, process or network access but the API below.
 
 ### Script header
 
@@ -118,7 +118,7 @@ In a run for the second or later widget of the script, `event.instance` is that 
 | `status(text, opts?)` | Sets its status line (first line, 80 characters): on its card, in `status`, and at the top of home once pinned. `opts.progress` (0 to 1) adds a bar, `opts.color` is its role, `opts.refresh` (10 to 3600 s) runs it again while shown. `status(nil)` clears it. 20 changes a run. |
 | `allowed(what)` | → bool: may it use `what`: `"internet"`, `"header"` (pinned), `"widget"` (placed), an `@uses` item or an `@on` event. |
 
-`ctx` (a table / object): `url` (a tap opens this web link), `copy` (what Copy text copies: part of what the line shows, or its url), `image` (a picture's http(s) link, shown under the line), `mono = "1"` (terminal font, for columns), `gap = true` (a small space above: a new item of a list), `actions` (up to 3 buttons, each a two-item list `{ "Snooze", "snooze 30" }`: label, then the words this script runs with on a tap). Other keys are dropped. Links must be http or https.
+`ctx` (a table / object): `url` (a tap opens this web link), `copy` (what Copy text copies: part of what the line shows, or its url), `image` (a picture's http(s) link, shown under the line), `mono = "1"` (terminal font, for columns), `gap = true` (a small space above: a new item of a list), `actions` (up to 3 buttons, each a two-item list `{ "Snooze", "snooze 30" }`: label, then the words this script runs with on a tap). Other keys are dropped.
 
 A run logs at most 500 lines and 256K characters. `line.set` works 300 times a run.
 
@@ -177,6 +177,7 @@ A network failure raises an error (JS: rejects); an HTTP error status doesn't, s
 | `apps.list()` | → `[{ label, pkg, profile }]`, the launchable apps; `profile` is `"personal"` or `"other"`. `@uses apps`. |
 | `notifications.recent(n?)` | → `[{ pkg, app, title, text, time }]`, newest first, 20 (up to 50); `time` in ms. `@uses notifications`. |
 | `launcher.run(command)` | → bool. Runs a built-in or another script's command, as typed. Only in a run started from the prompt (a command, `script run`), at most 10 a run; commands that change things (`clear`, `uninstall`, `work`, `script`…) are refused. `@uses commands`. |
+| `web.open(url)` | → bool. Opens an http(s) link in a run the user started; 3 a run. |
 | `device.work()` | → `"on"`, `"paused"`, or nil without a work profile. `@uses work`. |
 | `device.setWork(on)` | Resumes (true) or pauses (false) the work profile; → false when Android refuses (only in the foreground). `@uses work`. |
 
@@ -216,7 +217,7 @@ The usage calls return nil without usage access. With an `@uses` switch off, the
 
 ### What a script may use
 
-Internet has no `@uses` line: a script whose code mentions `http`, `rss`, `url`, `image` or `launcher.run` has it, unless the user switches it off. Each `@uses` item is a switch of its own.
+Internet has no `@uses` line: a script whose code mentions `http`, `rss`, `url`, `image`, `launcher.run` or `web.open` has it, unless the user switches it off. Each `@uses` item is a switch of its own.
 
 | `@uses` | Allows | Also needs |
 | --- | --- | --- |

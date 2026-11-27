@@ -471,6 +471,13 @@ object ApiDocs {
             "Run a terminal command (needs @uses commands); only when started from the prompt, at most 10 per run"
         ),
 
+        ApiDoc("web", "web", "Web links: open", kind = NS),
+        ApiDoc(
+            "web.open",
+            "web.open(url) -> bool",
+            "Open a web link (http or https, up to 2000 characters) in your browser or the app for it; true when it went to open. Only in a run you started, at most 3 per run; needs the internet"
+        ),
+
         ApiDoc("json", "json", "JSON: encode, decode", LUA, NS),
         ApiDoc(
             "json.encode",

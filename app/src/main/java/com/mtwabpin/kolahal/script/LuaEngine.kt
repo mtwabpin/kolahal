@@ -260,6 +260,7 @@ class LuaEngine : ScriptEngine {
                 ); 1
             })
         lua.table("launcher", "run" to { l: Lua -> l.push(host.runCommand(l.checkString())); 1 })
+        lua.table("web", "open" to { l: Lua -> l.push(host.webOpen(l.checkString())); 1 })
         // Your own lists, each behind the `@uses` item of its name ([HostData]). One HostData for the run: it counts the todos the run changes.
         val data = HostData(host.context, host::may, host::live, host::logError)
         lua.table(

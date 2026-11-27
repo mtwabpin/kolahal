@@ -47,6 +47,7 @@ import kotlin.time.Duration.Companion.milliseconds
  *   shader.play(name, seconds?) -> a one-off shader over home
  *   shader.give(name, value) -> a value that shaders' parameters can follow
  *   widget.show(desc) / widget.clear() -> this script's widget on the widgets page
+ *   web.open(url)               -> open a web link, in a run you started ([WebOpen])
  *   json.encode(v) / json.decode(s)
  */
 class HostApi(
@@ -1127,6 +1128,41 @@ class HostApi(
         return true
     }
 
+    /** This run's links for `web.open`: when it may open one, and how many it has ([WebOpen.Turns]). */
+    private val webOpens = WebOpen.Turns(started = interactive, byScript = byScript)
+
+    /**
+     * `web.open(url)`: opens a web link as a tap on a line's link does. Home opens it ([ACTION_OPEN_URL]),
+     * with the address alone. True when the link went to home to open.
+     * - A link that isn't an http or https address of at most [WebOpen.MAX_LENGTH] characters is an error.
+     * - Like every link, it needs the internet: without it, the run stops as at a request.
+     * - Only in a run you started, at most [WebOpen.MAX_PER_RUN] a run, and never with a secret in it.
+     *   Otherwise it logs why, once a run, and returns false.
+     */
+    fun webOpen(url: String): Boolean {
+        live()
+        val link = WebOpen.address(url, ::redact)
+        if (grants != null && !grants.allows(ScriptAccess.INTERNET)) deny(
+            ScriptAccess.INTERNET,
+            "internet is off for this script"
+        )
+        when (val turn = webOpens.next(holdsSecret = redact(link) != link)) {
+            is WebOpen.Turn.Refused -> {
+                turn.line?.let(::logError)
+                return false
+            }
+
+            WebOpen.Turn.Open -> Unit
+        }
+        effects++
+        flush()
+        context.sendBroadcast(
+            android.content.Intent(ACTION_OPEN_URL).setPackage(context.packageName)
+                .putExtra(EXTRA_URL, link)
+        )
+        return true
+    }
+
     /** GET with a per-script cache. Returns the stored response if it is younger than [maxAgeSeconds]. */
     fun httpCached(url: String, maxAgeSeconds: Int): Map<String, Any?> {
         val key = runSecrets.urlKey(HTTP_CACHE, url)
@@ -1186,6 +1222,10 @@ class HostApi(
         private val STATUS_OPTIONS = listOf("progress", "refresh", "color")
         const val ACTION_RUN_COMMAND = "com.mtwabpin.kolahal.RUN_COMMAND"
         const val EXTRA_COMMAND = "command"
+
+        /** `web.open`'s link, on its way to home, which opens it ([HostApi.webOpen]). */
+        const val ACTION_OPEN_URL = "com.mtwabpin.kolahal.OPEN_URL"
+        const val EXTRA_URL = "url"
 
         /** The context keys a script's line may carry. Anything else is dropped. */
         private val SCRIPT_CTX = setOf(

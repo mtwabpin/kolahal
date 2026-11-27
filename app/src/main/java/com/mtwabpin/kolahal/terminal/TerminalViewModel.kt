@@ -535,9 +535,16 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
             prompt.history = value
         }
 
-    /** Receives launcher.run(cmd) from scripts that the user started (see HostApi.runCommand). */
+    /**
+     * Receives launcher.run(cmd) and web.open(url) from scripts that the user started (see
+     * HostApi.runCommand and HostApi.webOpen). A link opens as a tapped one does ([openUrl]).
+     */
     private val runCommandReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(c: Context, intent: Intent) {
+            if (intent.action == HostApi.ACTION_OPEN_URL) {
+                intent.getStringExtra(HostApi.EXTRA_URL)?.let { this@TerminalViewModel.openUrl(it) }
+                return
+            }
             // Checked here, where the command runs, with the aliases as they are now: a sensitive command
             // never runs from a script. (The :script process checks first, but only without aliases.)
             val command = intent.getStringExtra(HostApi.EXTRA_COMMAND) ?: return
@@ -568,7 +575,8 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     private fun startWatching() {
         mediaRepo.start()
         androidx.core.content.ContextCompat.registerReceiver(
-            context, runCommandReceiver, android.content.IntentFilter(HostApi.ACTION_RUN_COMMAND),
+            context, runCommandReceiver,
+            android.content.IntentFilter(HostApi.ACTION_RUN_COMMAND).apply { addAction(HostApi.ACTION_OPEN_URL) },
             androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         scriptScreens.start()
