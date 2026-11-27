@@ -116,7 +116,9 @@ Built, and not in the design:
   draw themselves. On a phone without app widgets (Android Go) Kolahal's own still work.
 - *Fields the design didn't have*: =note= on every kind (up to 16 characters on a large card's last
   line), =lead= and a row's =range= on =list=, =style = "dots"= on =chart=, and =id= on an
-  agenda's event (taken and not kept). =icon= takes a name from 63 line icons
+  agenda's event (taken and not kept). In 0.5.22: =badge= and =footer= on every kind (=badge= not on
+  =buttons= or =toggles=), a stat's =target=, a button's and a switch's =value=, the =details= of
+  stages and a versus side's =detail=. =icon= takes a name from 63 line icons
   ([[src:widgets/WidgetIcons.kt::object WidgetIcons][WidgetIcons]]), or an emoji or a letter.
 - *Capitals.* A label on a card starts with a capital, whatever the script wrote.
 - *Now playing* shows the track's cover, takes a drag on its bar to move in the track, and shows the
@@ -400,6 +402,8 @@ Every kind takes these fields. All are optional.
 | =staleAfter= | seconds, 60 to 604800 | How long the content counts as current. Default: one hour; 60 seconds for =toggles=. |
 | =refresh=    | seconds, 10 to 3600  | Run again this often while the card can be seen. The same limits as =status=.                 |
 | =note=       | text, up to 16       | A few words on a large card's last line, in the card's color: "Done today". (Not in the design.) |
+| =badge=      | text, up to 8        | A pill at the top: "3", "live". Not on =buttons= or =toggles=; left out at 1×1, in Poster, on a card that is one shape and on a cropped picture. (0.5.22; =versus= since 0.5.17.) |
+| =footer=     | text, up to 60       | Quiet words on a large card's last line, after the note and before the age, cut first. Doesn't turn the card Plain. (0.5.22.) |
 
 A =staleAfter= or =refresh= outside its range is held at the nearer end; 0 or less counts as left
 out.
@@ -1101,10 +1105,11 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   smaller values, and a bar.
 - Fields :: =value= (text or number, needed, up to 40). =label= (up to 60, may have styles).
   =unit= (up to 12). =delta= (text such as "+2.4%", up to 16) with =trend= (=up=, =down= or
-  =flat=). =more=: up to 3 of ~{ value, label }~, each up to 24. =progress= (0 to 1), with
+  =flat=). =more=: up to 3 of ~{ value, label }~, each up to 24. =progress= (0 to 1; to 2 with a =target=), with
   =moving= (true) to draw it as a wave, for something in progress. =points= (numbers, the last
   60): a soft line under the value, from edge to edge. =scene=: one of Kolahal's own shaders, its still
-  the card's ground, under a scrim (=StatScenes=: no shader on text or played once). The value's digits roll
+  the card's ground, under a scrim (=StatScenes=: no shader on text or played once). =target= (text,
+  16, 0.5.22): "6,240 of 8,000"; past it the bar is full with a mark at the target. The value's digits roll
   to a new value (=RollingText=).
 - When small :: 1×1 shows the value and the label. The smaller values and the title are left out.
 - Data :: Any script.
@@ -1165,7 +1170,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 - Stages :: =stages= (2 to 6 names) and =stage= (from 1): done stages are ticked dots, the current
   one a cookie, the way to the next a wave (=value= of =max= along it), later ones rings. The
   current name is the main text, =label= under it. 4×1: names under the marks; 2×1: the marks
-  alone. Bold fills the card to how far along the path.
+  alone. Bold fills the card to how far along the path. =details= (0.5.22; up to 16 each, only
+  with =stages=): a line under each stage's name, at 4×2 and larger.
 - When large :: The ring, with its label under it in bold and in the card's color.
 - When small :: 1×1 is the ring with its text.
 - Data :: Any script. Built-in: Battery and network.
@@ -1210,8 +1216,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 *** 7. =buttons=: a grid of buttons                              :phase2:built:
 
 - Shows :: Up to 8 buttons, each with a label and an icon.
-- Fields :: =items= (needed; more than 8 is an error): each ~{ label, icon, color, tap }~, with
-  =label= and =tap= needed.
+- Fields :: =items= (needed; more than 8 is an error): each ~{ label, icon, color, tap, value }~, with
+  =label= and =tap= needed. =value= (12, 0.5.22): a line under the label, such as "21°".
 - When small :: Fewer buttons, never smaller ones: 2 at 2×1, 4 at 2×2 and 4×1, 8 at 4×2.
 - Data :: A script: every button runs the script again, or opens a link (the ~{ app }~ action is
   not built). Built-in: Shortcuts, where you pick the commands.
@@ -1220,8 +1226,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 *** 8. =toggles=: switches                                       :phase2:built:
 
 - Shows :: Up to 6 switches, each with a label, an icon and a state.
-- Fields :: =items= (needed): each ~{ label, icon, on, tap }~, with =label=, =on= and =tap= needed.
-  The =tap= must be ~{ args }~.
+- Fields :: =items= (needed): each ~{ label, icon, on, tap, value }~, with =label=, =on= and =tap= needed.
+  The =tap= must be ~{ args }~. =value= (12, 0.5.22) takes the place of "On" or "Off": "21°".
 - Data :: A script that can read and change the thing: Do Not Disturb (=@uses dnd=), the work
   profile (=@uses work=), or its own values in =store=.
 - Refresh :: A short =staleAfter= (60 seconds), because the thing can change elsewhere.
@@ -1295,7 +1301,8 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   each side's figure at its end: the clocks' time left, the possession. A dot marks the side to
   move. A last line and a small badge at the top.
 - Fields :: =sides= (exactly 2, each =name= (needed, 24), =mark= (2 characters as seen),
-  =color=, =value= (0 or more: its part of the bar), =text= (12: its figure)). =score= (needed,
+  =color=, =value= (0 or more: its part of the bar), =text= (12: its figure), =detail= (24, 0.5.22:
+  a line under the name, not at 2×1 or 1×1)). =score= (needed,
   24). =turn= (1 or 2). =moving= (the turn's part of the bar is a wave). =caption= (60, may have
   styles). =badge= (8).
 - When wide :: A 4×1 card: each name beside its mark, the score with the badge and the last line
