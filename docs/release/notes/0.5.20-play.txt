@@ -1,0 +1,6 @@
+What's new:
+• A shorter menu when you hold a line: the common actions in a row, the rest as small buttons.
+• Choose what a swipe on a log line does, and hide the lines above a line with Fresh.
+• Put home's pages in your own order.
+• One setting for the corners of all widgets, a scene behind a card, and Last updated on script cards.
+• Undo in Arrange widgets, and a new app icon.
