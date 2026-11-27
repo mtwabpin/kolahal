@@ -1,0 +1,1 @@
+This guide is for shaders only, with more examples and rules than the whole guide; it leaves the script API out. For a script, the user types `skill.md widgets` (the whole script API, widgets in depth) or `skill.md` alone (the whole guide).

@@ -24,12 +24,14 @@ object CommandCatalog {
             args = "<command>",
             aka = listOf("?")
         ),
-        // Offered to nobody ([HIDDEN]): it runs only when typed in full.
+        // Offered to nobody ([HIDDEN]): it runs only when typed in full. `help skill.md` typed in full shows this.
         CommandSpec(
             "skill.md",
-            "skill.md",
-            "Copy a guide for an AI assistant on how to write scripts and shaders for Kolahal: paste it into the assistant, then say what to build",
+            "skill.md [shaders|widgets]",
+            "Copy a guide for an AI assistant on how to write scripts and shaders for Kolahal: paste it into the assistant, then say what to build. With shaders or widgets, a shorter guide for just that",
             short = "Copy the guide for an AI assistant",
+            args = "shaders · widgets",
+            uses = SkillText.Guide.entries.map { it.command to SkillText.about(it) },
             sensitive = true,
         ),
         *ControlSpecs.SPECS.toTypedArray(),

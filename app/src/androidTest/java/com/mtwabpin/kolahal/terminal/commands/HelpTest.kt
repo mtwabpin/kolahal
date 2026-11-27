@@ -153,4 +153,13 @@ class HelpTest {
         val mp = commands.lines("help mp").map { StyledText.plain(it.text) }
         assertEquals(listOf("mp", "Play / pause media", "Use", "mp"), mp.take(4))
     }
+
+    /** `skill.md`, offered to nobody, has its help when its name is typed in full: a use for each guide. */
+    @Test
+    fun skillMdTypedInFullHasItsHelp() {
+        val lines = commands.lines("help skill.md")
+        val uses = lines.filter { it.ctx.values[LogContext.DESC] != null }
+        assertEquals(listOf("skill.md", "skill.md shaders", "skill.md widgets"), uses.map { it.text })
+        assertTrue(lines.any { it.text == "More in the guide" && it.ctx.url != null })
+    }
 }

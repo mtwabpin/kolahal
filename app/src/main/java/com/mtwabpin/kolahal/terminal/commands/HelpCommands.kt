@@ -7,6 +7,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import com.mtwabpin.kolahal.apps.AppPrefs
+import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandCatalog.HELP_SECTIONS
 import com.mtwabpin.kolahal.commands.CommandParsing
 import com.mtwabpin.kolahal.commands.CommandSpec
@@ -123,7 +124,9 @@ class HelpCommands(
             )
         ) return info("${InstantRun.canonical(typed)} is turned off\nIts name opens the app it matches\nSettings → Commands turns it on")
         val offered = TtyCommands.offered(HomeStyles.ttyNow(conf)).filter { it.name !in off }
-        offered.firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
+        // A command offered to nobody (`skill.md`) has its help too, when its name is typed in full.
+        val hidden = CommandCatalog.COMMANDS.filter { it.name in CommandCatalog.HIDDEN }
+        (offered + hidden).firstOrNull { it.name == InstantRun.canonical(typed) }?.let { spec ->
             out(
                 StyledText.stats(listOf(spec.name to "")),
                 LogContext.of(LogContext.COMMAND to spec.name + " ")
@@ -153,9 +156,12 @@ class HelpCommands(
                 "Also known as ${also.joinToString(", ")}",
                 LogContext(LogContext.ITEM)
             )
+            // A command offered to nobody isn't in the command list: its page is where the guide tells of it.
+            val more = if (spec.name == SkillText.NAME) "More in the guide" to "scripting/overview/#writing-one-with-an-assistant"
+            else "More in the guide's command list" to "reference/commands/"
             info(
-                "More in the guide's command list",
-                LogContext.of(LogContext.URL to com.mtwabpin.kolahal.Links.GUIDE + "reference/commands/") + if (also.isEmpty()) LogContext.ITEM else emptyMap()
+                more.first,
+                LogContext.of(LogContext.URL to com.mtwabpin.kolahal.Links.GUIDE + more.second) + if (also.isEmpty()) LogContext.ITEM else emptyMap()
             )
             return
         }
@@ -183,14 +189,16 @@ class HelpCommands(
     }
 
     /**
-     * `skill.md`: copies the guide for an AI assistant ([SkillText]) to the clipboard, whole, and
-     * says in the log what was copied, how long it is, and what to do with it.
+     * `skill.md`: copies a guide for an AI assistant ([SkillText]) to the clipboard, whole, and says
+     * in the log which guide, how long it is, and what to do with it. [words] picks the guide: none
+     * for the whole one, `shaders` or `widgets` for a focused one; any other gets the list.
      */
-    fun skill() {
-        val text = context.assets.open(SkillText.NAME).use { it.readBytes().toString(Charsets.UTF_8) }
+    fun skill(words: String) {
+        val guide = SkillText.Guide.of(words) ?: return error(SkillText.unknown(words))
+        val text = guide.assemble { path -> context.assets.open(path).use { it.readBytes().toString(Charsets.UTF_8) } }
         context.getSystemService(ClipboardManager::class.java)
-            .setPrimaryClip(ClipData.newPlainText(SkillText.NAME, text))
-        info(SkillText.copied(text.length))
+            .setPrimaryClip(ClipData.newPlainText(guide.command, text))
+        info(SkillText.copied(guide, text.length))
     }
 }
 

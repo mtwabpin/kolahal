@@ -14,6 +14,7 @@ import com.mtwabpin.kolahal.commands.CommandCatalog
 import com.mtwabpin.kolahal.commands.CommandsOff
 import com.mtwabpin.kolahal.commands.InstantRun
 import com.mtwabpin.kolahal.commands.LogFilter
+import com.mtwabpin.kolahal.commands.SkillText
 import com.mtwabpin.kolahal.commands.TtyCommands
 import com.mtwabpin.kolahal.commands.Units
 import com.mtwabpin.kolahal.commands.UsageLine
@@ -267,6 +268,8 @@ class Completer(private val context: Context, private val data: Data) {
                 apps.first().copy(enter = true)
             ) + cmds.take(3) + apps.drop(1) + about else whole + options + cmds.take(3) + apps + about).distinctBy { it.key }
         }
+        // `skill.md` typed in full offers its words (`shaders`, `widgets`), though nothing offers its name.
+        if (cmd == SkillText.NAME && parts.size == 2) return usageOptions(cmd, parts)
         // Commands that this build leaves out (Play build: the call log, `update`) and
         // those offered to nobody (`skill.md`; in the gui style `screen` and the screen scripts) get no suggestions.
         if (cmd in CommandCatalog.UNAVAILABLE || cmd in TtyCommands.hidden(tty) || cmd in off || unofferedScript(cmd, tty)) return emptyList()

@@ -410,12 +410,22 @@ class CompleterTest {
     @Test
     fun aHiddenCommandIsNeverSuggested() {
         val name = com.mtwabpin.kolahal.commands.SkillText.NAME
-        val typed = (1..name.length).map { name.take(it) } + listOf("$name ", "help ", "help sk", "assistant", "shaders")
+        val typed = (1..name.length).map { name.take(it) } + listOf("help ", "help sk", "assistant", "shaders")
         for (text in typed) {
             val offered = completer.suggestions(text).filterIsInstance<Suggestion.Completion>()
                 .filter { name in it.label || name in it.replacement }
             assertTrue("$text: $offered", offered.isEmpty())
         }
+    }
+
+    /** Typed in full, `skill.md` offers its words: the two focused guides. */
+    @Test
+    fun skillMdTypedInFullOffersItsWords() {
+        val name = com.mtwabpin.kolahal.commands.SkillText.NAME
+        fun offered(text: String) = completer.suggestions(text).filterIsInstance<Suggestion.Completion>().map { it.replacement }
+        assertEquals(listOf("$name shaders ", "$name widgets "), offered("$name "))
+        assertEquals(listOf("$name widgets "), offered("$name wi"))
+        assertEquals(emptyList<String>(), offered("$name widgets "))
     }
 }
 

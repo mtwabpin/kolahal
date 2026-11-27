@@ -153,7 +153,7 @@ class CommandProcessor(context: Context, private val ui: TerminalUi) : CommandGr
                 "data" if args.isNotEmpty() -> usageCommands.run(name, args)
                 "help", "?" -> if (args.isEmpty()) helpCommands.help() else helpCommands.commandHelp(args.first())
                 // Offered to nobody (CommandCatalog.HIDDEN): it runs only when typed in full.
-                "skill.md" -> helpCommands.skill()
+                "skill.md" -> helpCommands.skill(rest)
                 "fetch", "neofetch", "fastfetch" -> systemCommands.fetch()
                 // Full-screen screens over home, until a key or a tap (terminal/tty/screens). Commands only
                 // in the tty style (TtyCommands.SCREENS): in the gui style the name is a plain word, as below.

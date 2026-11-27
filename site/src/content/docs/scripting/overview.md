@@ -38,7 +38,15 @@ ready-made scripts. `script install weather` installs one, with useful timers al
 [shaders](/scripting/shaders/) for Kolahal, with the whole API, the header lines, the uniforms and
 a few examples. Kolahal doesn't suggest it or list it in `help`, so type it in full.
 
-1. Type `skill.md`. A line in the log says how long the copied text is.
+Two focused guides go deeper into one thing:
+
+- `skill.md shaders`: shaders only, with more examples, how Kolahal sets each uniform, and what it
+  refuses.
+- `skill.md widgets`: scripts that fill a [widget](/scripting/api/#widgets), with the whole API,
+  what a card shows at each size and look, and an example of each kind.
+
+1. Type `skill.md`, `skill.md shaders` or `skill.md widgets`. A line in the log says which guide was
+   copied and how long it is.
 2. Paste it into the assistant you use, and say what to build: "a widget that shows my next
    train", "a shader that looks like rain on glass".
 3. Add what it writes, as the guide tells it to explain: `script new <name>` and paste the code

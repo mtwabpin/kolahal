@@ -1,0 +1,1 @@
+This guide is for scripts whose point is a card on the widgets page: the whole script API, and widgets in depth. For a shader, the user types `skill.md shaders`; `skill.md` alone gives the whole guide.

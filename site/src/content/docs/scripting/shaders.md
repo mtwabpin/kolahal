@@ -346,6 +346,9 @@ The quickest start is a template: a working shader of 30 to 50 lines whose comme
 | `template-value` | Gauge: a parameter that follows the battery (`@follow`), a choice of words, and a formula |
 | `template-once` | Burst: a [one-off](#one-off-shaders) with `@once` and `progress`, and the words that play it |
 
+To have an AI assistant write one, type `skill.md shaders` in full and paste the guide it copies into
+the assistant ([more](/scripting/overview/#writing-one-with-an-assistant)).
+
 Or start from nothing. This one tints the screen with the theme's accent color:
 
 ```glsl
