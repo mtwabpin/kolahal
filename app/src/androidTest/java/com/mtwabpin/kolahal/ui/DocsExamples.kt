@@ -52,6 +52,7 @@ object DocsExamples {
         "toggles-2" to "store.set(\"Morning\", \"on\")\n",
         "toggles-4" to "store.set(\"Morning\", \"on\"); store.set(\"Evening\", \"on\")\n",
         "toggles-icons" to "store.set(\"Porch\", \"on\")\n",
+        "toggles-values" to "store.set(\"Heating\", \"on\")\n",
     )
 
     /** [luaBefore] for the JavaScript code. */
@@ -61,6 +62,7 @@ object DocsExamples {
         "toggles-2" to "store.set(\"Morning\", \"on\");\n",
         "toggles-4" to "store.set(\"Morning\", \"on\"); store.set(\"Evening\", \"on\");\n",
         "toggles-icons" to "store.set(\"Porch\", \"on\");\n",
+        "toggles-values" to "store.set(\"Heating\", \"on\");\n",
     )
 
     /** The options an example's code reads. */

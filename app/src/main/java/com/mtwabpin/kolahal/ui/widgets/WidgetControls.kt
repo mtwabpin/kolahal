@@ -231,6 +231,8 @@ private fun ControlGrid(
  *
  * A switch's [state] ("On" or "Off") is under its label in a tall cell, when the label is alone or
  * beside the icon. A screen reader hears the state from the switch itself, so not from these words.
+ * A [value] ("21°", [WidgetSpec.Button.value], [WidgetSpec.Toggle.value]) takes that line, in place
+ * of the state; a screen reader hears it after the label. Other cells leave it out.
  *
  * With [working], a sign that something is going on takes the icon's place ([WorkingSign]). A
  * switch shows it while it waits for its script.
@@ -245,7 +247,8 @@ private fun ControlContent(
     height: Dp,
     state: String? = null,
     working: Boolean = false,
-    iconColor: Color? = null
+    iconColor: Color? = null,
+    value: String? = null,
 ) {
     val lead: (@Composable () -> Unit)? = when {
         working -> {
@@ -265,11 +268,13 @@ private fun ControlContent(
         else -> null
     }
     val tall = height >= TWO_LINES
-    val shownState = state.takeIf { tall }
+    // The value takes the state's line: under the label, in a tall cell.
+    val shownState = (value ?: state).takeIf { tall }
+    val said = value != null
     when {
         lead == null && shownState != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
             ControlLabel(label, lines = 1)
-            StateWord(shownState)
+            StateWord(shownState, said)
         }
 
         lead == null -> ControlLabel(label, lines = if (tall) 2 else 1)
@@ -285,7 +290,7 @@ private fun ControlContent(
                     lines = 1,
                     textAlign = if (shownState != null) TextAlign.Start else TextAlign.Center
                 )
-                if (shownState != null) StateWord(shownState)
+                if (shownState != null) StateWord(shownState, said)
             }
         }
 
@@ -299,16 +304,21 @@ private fun ControlContent(
     }
 }
 
-/** A switch's state under its label: "On" or "Off", small and a little dim. */
+/**
+ * A switch's state under its label: "On" or "Off", small and a little dim. Or a button's or a
+ * switch's value in its place ("21°"), which a screen reader hears with the label: [said]. The
+ * state it hears from the switch itself.
+ */
 @Composable
-private fun StateWord(state: String) {
+private fun StateWord(state: String, said: Boolean = false) {
     Text(
         state,
         style = MaterialTheme.typography.labelSmall,
         color = LocalContentColor.current.copy(alpha = 0.8f),
         maxLines = 1,
         softWrap = false,
-        modifier = Modifier.clearAndSetSemantics {},
+        overflow = if (said) TextOverflow.Ellipsis else TextOverflow.Clip,
+        modifier = if (said) Modifier else Modifier.clearAndSetSemantics {},
     )
 }
 
@@ -599,6 +609,8 @@ private fun ShapeGrid(
  * - Tonal: the buttons are a light tint of the text color on the card's color, the icon in the accent.
  * - Split: the buttons are the card's tiles ([SplitGrid]).
  * - Shape: each button is a Material shape with its label under it ([ShapeButton]).
+ * - A button's value ("21°") is under its label where a switch would say "On" or "Off"
+ *   ([ControlContent]), and in Shape's shape when it is short ([ControlValues.inShape]).
  */
 @Composable
 internal fun ButtonsBody(spec: WidgetSpec.Buttons, onTap: ((WidgetTap) -> Unit)?) {
@@ -692,7 +704,8 @@ private fun CardButton(
             button.label,
             width,
             height,
-            iconColor = if (plain) null else color ?: cardRoleColor()
+            iconColor = if (plain) null else color ?: cardRoleColor(),
+            value = button.value,
         )
     }
 }
@@ -711,10 +724,25 @@ private fun shapeRole(index: Int): Color {
 /** The room a label takes under a Shape button. */
 private val LABEL_UNDER = 18.dp
 
+/** A value inside a Shape button's or switch's shape, in place of its icon, in [color]. It is said with the label. */
+@Composable
+private fun ShapeValue(value: String, color: Color) {
+    Text(
+        value,
+        style = MaterialTheme.typography.labelLargeEmphasized,
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        modifier = Modifier.clearAndSetSemantics {},
+    )
+}
+
 /**
  * One button of the Shape look: a Material shape ([BUTTON_SHAPES], one after the other) in its
  * [role]'s container, with the icon in the role's color and the label under it where the cell has
  * room. Without an icon the label is inside the shape.
+ * - A value of up to 4 characters ([ControlValues.inShape]) takes the icon's place in the shape; a
+ *   longer one, or one on a button without an icon, is left out.
  * - The whole of it, label too, is one Material button, so a tap on the label is a tap on the button.
  * - A press morphs the shape into another one, and back on release. Only the drawing runs again.
  */
@@ -738,6 +766,8 @@ private fun ShapeButton(
     val morph = remember(index) { pressMorph(BUTTON_SHAPES[index % BUTTON_SHAPES.size]) }
     val fill = roleContainer(role)
     val labeled = button.icon != null && height >= CONTROL_MIN + LABEL_UNDER
+    // A short value takes the icon's place in the shape ([ControlValues.inShape]); a longer one is left out.
+    val inside = ControlValues.inShape(button.value)
     // A label inside the shape needs a bigger one: as big as the cell, up to 80 dp.
     val most = if (button.icon == null) SHAPE_TEXT_CONTROL else SHAPE_CONTROL
     val side = minOf(
@@ -770,7 +800,12 @@ private fun ShapeButton(
                 contentAlignment = Alignment.Center
             ) {
                 val icon = button.icon
-                if (icon != null) {
+                if (icon != null && inside != null) {
+                    // The value in place of the icon. Without its label under it, the shape says both.
+                    Box(if (labeled) Modifier else Modifier.semantics { contentDescription = ControlValues.said(button.label, inside) }) {
+                        ShapeValue(inside, role)
+                    }
+                } else if (icon != null) {
                     // Without its label under it, the shape says the label to a screen reader.
                     val said = if (labeled) Modifier else Modifier.semantics {
                         contentDescription = button.label
@@ -799,7 +834,9 @@ private fun ShapeButton(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
                         .height(LABEL_UNDER)
-                        .wrapContentHeight(),
+                        .wrapContentHeight()
+                        // The value in the shape is said after the label.
+                        .then(if (inside != null) Modifier.semantics { contentDescription = ControlValues.said(button.label, inside) } else Modifier),
                 )
             }
         }
@@ -883,7 +920,7 @@ internal fun TogglesBody(spec: WidgetSpec.Toggles, onTap: ((WidgetTap) -> Unit)?
 
 /**
  * One switch: a Material toggle button, filled while on. Off, it is a light tint of the text color.
- * A tall one says "On" or "Off" under its label ([ControlContent]).
+ * A tall one says "On" or "Off" under its label ([ControlContent]), or its value in their place.
  * - With [working] the loading shape takes its icon's place, and a screen reader hears "working".
  * - With a null [onClick] it takes no tap, and looks as it does on the page.
  * - A long-press is the card's long-press.
@@ -954,14 +991,15 @@ private fun CardToggle(
         contentPadding = CONTROL_PADDING,
         interactionSource = source,
     ) {
-        ControlContent(toggle.icon, toggle.label, width, height, state = state, working = working)
+        ControlContent(toggle.icon, toggle.label, width, height, state = state, working = working, value = toggle.value)
     }
 }
 
 /**
  * The inside of one of Split's switches, at the start of its tile: the icon, the label in bold and
- * "On" or "Off" under it, as the mockup has them. A low tile leaves the icon out, a narrow one
- * ([SIDE_BY_SIDE]) is drawn as the other looks draw a switch ([ControlContent]).
+ * "On" or "Off" under it, as the mockup has them, or the switch's value in its place ("21°"). A
+ * low tile leaves the icon out, a narrow one ([SIDE_BY_SIDE]) is drawn as the other looks draw a
+ * switch ([ControlContent]).
  */
 @Composable
 private fun RowScope.SplitToggleContent(
@@ -973,7 +1011,7 @@ private fun RowScope.SplitToggleContent(
     looks: LookColors
 ) {
     if (width < SIDE_BY_SIDE && height < SPLIT_TOGGLE_TALL) {
-        ControlContent(toggle.icon, toggle.label, width, height, state = state, working = working)
+        ControlContent(toggle.icon, toggle.label, width, height, state = state, working = working, value = toggle.value)
         return
     }
     val type = MaterialTheme.typography
@@ -995,12 +1033,15 @@ private fun RowScope.SplitToggleContent(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        // The switch's value takes the place of "On" or "Off". A screen reader hears it with the label.
+        val value = toggle.value
         Text(
-            state,
+            value ?: state,
             style = type.labelSmall.copy(fontWeight = FontWeight.SemiBold),
             color = if (toggle.on) LocalContentColor.current else looks.muted,
             maxLines = 1,
-            modifier = Modifier.clearAndSetSemantics {},
+            overflow = if (value != null) TextOverflow.Ellipsis else TextOverflow.Clip,
+            modifier = if (value != null) Modifier else Modifier.clearAndSetSemantics {},
         )
     }
 }
@@ -1016,6 +1057,8 @@ private val SPLIT_TOGGLE_TALL = 76.dp
  *   runs again while it does.
  * - The whole of it is one Material toggle button, so a tap on the label is a tap on the switch.
  * - Without an icon, the shape has the label's first letter.
+ * - A value of up to 4 characters ([ControlValues.inShape]) takes the place of the icon or the
+ *   letter; a longer one is left out. "On" or "Off" beside the shape stays.
  */
 @Composable
 private fun ShapeToggle(
@@ -1043,6 +1086,10 @@ private fun ShapeToggle(
     val beside = width >= CONTROL_MIN + SHAPE_LABEL_MIN
     val under = !beside && height >= CONTROL_MIN + LABEL_UNDER
     val label = MaterialTheme.typography.labelMediumEmphasized
+    // A short value takes the icon's place in the shape ([ControlValues.inShape]); a longer one is left out.
+    val inside = ControlValues.inShape(toggle.value)
+    // The label as a screen reader hears it, with the value in the shape after it.
+    val labelSaid = if (inside != null) Modifier.semantics { contentDescription = ControlValues.said(toggle.label, inside) } else Modifier
     ToggleButton(
         checked = toggle.on,
         onCheckedChange = { press.click { onClick?.invoke() } },
@@ -1051,8 +1098,8 @@ private fun ShapeToggle(
             .semantics {
                 role = Role.Switch
                 if (working) stateDescription = "working"
-                // With no label to read, the shape says it.
-                if (!beside && !under) contentDescription = toggle.label
+                // With no label to read, the shape says it, and the value in it.
+                if (!beside && !under) contentDescription = ControlValues.said(toggle.label, inside)
             },
         enabled = onClick != null,
         shapes = ToggleButtonShapes(SHAPE_ITEM, SHAPE_ITEM, SHAPE_ITEM),
@@ -1077,6 +1124,7 @@ private fun ShapeToggle(
                 val icon = toggle.icon
                 when {
                     working -> CompositionLocalProvider(LocalContentColor provides tint) { WorkingSign() }
+                    inside != null -> ShapeValue(inside, tint)
                     icon != null -> WidgetIconText(
                         icon,
                         MaterialTheme.typography.titleMedium,
@@ -1104,6 +1152,7 @@ private fun ShapeToggle(
                         .height(LABEL_UNDER)
                         .widthIn(max = width - 12.dp)
                         .wrapContentHeight()
+                        .then(labelSaid)
                 )
             }
             return@ToggleButton
@@ -1121,7 +1170,8 @@ private fun ShapeToggle(
                     style = label.copy(lineHeight = 15.sp),
                     color = content,
                     maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = labelSaid
                 )
                 Text(
                     if (toggle.on) "On" else "Off",

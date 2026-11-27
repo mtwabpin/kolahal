@@ -59,30 +59,34 @@ internal fun ProgressLook(
     when {
         spec.items.isNotEmpty() -> when (look) {
             WidgetLook.BOLD -> BoldBars(spec, box, color)
-            WidgetLook.SPLIT -> SplitBars(spec, color)
-            else -> ShapeBars(spec, color)
+            WidgetLook.SPLIT -> SplitBars(spec, box, color)
+            else -> ShapeBars(spec, box, color)
         }
 
         look == WidgetLook.BOLD -> BoldProgress(spec, box)
         look == WidgetLook.SPLIT -> SplitProgress(spec, box, color)
         LocalCardShaped.current -> ShapedProgress(spec, box, color)
-        else -> ShapeBesideProgress(spec, color)
+        else -> ShapeBesideProgress(spec, box, color)
     }
 }
 
 /**
  * Bold's progress: the card fills from the bottom to the level (the frame draws that), the title
  * small at the top, the number as big as it fits with "%" smaller, and the label under it.
+ * The card's badge is at the top end: at the title's end, or in a 1-row card over the title at the
+ * end, where it is no wider than the words there ([BadgeOver]), so the number keeps its room.
  */
 @Composable
 private fun BoldProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.BOLD, roleColor(spec.base))
+    val role = roleColor(spec.base)
+    val c = lookColors(WidgetLook.BOLD, role)
     val title = LocalUntitled.current
+    val badge = shownBadge(spec, box)
     val (number, unit) = splitPercent(spec.text ?: WidgetWords.percent(spec.value, spec.max))
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-            SmallTitle(title, c.content)
+            BadgedLine(badge, role) { SmallTitle(title, c.content) }
             Box(
                 Modifier
                     .weight(1f)
@@ -110,14 +114,16 @@ private fun BoldProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
                     .fillMaxHeight(),
                 contentAlignment = Alignment.CenterStart
             ) { BoldValue(number, unit, 64.sp, c.content) }
-            Column(
-                Modifier
-                    .padding(start = 12.dp)
-                    .widthIn(max = 120.dp),
-                horizontalAlignment = Alignment.End
-            ) {
-                SmallTitle(title, c.content)
-                spec.label?.let { RingLabel(it, spec.labelIcon, type.labelMedium, c.content) }
+            BadgeOver(badge, role) {
+                Column(
+                    Modifier
+                        .padding(start = 12.dp)
+                        .widthIn(max = 120.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    SmallTitle(title, c.content)
+                    spec.label?.let { RingLabel(it, spec.labelIcon, type.labelMedium, c.content) }
+                }
             }
         }
 
@@ -146,30 +152,39 @@ private fun BoldProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
     }
 }
 
-/** Bold's bars: the title small, then each bar with its label and its text in Bold's type over it, as many as fit. */
+/**
+ * Bold's bars: the title small, then each bar with its label and its text in Bold's type over it, as
+ * many as fit. The card's badge is at the title's end; a 1-row card, with no title, has it after the
+ * first bar's label. Each goes where its line has no room for it.
+ */
 @Composable
 private fun BoldBars(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.BOLD, color)
     val title = LocalUntitled.current.takeIf { box == WidgetSizes.Box.LARGE }
+    val badge = shownBadge(spec, box)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val count = ((maxHeight - if (title != null) 20.dp else 0.dp) / 30.dp).toInt()
             .coerceIn(1, spec.items.size)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
-            SmallTitle(title, c.content)
+            val large = box == WidgetSizes.Box.LARGE
+            if (large) BadgedLine(badge, color) { SmallTitle(title, c.content) }
+            else SmallTitle(title, c.content)
             spec.items.take(count).forEachIndexed { i, bar ->
                 key(i) {
                     val tint = bar.color?.let { colorOf(it) } ?: color
                     Column {
                         Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                bar.label.orEmpty(),
-                                style = type.bodySmall,
-                                color = c.muted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
+                            BadgedLine(badge.takeIf { i == 0 && !large }, color, Modifier.weight(1f)) {
+                                Text(
+                                    bar.label.orEmpty(),
+                                    style = type.bodySmall,
+                                    color = c.muted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                             BoldText(
                                 bar.text ?: WidgetWords.percent(bar.value, bar.max),
                                 18.sp,
@@ -192,7 +207,8 @@ private fun BoldBars(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Col
 
 /**
  * Split's progress: a tile that fills from the bottom to the level, with the number at its top, beside
- * a tile with the title and the label. A small card has the level tile alone.
+ * a tile with the title and the label. A small card has the level tile alone. The card's badge is
+ * at the level tile's top end, where the number leaves it room ([CenteredBadged]).
  */
 @Composable
 private fun SplitProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
@@ -201,6 +217,7 @@ private fun SplitProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color
     val title = LocalUntitled.current
     val fraction = WidgetWords.fraction(spec.value, spec.max)
     val text = spec.text ?: WidgetWords.percent(spec.value, spec.max)
+    val badge = shownBadge(spec, box)
     val level: @Composable (Modifier, Shape) -> Unit = { modifier, shape ->
         Tile(shape, c.tile, modifier) {
             Box(
@@ -210,13 +227,12 @@ private fun SplitProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color
                     .fillMaxHeight(fraction)
                     .background(roleContainer(color))
             )
-            BigText(
-                text,
-                if (box == WidgetSizes.Box.LARGE) type.headlineMedium else type.titleLarge,
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 12.dp, start = 8.dp, end = 8.dp)
-            )
+            val style = if (box == WidgetSizes.Box.LARGE) type.headlineMedium else type.titleLarge
+            val place = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 12.dp, start = 8.dp, end = 8.dp)
+            if (badge != null) CenteredBadged(badge, color, place) { BigText(text, style) }
+            else BigText(text, style, place)
             spec.labelIcon?.let {
                 Icon(
                     painterResource(it),
@@ -268,12 +284,17 @@ private fun SplitProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color
     }
 }
 
-/** Split's bars: a tile for each bar, side by side, each filled from the bottom to its level, with its percent at the top and its label at the bottom. */
+/**
+ * Split's bars: a tile for each bar, side by side, each filled from the bottom to its level, with its
+ * percent at the top and its label at the bottom. The card's badge is at the first tile's top end,
+ * where its percent leaves it room ([CenteredBadged]).
+ */
 @Composable
-private fun SplitBars(spec: WidgetSpec.Progress, color: Color) {
+private fun SplitBars(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SPLIT, color)
     val gap = SplitCorners.GAP
+    val badge = shownBadge(spec, box)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val count = ((maxWidth + gap) / (56.dp + gap)).toInt().coerceIn(1, spec.items.size)
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -300,7 +321,9 @@ private fun SplitBars(spec: WidgetSpec.Progress, color: Color) {
                                 .padding(horizontal = 8.dp, vertical = 10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            BigText(WidgetWords.percent(bar.value, bar.max), type.titleMedium)
+                            val percent = WidgetWords.percent(bar.value, bar.max)
+                            if (i == 0 && badge != null) CenteredBadged(badge, color) { BigText(percent, type.titleMedium) }
+                            else BigText(percent, type.titleMedium)
                             Spacer(Modifier.weight(1f))
                             bar.label?.let {
                                 Text(
@@ -411,11 +434,12 @@ private fun ShapedProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, colo
 
 /**
  * Shape's progress in a wide card: a clover (or the shape chosen for the card, [cardShape]) filled
- * to the level with the value on it, and beside it the title over the label.
+ * to the level with the value on it, and beside it the title over the label. The card's badge is at
+ * the title's end, where the title leaves it room.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
+private fun ShapeBesideProgress(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, color)
     val fraction = WidgetWords.fraction(spec.value, spec.max)
@@ -447,7 +471,7 @@ private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
                     .padding(start = 14.dp)
                     .weight(1f)
             ) {
-                SmallTitle(title, c.content)
+                BadgedLine(shownBadge(spec, box), color) { SmallTitle(title, c.content) }
                 spec.label?.let {
                     RingLabel(
                         it,
@@ -462,12 +486,16 @@ private fun ShapeBesideProgress(spec: WidgetSpec.Progress, color: Color) {
     }
 }
 
-/** Shape's bars: a row for each bar, as many as fit, with a small clover filled to its level, its label, and its text. */
+/**
+ * Shape's bars: a row for each bar, as many as fit, with a small clover filled to its level, its
+ * label, and its text. The card's badge is on the first row, after its label, where it has room.
+ */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeBars(spec: WidgetSpec.Progress, color: Color) {
+private fun ShapeBars(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, color)
+    val badge = shownBadge(spec, box)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val count = (maxHeight / 30.dp).toInt().coerceIn(1, spec.items.size)
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly) {
@@ -479,16 +507,21 @@ private fun ShapeBars(spec: WidgetSpec.Progress, color: Color) {
                             WidgetWords.fraction(bar.value, bar.max),
                             bar.color?.let { colorOf(it) } ?: color,
                             26.dp)
-                        Text(
-                            bar.label.orEmpty(),
-                            style = type.bodySmall,
-                            color = c.content,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .padding(start = 10.dp)
-                                .weight(1f)
-                        )
+                        val place = Modifier
+                            .padding(start = 10.dp)
+                            .weight(1f)
+                        val label: @Composable (Modifier) -> Unit = {
+                            Text(
+                                bar.label.orEmpty(),
+                                style = type.bodySmall,
+                                color = c.content,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = it
+                            )
+                        }
+                        if (i == 0 && badge != null) BadgedLine(badge, color, place) { label(Modifier) }
+                        else label(place)
                         Text(
                             bar.text ?: WidgetWords.percent(bar.value, bar.max),
                             style = type.labelMediumEmphasized,

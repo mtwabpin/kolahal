@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 
 /**
  * `chart`: numbers over time as a line or as bars, with a headline.
@@ -45,6 +46,9 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
  * - Large: the value big, its label under it (as a stat has them), the plot, and under the plot
  *   the labels of the first and the last point.
  * - With `style = "dots"`, a dot for each day ([DotsBody]).
+ * - A badge ([cardBadge]) is at the end of the value's line in a large card, and right after the
+ *   value in a wide one; without a value, on the label's line. It never covers the plot, and it goes
+ *   when the line can't hold it ([BadgedLine]). A small card leaves it out.
  * The plot has no words of its own. The card's description says the chart for a screen reader.
  */
 @Composable
@@ -68,17 +72,20 @@ internal fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
     val label = spec.label ?: LocalUntitled.current
     // The ring around the line's last dot is in the card's color.
     val surface = colors.card
+    val badge = spec.cardBadge
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             // The value on its own line with its label under it, as a stat has them.
-            if (value != null) BigText(value, valueStyle(box))
-            if (label != null) Text(
-                label,
-                style = type.bodyMedium,
-                color = muted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (value != null) BadgedLine(badge, color, Modifier.fillMaxWidth()) { BigText(value, valueStyle(box)) }
+            if (label != null) BadgedLine(badge.takeIf { value == null }, color, Modifier.fillMaxWidth()) {
+                Text(
+                    label,
+                    style = type.bodyMedium,
+                    color = muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Plot(
                 spec.points,
                 bars,
@@ -116,14 +123,17 @@ internal fun ChartBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box) {
                     .padding(end = 12.dp)
                     .widthIn(max = 120.dp)
             ) {
-                if (value != null) BigText(value, type.titleLarge)
-                if (label != null) Text(
-                    label,
-                    style = type.bodySmall,
-                    color = muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                // The badge right after the value, so the headline's column stays as narrow as it is.
+                if (value != null) BadgedLine(badge, color, end = false) { BigText(value, type.titleLarge) }
+                if (label != null) BadgedLine(badge.takeIf { value == null }, color, end = false) {
+                    Text(
+                        label,
+                        style = type.bodySmall,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
             Plot(
                 spec.points,

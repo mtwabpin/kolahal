@@ -51,11 +51,15 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
  *   card has its name over them ([CardName]).
  * - With `moving`, the ring and the bars are waves while the page is in view.
  * - Stages, a gauge and rings draw in every look themselves: [StagesBody], [GaugeBody], [RingsBody].
+ * - The card's badge ([shownBadge]): at the end of the name line over bars, else at the end of the
+ *   first line (a wide card's first bar, the bar's value, the words beside a ring), or at the top
+ *   end beside a large ring. It goes where the line has no room for it.
  */
 @Composable
 internal fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
     val color = roleColor(spec.base)
     val look = LocalWidgetLook.current
+    val badge = shownBadge(spec, box)
     when {
         ProgressStyles.isStages(spec) -> StagesBody(spec, box, look, color)
         ProgressStyles.isGauge(spec) -> GaugeBody(spec, box, look, color)
@@ -63,7 +67,8 @@ internal fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
         look.untitled() -> ProgressLook(spec, box, look, color)
         spec.items.isNotEmpty() && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             // Each bar says what it is: a large card says what they are together over them, as a list does ("Disk").
-            CardName(Modifier.padding(bottom = 8.dp))
+            if (badge != null) BadgedLine(badge, color, Modifier.padding(bottom = 8.dp)) { CardName() }
+            else CardName(Modifier.padding(bottom = 8.dp))
             Box(
                 Modifier
                     .weight(1f)
@@ -71,14 +76,15 @@ internal fun ProgressBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
             ) { BarsBody(spec, color) }
         }
 
-        spec.items.isNotEmpty() -> BarsBody(spec, color)
+        spec.items.isNotEmpty() -> BarsBody(spec, color, badge)
         spec.style == "ring" || (spec.style != "bar" && box != WidgetSizes.Box.WIDE) -> RingBody(
             spec,
             box,
-            color
+            color,
+            badge
         )
 
-        else -> BarBody(spec, box, color)
+        else -> BarBody(spec, box, color, badge)
     }
 }
 
@@ -123,9 +129,11 @@ internal fun Ring(fraction: Float, moving: Boolean, color: Color, side: Dp) {
  * - Wide: the ring at the start. With no title line ([LocalUntitled]), as the mockup has it: the
  *   text inside the ring, and the title in bold beside it over the label. With a title line: the
  *   text and the label beside the ring.
+ * - The card's [badge]: at the end of the first line beside a wide card's ring, and at the top end
+ *   of a large one, where the ring leaves the room ([CenteredBadged]).
  */
 @Composable
-private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
+private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color, badge: String?) {
     val type = MaterialTheme.typography
     val tonal = LocalWidgetLook.current == WidgetLook.TONAL
     val muted = lookColors().muted
@@ -154,13 +162,15 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Col
                             .padding(start = 12.dp)
                             .weight(1f)
                     ) {
-                        Text(
-                            cardText(untitled),
-                            style = type.titleMediumEmphasized,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        BadgedLine(badge, color) {
+                            Text(
+                                cardText(untitled),
+                                style = type.titleMediumEmphasized,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                         spec.label?.let { RingLabel(it, spec.labelIcon, type.bodyMedium, muted) }
                     }
                 } else {
@@ -170,7 +180,7 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Col
                             .padding(start = 12.dp)
                             .weight(1f)
                     ) {
-                        BigText(text, type.titleLarge)
+                        BadgedLine(badge, color) { BigText(text, type.titleLarge) }
                         spec.label?.let { RingLabel(it, spec.labelIcon, type.bodySmall, muted) }
                     }
                 }
@@ -180,30 +190,34 @@ private fun RingBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Col
             val label = (spec.label ?: untitled).takeIf { box == WidgetSizes.Box.LARGE }
             val labelRoom = if (label != null) 24.dp else 0.dp
             val side = min(maxWidth, maxHeight - labelRoom).coerceAtLeast(24.dp)
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(side), contentAlignment = Alignment.Center) {
-                    Ring(fraction, spec.moving, color, side)
-                    // The text stays clear of the ring's line, which is an eighth of the side.
-                    BigText(
-                        text,
-                        if (side >= 96.dp) type.titleLarge else type.titleSmall,
-                        Modifier.padding(horizontal = side / 5)
-                    )
-                }
-                // The label in bold and in the card's color, as the mockup has it: it says what the number means.
-                // On Tonal's card of that color it is in the text color.
-                if (label != null) {
-                    RingLabel(
-                        label,
-                        spec.labelIcon,
-                        type.titleSmallEmphasized,
-                        if (tonal) MaterialTheme.colorScheme.onSurface else color,
-                        Modifier
-                            .height(labelRoom)
-                            .wrapContentHeight()
-                    )
+            val ring: @Composable () -> Unit = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(side), contentAlignment = Alignment.Center) {
+                        Ring(fraction, spec.moving, color, side)
+                        // The text stays clear of the ring's line, which is an eighth of the side.
+                        BigText(
+                            text,
+                            if (side >= 96.dp) type.titleLarge else type.titleSmall,
+                            Modifier.padding(horizontal = side / 5)
+                        )
+                    }
+                    // The label in bold and in the card's color, as the mockup has it: it says what the number means.
+                    // On Tonal's card of that color it is in the text color.
+                    if (label != null) {
+                        RingLabel(
+                            label,
+                            spec.labelIcon,
+                            type.titleSmallEmphasized,
+                            if (tonal) MaterialTheme.colorScheme.onSurface else color,
+                            Modifier
+                                .height(labelRoom)
+                                .wrapContentHeight()
+                        )
+                    }
                 }
             }
+            // The badge at the top end, where the ring leaves the room beside it.
+            if (badge != null) CenteredBadged(badge, color) { ring() } else ring()
         }
     }
 }
@@ -236,43 +250,50 @@ internal fun RingLabel(
 
 /**
  * One bar under its text. The label is beside the text. A large box has the text at its top and
- * the bar at its bottom; the others have both in the middle.
+ * the bar at its bottom; the others have both in the middle. The card's [badge] is at the end of
+ * the text's line, where the text and the label leave it room ([BadgedLine]).
  */
 @Composable
-private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
+private fun BarBody(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color, badge: String?) {
     val large = box == WidgetSizes.Box.LARGE
     Column(
         Modifier.fillMaxSize(),
         verticalArrangement = if (large) Arrangement.SpaceBetween else Arrangement.Center
     ) {
-        Row {
-            BigText(
-                spec.text ?: WidgetWords.percent(spec.value, spec.max),
-                valueStyle(box),
-                Modifier
-                    .weight(1f, fill = false)
-                    .alignByBaseline()
-            )
-            if (box != WidgetSizes.Box.SMALL) (spec.label ?: LocalUntitled.current)?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = lookColors().muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .widthIn(max = 96.dp)
-                        .alignByBaseline(),
-                )
-            }
-        }
+        BadgedLine(badge, color) { BarLine(spec, box) }
         LevelBar(
             WidgetWords.fraction(spec.value, spec.max),
             spec.moving,
             color,
             Modifier.padding(top = 4.dp)
         )
+    }
+}
+
+/** A bar's text, large, and its label (or the card's name) beside it ([BarBody]). */
+@Composable
+private fun BarLine(spec: WidgetSpec.Progress, box: WidgetSizes.Box) {
+    Row {
+        BigText(
+            spec.text ?: WidgetWords.percent(spec.value, spec.max),
+            valueStyle(box),
+            Modifier
+                .weight(1f, fill = false)
+                .alignByBaseline()
+        )
+        if (box != WidgetSizes.Box.SMALL) (spec.label ?: LocalUntitled.current)?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = lookColors().muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .widthIn(max = 96.dp)
+                    .alignByBaseline(),
+            )
+        }
     }
 }
 
@@ -285,9 +306,11 @@ private const val BAR_DP = 14
 /**
  * Several bars. Each has its label and its text over it when the box is tall enough for all of
  * them. A lower box draws the bars alone, as many as fit. A bar's own color wins over the card's.
+ * The card's [badge] (a wide card's, with no name line over the bars) is on the first bar's line,
+ * after its label and before its text, where the label leaves it room. Bars alone have none.
  */
 @Composable
-private fun BarsBody(spec: WidgetSpec.Progress, color: Color) {
+private fun BarsBody(spec: WidgetSpec.Progress, color: Color, badge: String? = null) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
     val muted = lookColors().muted
@@ -300,14 +323,16 @@ private fun BarsBody(spec: WidgetSpec.Progress, color: Color) {
                 key(i) {
                     Column {
                         if (named) Row {
-                            Text(
-                                bar.label.orEmpty(),
-                                style = type.bodySmall,
-                                color = muted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
+                            BadgedLine(badge.takeIf { i == 0 }, color, Modifier.weight(1f)) {
+                                Text(
+                                    bar.label.orEmpty(),
+                                    style = type.bodySmall,
+                                    color = muted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                             Text(
                                 bar.text ?: WidgetWords.percent(bar.value, bar.max),
                                 style = type.labelMedium,

@@ -84,16 +84,20 @@ private const val MORE_DP = 20
  * - A large list has the card's name over its rows ([CardName]): "Groceries".
  * - The lead: in a large box, the big value and its label over the rows. A small or a wide box
  *   has room for the lead alone.
+ * - The card's badge ([shownBadge]): at the end of the name line in a large box, else at the end
+ *   of the first line: the lead's value, or the first row's words, before its trailing text.
  */
 @Composable
 internal fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
     val lead = spec.lead
     val look = LocalWidgetLook.current
+    val badge = shownBadge(spec, box)
+    val role = roleColor(spec.base)
     when {
         lead == null && spec.items.isEmpty() && box == WidgetSizes.Box.LARGE -> SplitWhole {
             Column(Modifier.fillMaxSize()) {
                 // An empty large list says which list it is over its words ("All read"), as it does over its rows.
-                CardName()
+                BadgedLine(badge, role) { CardName() }
                 Box(
                     Modifier
                         .weight(1f)
@@ -109,7 +113,8 @@ internal fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
         lead == null && spec.items.isEmpty() -> QuietLine(spec.empty ?: WidgetWords.NOTHING)
         look.untitled() -> RowsLook(spec, box, onTap, look)
         lead == null && box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-            CardName(Modifier.padding(bottom = 8.dp))
+            if (badge != null) BadgedLine(badge, role, Modifier.padding(bottom = 8.dp)) { CardName() }
+            else CardName(Modifier.padding(bottom = 8.dp))
             Box(
                 Modifier
                     .weight(1f)
@@ -123,18 +128,18 @@ internal fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
             }
         }
 
-        lead == null -> RowList(spec.items, onTap, roleColor(spec.base))
+        lead == null -> RowList(spec.items, onTap, roleColor(spec.base), badge = badge)
         box != WidgetSizes.Box.LARGE -> {
             Box(
                 Modifier.fillMaxSize(),
                 contentAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.Center else Alignment.CenterStart
             ) {
-                LeadLine(lead, valueStyle(box), centered = box == WidgetSizes.Box.SMALL)
+                LeadLine(lead, valueStyle(box), centered = box == WidgetSizes.Box.SMALL, badge, role)
             }
         }
 
         else -> Column(Modifier.fillMaxSize()) {
-            LeadLine(lead, MaterialTheme.typography.headlineMedium, centered = false)
+            LeadLine(lead, MaterialTheme.typography.headlineMedium, centered = false, badge, role)
             if (spec.items.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 // Under a lead the rows keep their height, as the mockup's Reminders card has them.
@@ -155,29 +160,40 @@ internal fun RowsBody(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
     }
 }
 
-/** A list's lead: the value big, its unit small, and the label under them. */
+/**
+ * A list's lead: the value big, its unit small, and the label under them. The card's [badge], in
+ * [role], is at the end of the value's line where it fits beside it ([BadgedLine]).
+ */
 @Composable
-private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centered: Boolean) {
+private fun LeadLine(
+    lead: WidgetSpec.Lead,
+    style: TextStyle,
+    centered: Boolean,
+    badge: String? = null,
+    role: Color = Color.Unspecified
+) {
     val type = MaterialTheme.typography
     val muted = lookColors().muted
     Column(horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start) {
-        Row {
-            BigText(
-                lead.value, style, Modifier
-                    .weight(1f, fill = false)
-                    .alignByBaseline()
-            )
-            lead.unit?.let {
-                Text(
-                    it,
-                    style = type.titleMedium,
-                    color = muted,
-                    maxLines = 1,
-                    softWrap = false,
-                    modifier = Modifier
-                        .padding(start = 4.dp)
+        BadgedLine(badge, role) {
+            Row {
+                BigText(
+                    lead.value, style, Modifier
+                        .weight(1f, fill = false)
                         .alignByBaseline()
                 )
+                lead.unit?.let {
+                    Text(
+                        it,
+                        style = type.titleMedium,
+                        color = muted,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier
+                            .padding(start = 4.dp)
+                            .alignByBaseline()
+                    )
+                }
             }
         }
         lead.label?.let {
@@ -194,14 +210,16 @@ private fun LeadLine(lead: WidgetSpec.Lead, style: TextStyle, centered: Boolean)
 
 /**
  * A list's rows, as many as fit the box, then "+3 more" ([RowsBody]). With [fill], rows that all fit
- * share the box's height. [role] is the card's color, for the bars of rows with a range.
+ * share the box's height. [role] is the card's color, for the bars of rows with a range. The card's
+ * [badge] is on the first row ([ListRow]).
  */
 @Composable
 private fun RowList(
     items: List<WidgetSpec.Row>,
     onTap: ((WidgetTap) -> Unit)?,
     role: Color,
-    fill: Boolean = true
+    fill: Boolean = true,
+    badge: String? = null
 ) {
     val type = MaterialTheme.typography
     val titleDp = linesDp(type.bodyMedium)
@@ -237,7 +255,8 @@ private fun RowList(
                         onTap,
                         bars,
                         ends,
-                        role
+                        role,
+                        badge.takeIf { i == 0 }
                     )
                 }
             }
@@ -307,6 +326,9 @@ internal fun segmentColor(): Color = MaterialTheme.colorScheme.onSurface.copy(al
  * With [bars], the row has its range's bar before its trailing text ([RangeSlot]). Without
  * [RangeBars.marks], its icon or its color's dot gives way to the bar. [ends] is the room at the
  * row's ends ([listBars]). [role] is the card's color: the bar's, when the row has none of its own.
+ *
+ * With [badge] (the card's, on the first row of a list with no name line over it), the badge is at
+ * the end of the row's words, before its trailing text, where the words leave it room ([BadgedLine]).
  */
 @Composable
 private fun ListRow(
@@ -317,7 +339,8 @@ private fun ListRow(
     onTap: ((WidgetTap) -> Unit)?,
     bars: RangeBars?,
     ends: Dp,
-    role: Color
+    role: Color,
+    badge: String? = null
 ) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
@@ -364,22 +387,24 @@ private fun ListRow(
                     .background(color)
             )
         }
-        Column(Modifier.weight(1f)) {
-            Text(
-                cardText(row.title),
-                style = type.bodyMedium,
-                color = scheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (details) row.detail?.let {
+        BadgedLine(badge, role, Modifier.weight(1f)) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    cardText(it),
-                    style = type.bodySmall,
-                    color = muted,
+                    cardText(row.title),
+                    style = type.bodyMedium,
+                    color = scheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (details) row.detail?.let {
+                    Text(
+                        cardText(it),
+                        style = type.bodySmall,
+                        color = muted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
         if (bars != null) {

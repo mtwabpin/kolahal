@@ -1170,10 +1170,87 @@ Every kind takes these fields. All are optional.
 | `staleAfter` | seconds, 60 to 604800 | How long the content counts as current. Without it: one hour, or one minute for `toggles`. |
 | `refresh` | seconds, 10 to 3600 | Run the script again this often while the widget is on screen. A widget scrolled out of sight waits, and runs as soon as it is back if its time has passed. |
 | `note` | text, up to 16 characters | A few words in the card's color on a large card's last line, before the content's age: `Done today`. A wide or small card has no room for that line; a screen reader still says the note. Needs Kolahal 0.5.11. |
+| `badge` | text, up to 8 characters | A small pill at the top: a count or a word, `3`, `live`, `Sat`. A large card in the **Plain** and **Tonal** looks has it at the end of its first line; **Bold** and **Split** at the top end. Where a line can't hold both, the badge gives way to the content. A `1x1` card, **Poster**, a card that is one shape and a cropped picture leave it out. `buttons` and `toggles` take none: every cell is a tap. A screen reader says it after the card's name. Needs Kolahal 0.5.22; a `versus` card has taken it since 0.5.17. |
+| `footer` | text, up to 60 | Quiet words on the card's last line, such as a source: `City sensors`. Plain text, with no styles. The note comes first, then the footer, then the content's age or "Failed 10:42", which is never cut: the footer is cut first, with "…". It shows on a large card in the **Plain** and **Tonal** looks, and on a wide one where the age may show; a `1x1` card and the **Bold**, **Split**, **Shape** and **Poster** looks leave it out. Unlike `note`, it doesn't turn the card **Plain**. A screen reader says it last, before the age. Needs Kolahal 0.5.22. |
 
-No card has a title line: the content has the card's room. A large card's last line has the note
-and the content's age or "Failed 10:42". A wide or small card has no room for that line, and a
-screen reader says them all the same.
+No card has a title line: the content has the card's room. A large card's last line has the note,
+the footer and the content's age or "Failed 10:42". A wide or small card has no room for that
+line, and a screen reader says them all the same.
+
+<Tabs syncKey="lang">
+<TabItem label="Lua">
+```lua
+-- a badge at the top: a count, here of the rows
+widget.show{
+  kind = "list",
+  title = "Inbox",
+  badge = "3",
+  items = {
+    {
+      title = "Plans for Saturday",
+      detail = "Sam · see you at ten?",
+      trailing = "09:12",
+    },
+    {
+      title = "Your order has shipped",
+      detail = "Shop · arrives Thursday",
+      trailing = "08:40",
+    },
+    {
+      title = "Book club notes",
+      detail = "Ana · chapter six",
+      trailing = "Mon",
+    },
+  },
+}
+
+-- a footer: a quiet line on a large card's last line
+widget.show{
+  kind = "text",
+  title = "Quote of the day",
+  text = "Begin anywhere. The middle will find you on the way.",
+  caption = "Proverb",
+  footer = "A new quote each morning",
+}
+```
+</TabItem>
+<TabItem label="JavaScript">
+```js
+// a badge at the top: a count, here of the rows
+widget.show({
+  kind: "list",
+  title: "Inbox",
+  badge: "3",
+  items: [
+    {
+      title: "Plans for Saturday",
+      detail: "Sam · see you at ten?",
+      trailing: "09:12",
+    },
+    {
+      title: "Your order has shipped",
+      detail: "Shop · arrives Thursday",
+      trailing: "08:40",
+    },
+    {
+      title: "Book club notes",
+      detail: "Ana · chapter six",
+      trailing: "Mon",
+    },
+  ],
+});
+
+// a footer: a quiet line on a large card's last line
+widget.show({
+  kind: "text",
+  title: "Quote of the day",
+  text: "Begin anywhere. The middle will find you on the way.",
+  caption: "Proverb",
+  footer: "A new quote each morning",
+});
+```
+</TabItem>
+</Tabs>
 
 ### Icons
 
@@ -1203,10 +1280,11 @@ A widget's `icon` can be the name of a line icon. Kolahal draws it in the card's
 | `delta` | text, up to 16 | A change, such as `+2.4%`. |
 | `trend` | `up`, `down` or `flat` | An arrow for the change. |
 | `more` | a list of `{ value, label }` | Up to 3 smaller values. Each text is up to 24 characters, and `value` is needed. |
-| `progress` | a number, 0 to 1 | A bar under the value. |
+| `progress` | a number, 0 to 1; 0 to 2 with a `target` | A bar under the value. With a `target`, past 1 the bar is full with a mark at the target, and a large card writes the share: `112%`. Up to 2 needs Kolahal 0.5.22. |
 | `moving` | true or false | Draws the bar as a wave, for something in progress. |
 | `points` | a list of numbers | The value's recent numbers, the oldest first: a soft line from edge to edge under the value, as a chart's line. The last 60 are kept. A `1x1` card leaves it out. Needs Kolahal 0.5.17. |
 | `scene` | a shader's name | A still of that shader as the card's ground, under a scrim that keeps the figures readable ([scenes](#a-stats-scene)). Needs Kolahal 0.5.17. |
+| `target` | text, up to 16 | The number the value is measured against: with `8,000`, the card shows "6,240 of 8,000", after the value on a `4x1` and a `2x2` card, under the label on a `2x1`. A `1x1` card and **Poster** leave it out. Kolahal never reads a number out of a text: give `progress` too, the value over the target. Needs Kolahal 0.5.22. |
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -1223,6 +1301,15 @@ widget.show{
   progress = 0.68,
   moving = true,
 }
+
+-- a target: "6,240 of 8,000", and the bar to it
+widget.show{
+  kind = "stat",
+  value = "6,240",
+  label = "Steps today",
+  target = "8,000",
+  progress = 6240 / 8000,
+}
 ```
 </TabItem>
 <TabItem label="JavaScript">
@@ -1238,6 +1325,15 @@ widget.show({
   label: "Charging",
   progress: 0.68,
   moving: true,
+});
+
+// a target: "6,240 of 8,000", and the bar to it
+widget.show({
+  kind: "stat",
+  value: "6,240",
+  label: "Steps today",
+  target: "8,000",
+  progress: 6240 / 8000,
 });
 ```
 </TabItem>
@@ -1450,6 +1546,7 @@ each other, or stages. It needs `value`, `items` or `stages`.
 | `zones` | a list of zones | A gauge's zones, up to 5, each `{ from, color }`. |
 | `stages` | a list of 2 to 6 texts, up to 24 each | The stages, the first one first: `Ordered`, `Shipped`, `Delivered`. |
 | `stage` | a whole number | The stage it is at: 1 for the first. Needed with `stages`. |
+| `details` | a list of texts, up to 16 each | A line under each stage's name, in order: when each was reached, `Mon 09:12`. Fewer than the stages leave the later ones blank; more are cut. They show where the names do, on a `4x2` card and larger; a screen reader says each with its stage. Only with `stages`: without them it is an error. Needs Kolahal 0.5.22. |
 
 A value is held between 0 and its `max`. Bars are on one scale: the widget's `max`, or else the
 largest value among them. A bar with its own `max` uses that.
@@ -1549,6 +1646,26 @@ widget.show{
   label = "Arrives Thursday",
 }
 
+-- stages with details: a line under each stage's name on a 4x2 card
+widget.show{
+  kind = "progress",
+  title = "Parcel",
+  stages = {
+    "Ordered",
+    "Shipped",
+    "Out for delivery",
+    "Delivered",
+  },
+  stage = 3,
+  value = 0.5,
+  label = "By 6 PM",
+  details = {
+    "Mon 09:12",
+    "Tue 18:40",
+    "Today 07:05",
+  },
+}
+
 -- style = "bar": one bar, whatever the card's size
 widget.show{
   kind = "progress",
@@ -1627,6 +1744,26 @@ widget.show({
   stage: 3,
   value: 0.4,
   label: "Arrives Thursday",
+});
+
+// stages with details: a line under each stage's name on a 4x2 card
+widget.show({
+  kind: "progress",
+  title: "Parcel",
+  stages: [
+    "Ordered",
+    "Shipped",
+    "Out for delivery",
+    "Delivered",
+  ],
+  stage: 3,
+  value: 0.5,
+  label: "By 6 PM",
+  details: [
+    "Mon 09:12",
+    "Tue 18:40",
+    "Today 07:05",
+  ],
 });
 
 // style: "bar": one bar, whatever the card's size
@@ -1961,7 +2098,7 @@ widget.show({
 | --- | --- | --- |
 | `items` | a list of buttons | Needed: 1 to 8. No buttons, or more than 8, is an error. |
 
-Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
+Each button is `{ label, icon, color, tap, value }`. `label` and `tap` are needed.
 
 | Field | Value | What it is |
 | --- | --- | --- |
@@ -1969,6 +2106,7 @@ Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
 | `icon` | an icon name, or text up to 4 | An [icon](#icons), an emoji or a letter in front of the text. |
 | `color` | a role | The button's color. |
 | `tap` | an action | Needed. What the button does: `{ args }` runs this script again, `{ url }` opens a web link ([Taps](#taps)). |
+| `value` | text, up to 12 | A short text on a line under the label: a reading such as `21°`. A narrow cell that shows the icon alone, and a low one, leave it out. A screen reader says it after the label. Needs Kolahal 0.5.22. |
 
 - A small card shows fewer buttons, never smaller ones. So put the important ones first.
 - A button is at least 48dp tall. The same goes for `toggles`.
@@ -1981,7 +2119,7 @@ Each button is `{ label, icon, color, tap }`. `label` and `tap` are needed.
 | --- | --- | --- |
 | `items` | a list of switches | Needed: 1 to 6. No switches, or more than 6, is an error. |
 
-Each switch is `{ label, icon, on, tap }`. `label`, `on` and `tap` are needed.
+Each switch is `{ label, icon, on, tap, value }`. `label`, `on` and `tap` are needed.
 
 | Field | Value | What it is |
 | --- | --- | --- |
@@ -1989,8 +2127,10 @@ Each switch is `{ label, icon, on, tap }`. `label`, `on` and `tap` are needed.
 | `icon` | an icon name, or text up to 4 | An [icon](#icons), an emoji or a letter in front of the text. |
 | `on` | true or false | Needed. The state now. |
 | `tap` | `{ args }` | Needed. The arguments that switch it. A link is an error: a switch always runs this script again. |
+| `value` | text, up to 12 | A short text in place of "On" or "Off": `21°`, `40%`. A narrow cell that shows the icon alone, and a low one, leave it out. A screen reader says it after the label, then the state. Needs Kolahal 0.5.22. |
 
-A switch is filled while it is on. Where there is room, it says "On" or "Off" under its label.
+A switch is filled while it is on. Where there is room, it says "On" or "Off" under its label, or
+its `value`.
 
 How a switch works:
 
@@ -2113,6 +2253,30 @@ widget.show{
   },
 }
 
+-- buttons: a reading under the middle button's label
+widget.show{
+  kind = "buttons",
+  title = "Heating",
+  items = {
+    {
+      label = "Colder",
+      icon = "down",
+      tap = { args = "colder" },
+    },
+    {
+      label = "Living room",
+      icon = "temp",
+      value = "21°",
+      tap = { args = "room" },
+    },
+    {
+      label = "Warmer",
+      icon = "up",
+      tap = { args = "warmer" },
+    },
+  },
+}
+
 -- toggles: the script changes the thing, then reports the new state
 -- The script needs @uses dnd.
 if event and event.name == "action"
@@ -2160,6 +2324,37 @@ widget.show{
       icon = "leaf",
       on = store.get("Garden") == "on",
       tap = { args = "Garden" },
+    },
+  },
+}
+
+-- toggles: a value in place of On, here the heating's temperature
+-- Each switch is a setting in the
+-- script's store: a tap flips it.
+if event and event.name == "action" then
+  store.set(
+    args[1],
+    store.get(args[1]) == "on" and "off"
+      or "on"
+  )
+end
+
+widget.show{
+  kind = "toggles",
+  title = "Home",
+  items = {
+    {
+      label = "Heating",
+      icon = "temp",
+      value = "21°",
+      on = store.get("Heating") == "on",
+      tap = { args = "Heating" },
+    },
+    {
+      label = "Fan",
+      icon = "wind",
+      on = store.get("Fan") == "on",
+      tap = { args = "Fan" },
     },
   },
 }
@@ -2252,6 +2447,30 @@ widget.show({
   ],
 });
 
+// buttons: a reading under the middle button's label
+widget.show({
+  kind: "buttons",
+  title: "Heating",
+  items: [
+    {
+      label: "Colder",
+      icon: "down",
+      tap: { args: "colder" },
+    },
+    {
+      label: "Living room",
+      icon: "temp",
+      value: "21°",
+      tap: { args: "room" },
+    },
+    {
+      label: "Warmer",
+      icon: "up",
+      tap: { args: "warmer" },
+    },
+  ],
+});
+
 // toggles: the script changes the thing, then reports the new state
 // The script needs @uses dnd.
 if (event && event.name === "action"
@@ -2301,6 +2520,38 @@ widget.show({
       icon: "leaf",
       on: store.get("Garden") === "on",
       tap: { args: "Garden" },
+    },
+  ],
+});
+
+// toggles: a value in place of On, here the heating's temperature
+// Each switch is a setting in the
+// script's store: a tap flips it.
+if (event && event.name === "action") {
+  store.set(
+    args[0],
+    store.get(args[0]) === "on"
+      ? "off"
+      : "on",
+  );
+}
+
+widget.show({
+  kind: "toggles",
+  title: "Home",
+  items: [
+    {
+      label: "Heating",
+      icon: "temp",
+      value: "21°",
+      on: store.get("Heating") === "on",
+      tap: { args: "Heating" },
+    },
+    {
+      label: "Fan",
+      icon: "wind",
+      on: store.get("Fan") === "on",
+      tap: { args: "Fan" },
     },
   ],
 });
@@ -2450,9 +2701,9 @@ widget.show({
 | `turn` | 1 or 2 | The side to move, or the side with the ball: a dot by its name. |
 | `moving` | true or false | Draws the part of the bar of the side in `turn` as a wave that moves: its clock runs. |
 | `caption` | text, up to 60 | A last line: the last move, the last goal. |
-| `badge` | text, up to 8 | A small text at the top, in the card's color: `67'`, `LIVE`. |
+| `badge` | text, up to 8 | The badge every kind but buttons and switches takes: here a small text at the top, in the card's color: `67'`, `LIVE`. |
 
-Each side is `{ name, mark, color, value, text }`. Only `name` is needed.
+Each side is `{ name, mark, color, value, text, detail }`. Only `name` is needed.
 
 | Field | Value | What it is |
 | --- | --- | --- |
@@ -2461,6 +2712,7 @@ Each side is `{ name, mark, color, value, text }`. Only `name` is needed.
 | `color` | a role | The side's color: its mark, its part of the bar and its figure. Without it: `accent` for the first side, `link` for the second. |
 | `value` | a number, 0 or more | The side's part of the bar between the sides: its clock's time left in seconds, its share of the ball. |
 | `text` | text, up to 12 | What the bar's end says for the side: `58:10`, `58%`. Without it: the value. |
+| `detail` | text, up to 24 | A small line under the side's name: a place in a table, a record, `3rd · 41 pts`. A `2x1` and a `1x1` card leave it out. Where a card is short of room, it goes before the badge and the caption do. Needs Kolahal 0.5.22. |
 
 - The bar shows when both sides have a `value` and they aren't both 0. Each side's part is its
   value over the two, and moves to a new value smoothly.
@@ -2473,7 +2725,7 @@ Each side is `{ name, mark, color, value, text }`. Only `name` is needed.
   and the caption.
 - The marks are shapes in every look, so a versus card has no **Shape** look.
 - A screen reader says the badge, the sides with the score ("Lisbon 2–1 Paris"), each side's figure
-  where there is a bar, whose turn it is, and the caption.
+  where there is a bar, whose turn it is, each side's detail, and the caption.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">
@@ -2523,6 +2775,27 @@ widget.show{
   },
   caption = "Penalties next",
 }
+
+-- versus: each side's place in the table under its name
+widget.show{
+  kind = "versus",
+  title = "League",
+  badge = "67'",
+  score = "2–1",
+  sides = {
+    {
+      name = "North",
+      color = "info",
+      detail = "3rd · 41 pts",
+    },
+    {
+      name = "South",
+      color = "warn",
+      detail = "7th · 33 pts",
+    },
+  },
+  caption = "Second half",
+}
 ```
 </TabItem>
 <TabItem label="JavaScript">
@@ -2571,6 +2844,27 @@ widget.show({
     },
   ],
   caption: "Penalties next",
+});
+
+// versus: each side's place in the table under its name
+widget.show({
+  kind: "versus",
+  title: "League",
+  badge: "67'",
+  score: "2–1",
+  sides: [
+    {
+      name: "North",
+      color: "info",
+      detail: "3rd · 41 pts",
+    },
+    {
+      name: "South",
+      color: "warn",
+      detail: "7th · 33 pts",
+    },
+  ],
+  caption: "Second half",
 });
 ```
 </TabItem>
@@ -2682,9 +2976,11 @@ What a description keeps, and what it refuses.
 | `list`: a row's `range` | `value` from `low` to `high` | held at the nearer end; `low` above `high` is an error |
 | `stat`: `more` | 3 smaller values | the first 3 are kept |
 | `stat`: `points` | 60 numbers | the last 60 are kept: the newest |
+| `stat`: `progress` | 0 to 1, or 0 to 2 with a `target` | held between them |
 | `progress`: `items` | 4 bars | the first 4 are kept |
 | `progress`: `zones` | 5 zones | the first 5 are kept |
 | `progress`: `stages` | 2 to 6 names | an error, as for fewer than 2 |
+| `progress`: `details` | one for each stage | the first ones are kept; without `stages`, an error |
 | `chart`: `points` | 60 numbers | the last 60 are kept: the newest |
 | `chart`: `labels` | 2 texts | the first 2 are kept |
 | `buttons`: `items` | 1 to 8 buttons | an error, as for none |
@@ -2710,11 +3006,11 @@ What a description keeps, and what it refuses.
 
 A card's labels start with a capital, as the rest of Kolahal's text does, whatever the script
 writes: `label = "unlocks today"` shows "Unlocks today". This goes for the `label` of a card, of a
-`lead`, of a `progress` bar, of a button and of a switch, the names of `stages`, each `caption`,
-a row's `detail`, `empty`, `reached` and a chart's `labels`, and for the
-labels of [`fmt.stats`](#big-numbers) in the log. Every other text stays as written, such as
-titles, `note`, `text`, `trailing`, `where`, values and units, a clock's place names and a tap's
-`label`.
+`lead`, of a `progress` bar, of a button and of a switch, the names of `stages` and their
+`details`, each `caption`, `footer`, a row's and a side's `detail`, `empty`, `reached` and a
+chart's `labels`, and for the labels of [`fmt.stats`](#big-numbers) in the log. Every other text stays as written, such as titles, `note`, `badge`, `text`,
+`trailing`, `where`, values and units (a stat's `target`, a button's or a switch's `value`), a
+clock's place names and a tap's `label`.
 
 A label also stays as written when:
 

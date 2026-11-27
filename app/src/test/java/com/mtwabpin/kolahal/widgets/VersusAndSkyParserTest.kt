@@ -73,7 +73,7 @@ class VersusAndSkyParserTest {
     @Test
     fun aVersusNeedsTwoSidesEachWithAName() {
         assertEquals(
-            "widget: sides is needed: the two sides, each { name, mark, color, value, text }",
+            "widget: sides is needed: the two sides, each { name, mark, color, value, text, detail }",
             refused(mapOf("score" to "1–0"), WidgetKind.VERSUS)
         )
         assertEquals(
@@ -159,7 +159,7 @@ class VersusAndSkyParserTest {
     @Test
     fun theLastLineIsTheCaption() {
         assertEquals(
-            "widget: a versus widget has no field 'line'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, sides, score, turn, moving, caption, badge",
+            "widget: a versus widget has no field 'line'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, badge, footer, sides, score, turn, moving, caption",
             noVersus("line" to "64' Goal")
         )
     }

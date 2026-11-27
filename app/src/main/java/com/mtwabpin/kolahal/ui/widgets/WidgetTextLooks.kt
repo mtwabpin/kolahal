@@ -50,7 +50,11 @@ internal fun TextLook(spec: WidgetSpec.Text, box: WidgetSizes.Box, look: WidgetL
     }
 }
 
-/** Bold's text: the quote large in Bold's narrow type, and its caption (or the title) in a chip of the role's container. */
+/**
+ * Bold's text: the quote large in Bold's narrow type, and its caption (or the title) in a chip of the
+ * role's container. The card's badge is at the top end, beside the quote, where the quote still
+ * fits at its size in the width it leaves ([BadgedBlock]).
+ */
 @Composable
 private fun BoldTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
@@ -69,8 +73,16 @@ private fun BoldTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
         )
     }
     val chip = spec.caption ?: LocalUntitled.current
+    val badge = shownBadge(spec, box)
     Column(Modifier.fillMaxSize()) {
-        FittedText(
+        if (badge != null) BadgedBlock(
+            badge,
+            role,
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) { FittedText(cardText(spec.text), style, largest, c.content, Modifier.fillMaxSize()) }
+        else FittedText(
             cardText(spec.text),
             style,
             largest,
@@ -110,7 +122,11 @@ private fun LetterCookie(text: String, role: Color, side: Dp) {
     }
 }
 
-/** Split's text: the text in a big tile, over a tile with its caption (or the title) after its first letter on a cookie. */
+/**
+ * Split's text: the text in a big tile, over a tile with its caption (or the title) after its first
+ * letter on a cookie. The card's badge is in the text's tile, at the end of the text's first line,
+ * where the text still fits at its size in the width it leaves ([BadgedBlock]).
+ */
 @Composable
 private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
@@ -120,6 +136,7 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val who = spec.caption ?: title
     val gap = SplitCorners.GAP
     val quote = cardText(spec.text)
+    val badge = shownBadge(spec, box)
     when (box) {
         WidgetSizes.Box.LARGE -> Column(
             Modifier.fillMaxSize(),
@@ -132,19 +149,17 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                FittedText(
-                    quote,
-                    type.titleLarge.copy(
-                        fontSize = 20.sp,
-                        lineHeight = 26.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    20.sp,
-                    c.content,
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(horizontal = 18.dp, vertical = 14.dp)
+                val place = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(horizontal = 18.dp, vertical = 14.dp)
+                val large = type.titleLarge.copy(
+                    fontSize = 20.sp,
+                    lineHeight = 26.sp,
+                    fontWeight = FontWeight.Bold
                 )
+                if (badge != null) BadgedBlock(badge, role, place) {
+                    FittedText(quote, large, 20.sp, c.content)
+                } else FittedText(quote, large, 20.sp, c.content, place)
             }
             if (who != null) BoxWithConstraints(
                 Modifier
@@ -197,15 +212,14 @@ private fun SplitTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                FittedText(
-                    quote,
-                    type.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    16.sp,
-                    c.content,
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                )
+                val place = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                val style = type.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                // With the badge, the text is measured at its largest size: the badge never makes it smaller.
+                if (badge != null) BadgedBlock(badge, role, place) {
+                    FittedText(quote, style.copy(fontSize = 16.sp), 16.sp, c.content)
+                } else FittedText(quote, style, 16.sp, c.content, place)
             }
             if (who != null) Tile(
                 SplitCorners.inColumn(1, 2),
@@ -263,7 +277,11 @@ private fun TextMark(icon: String?, title: String?, role: Color, side: Dp) {
     }
 }
 
-/** Shape's text: the card's icon on a clover, the text, and its caption under it. A small card has the text alone. */
+/**
+ * Shape's text: the card's icon on a clover, the text, and its caption under it. A small card has
+ * the text alone. A large card has the card's badge at the end of the clover's line; a wide one,
+ * whose text starts beside the clover, has none.
+ */
 @Composable
 private fun ShapeTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
@@ -273,7 +291,7 @@ private fun ShapeTextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
     val quote = cardText(spec.text)
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-            TextMark(spec.base.icon, title, role, 48.dp)
+            BadgedLine(shownBadge(spec, box), role) { TextMark(spec.base.icon, title, role, 48.dp) }
             FittedText(
                 quote,
                 type.titleLarge.copy(

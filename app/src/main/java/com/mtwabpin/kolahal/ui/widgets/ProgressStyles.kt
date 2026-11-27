@@ -209,6 +209,25 @@ internal object ProgressStyles {
     /** "3 of 4": the stage it is at, of how many. */
     fun stageCount(spec: WidgetSpec.Progress): String = "${spec.stage} of ${spec.stages.size}"
 
+    /** The line under stage [index]'s name ([WidgetSpec.Progress.details]), or null: past the details given, or blank. */
+    fun stageDetail(spec: WidgetSpec.Progress, index: Int): String? =
+        spec.details.getOrNull(index)?.takeIf { it.isNotBlank() }
+
+    /**
+     * Whether stages draw their details, a line under each stage's name: only where the names show
+     * under the marks ([names]), the card has details, and [roomDp] holds the marks at their full
+     * [markDp], the names' line [namesDp] and the details' line [lineDp]. Else they are left out,
+     * and a screen reader still says them ([said]).
+     */
+    fun detailsFit(
+        spec: WidgetSpec.Progress,
+        names: Boolean,
+        roomDp: Float,
+        markDp: Float,
+        namesDp: Float,
+        lineDp: Float
+    ): Boolean = names && spec.details.any { it.isNotBlank() } && roomDp >= markDp + namesDp + lineDp
+
     /**
      * What a screen reader says for a progress card, part by part ([WidgetWords.description]). It
      * has every value, also those a look or a small card leaves out.
@@ -229,6 +248,10 @@ internal object ProgressStyles {
                     if (at < spec.stages.size && along > 0f) {
                         val next = spec.stages[at].ifBlank { "the next stage" }
                         add("${WidgetWords.percent(along, 1f)} of the way to $next")
+                    }
+                    // Each stage with its line ("Shipped Tue 18:40"), also where the card leaves the lines out.
+                    if (spec.details.any { it.isNotBlank() }) spec.stages.forEachIndexed { i, name ->
+                        spec.details.getOrNull(i)?.takeIf { it.isNotBlank() }?.let { add(words(name, it)) }
                     }
                 }
 

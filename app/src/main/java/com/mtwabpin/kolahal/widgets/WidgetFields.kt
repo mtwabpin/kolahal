@@ -71,6 +71,8 @@ object WidgetFields {
         f("staleAfter", "seconds"),
         f("refresh", "seconds"),
         f("note", "a few words on a large card's last line"),
+        f("badge", "up to ${WidgetParser.MAX_BADGE} characters in a pill at the top; not on buttons or toggles"),
+        f("footer", "a quiet line at the foot of a large card, such as a source"),
     )
 
     /** A stat's smaller values (`more`). */
@@ -83,6 +85,7 @@ object WidgetFields {
         f("progress"), f("moving"),
         f("points", "numbers, a line behind the value"),
         f("scene", "a shader for the ground, such as pond"),
+        f("target", "text such as 8,000, shown \"of 8,000\"; progress may then go up to 2"),
     )
 
     val TEXT: List<WidgetField> = names("text", "caption")
@@ -120,6 +123,7 @@ object WidgetFields {
         f("zones", "only a gauge's", inner = GAUGE_ZONE),
         f("stages", "2 to ${WidgetParser.MAX_STAGES} names, in place of items"),
         f("stage", "the one it is at, from 1"),
+        f("details", "a line under each stage's name"),
     )
 
     val CHART: List<WidgetField> = listOf(
@@ -133,11 +137,15 @@ object WidgetFields {
         f("reached"),
     )
 
-    val BUTTON: List<WidgetField> = names("label", "icon", "color", "tap")
+    val BUTTON: List<WidgetField> = listOf(
+        f("label"), f("icon"), f("color"), f("tap"), f("value", "a short text under the label, such as 21°"),
+    )
 
     val BUTTONS: List<WidgetField> = listOf(f("items", "1 to ${WidgetParser.MAX_BUTTONS}", inner = BUTTON))
 
-    val TOGGLE: List<WidgetField> = names("label", "icon", "on", "tap")
+    val TOGGLE: List<WidgetField> = listOf(
+        f("label"), f("icon"), f("on"), f("tap"), f("value", "a short text in place of On or Off"),
+    )
 
     val TOGGLES: List<WidgetField> = listOf(
         f("items", "1 to ${WidgetParser.MAX_TOGGLES}; the tap is { args }, and the run shows the new state", inner = TOGGLE)
@@ -164,11 +172,13 @@ object WidgetFields {
     )
 
     /** A versus card's side. */
-    val SIDE: List<WidgetField> = names("name", "mark", "color", "value", "text")
+    val SIDE: List<WidgetField> = listOf(
+        f("name"), f("mark"), f("color"), f("value"), f("text"), f("detail", "a small line under the name"),
+    )
 
     val VERSUS: List<WidgetField> = listOf(
         f("sides", "two; the values make a bar between the sides", inner = SIDE),
-        f("score"), f("turn", "1 or 2"), f("moving"), f("caption"), f("badge"),
+        f("score"), f("turn", "1 or 2"), f("moving"), f("caption"),
     )
 
     /** One of the moon's next phases. */
@@ -180,8 +190,9 @@ object WidgetFields {
         f("phases", "up to ${WidgetParser.MAX_PHASES}", inner = PHASE),
     )
 
-    /** The fields every [kind] widget takes: [COMMON]. */
-    fun commonOf(@Suppress("UNUSED_PARAMETER") kind: WidgetKind): List<WidgetField> = COMMON
+    /** The fields every [kind] widget takes: [COMMON], but a badge on buttons and switches, whose every cell is a tap. */
+    fun commonOf(kind: WidgetKind): List<WidgetField> =
+        if (kind == WidgetKind.BUTTONS || kind == WidgetKind.TOGGLES) COMMON.filter { it.name != "badge" } else COMMON
 
     /** The fields of a [kind] widget after the common ones. Only a kind a script can use has them. */
     fun ownOf(kind: WidgetKind): List<WidgetField> = when (kind) {

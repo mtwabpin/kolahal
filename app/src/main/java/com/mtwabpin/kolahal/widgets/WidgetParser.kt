@@ -74,8 +74,26 @@ object WidgetParser {
     /** A side's mark: a letter or two, as they are seen. */
     const val MAX_MARK = 2
 
-    /** A versus card's badge at the top: "67'", "LIVE". */
+    /** A card's badge at the top: "67'", "LIVE", "3". */
     const val MAX_BADGE = 8
+
+    /** A card's footer, the quiet words on its foot line: "Source: city sensors". */
+    const val MAX_FOOTER = 60
+
+    /** A stat's target, the number its value is measured against: "8,000". */
+    const val MAX_TARGET = 16
+
+    /** A button's or a switch's value: "21°", "40%". */
+    const val MAX_ITEM_VALUE = 12
+
+    /** A line under a stage's name: "Mon 09:12". */
+    const val MAX_STAGE_DETAIL = 16
+
+    /** A line under a versus side's name: "3rd · 41 pts". */
+    const val MAX_SIDE_DETAIL = 24
+
+    /** A stat's progress goes up to this with a target: past it, to twice the target. */
+    const val MAX_OVER = 2.0
 
     /** A sky card keeps the moon's next [MAX_PHASES] phases. */
     const val MAX_PHASES = 4
@@ -249,6 +267,8 @@ object WidgetParser {
             staleAfter = t.seconds("staleAfter", MIN_STALE, MAX_STALE),
             refresh = t.seconds("refresh", MIN_REFRESH, MAX_REFRESH),
             note = t.text("note", MAX_NOTE),
+            badge = t.text("badge", MAX_BADGE),
+            footer = t.label("footer", MAX_FOOTER),
         )
         return when (kind) {
             WidgetKind.STAT -> stat(t, base)
@@ -267,7 +287,8 @@ object WidgetParser {
             WidgetKind.CLOCK -> clock(t, base)
             WidgetKind.AGENDA -> agenda(t, base)
             WidgetKind.IMAGE -> image(t, base)
-            WidgetKind.VERSUS -> versus(t, base)
+            // A versus card has had its badge since before every kind had one: it keeps it as its own.
+            WidgetKind.VERSUS -> versus(t, base.copy(badge = null), base.badge)
             WidgetKind.SKY -> sky(t, base)
             WidgetKind.MEDIA -> notForScripts(kind)
         }
@@ -279,7 +300,7 @@ object WidgetParser {
      * - A side's `value` is its part of the bar between the sides. It is 0 or more.
      * - `turn` is 1 or 2: the side to move, or with the ball.
      */
-    private fun versus(t: Table, base: WidgetBase): WidgetSpec.Versus {
+    private fun versus(t: Table, base: WidgetBase, badge: String?): WidgetSpec.Versus {
         val shape = "{ ${SIDE.joinToString()} }"
         val all = t.list("sides", shape) ?: t.fail("sides is needed: the two sides, each $shape")
         if (all.size != SIDES) t.fail("sides has ${all.size} ${if (all.size == 1) "side" else "sides"}: give $SIDES")
@@ -292,6 +313,7 @@ object WidgetParser {
                     if (it < 0) s.fail("value must be 0 or more, not ${shown(it)}")
                 }?.let(::float),
                 text = s.text("text", MAX_UNIT),
+                detail = s.label("detail", MAX_SIDE_DETAIL),
             )
         }
         val turn = t.number("turn", "1 or 2, the side to move")?.also {
@@ -304,7 +326,7 @@ object WidgetParser {
             turn = turn,
             moving = t.flag("moving"),
             line = t.label("caption", MAX_CAPTION, styled = true),
-            badge = t.text("badge", MAX_BADGE),
+            badge = badge,
         )
     }
 
@@ -364,7 +386,17 @@ object WidgetParser {
         fit = t.choice("fit", FITS),
     )
 
-    private fun stat(t: Table, base: WidgetBase) = WidgetSpec.Stat(
+    /**
+     * One big value. With a `target` (text, such as "8,000"), `progress` may go up to [MAX_OVER]: past
+     * the target. Kolahal never reads a number out of a text, so the script gives both.
+     */
+    private fun stat(t: Table, base: WidgetBase): WidgetSpec.Stat {
+        val target = t.text("target", MAX_TARGET)
+        val top = if (target != null) MAX_OVER else 1.0
+        return stat(t, base, target, top)
+    }
+
+    private fun stat(t: Table, base: WidgetBase, target: String?, top: Double) = WidgetSpec.Stat(
         base,
         value = t.need("value", MAX_VALUE, "the big value, as text or a number"),
         label = t.label("label", MAX_LABEL, styled = true),
@@ -377,12 +409,14 @@ object WidgetParser {
                 m.text("label", MAX_SHORT)
             )
         },
-        progress = t.number("progress", "a number from 0 to 1")?.coerceIn(0.0, 1.0)?.toFloat(),
+        progress = t.number("progress", if (top > 1.0) "a number from 0 to 2" else "a number from 0 to 1")
+            ?.coerceIn(0.0, top)?.toFloat(),
         moving = t.flag("moving"),
         points = statPoints(t),
         scene = t.text("scene", StatScenes.MAX_NAME)?.lowercase()?.also { name ->
             StatScenes.problem(name)?.let { t.fail("scene $it") }
         },
+        target = target,
     )
 
     /**
@@ -465,6 +499,7 @@ object WidgetParser {
                         ?: b.fail("tap is needed: what the button does, { args } or { url }"),
                     icon = b.icon(),
                     color = b.color(),
+                    value = b.text("value", MAX_ITEM_VALUE),
                 )
             },
         )
@@ -485,7 +520,7 @@ object WidgetParser {
                 val on = s.flagOrNull("on") ?: s.fail("on is needed: true or false, the state now")
                 val tap = s.tap() ?: s.fail("tap is needed: { args }, the arguments that switch it")
                 if (tap.args == null) s.fail("tap must be { args }, not { url }: a switch runs this script again")
-                WidgetSpec.Toggle(label, on, tap, icon = s.icon())
+                WidgetSpec.Toggle(label, on, tap, icon = s.icon(), value = s.text("value", MAX_ITEM_VALUE))
             },
         )
     }
@@ -576,6 +611,9 @@ object WidgetParser {
             if (float(it) >= float(top)) t.fail("min must be below max")
         } ?: 0.0
         if (t.has("unit") && !gauge) t.fail("unit goes with style 'gauge'")
+        if (t.has("details") && stages.isEmpty()) t.fail("details go with stages: a line under each stage's name")
+        // A line under each stage's name, as many as the stages at most: the first ones are kept.
+        val details = t.texts("details", stages.size, MAX_STAGE_DETAIL).map(StyledText::capitalized)
         return WidgetSpec.Progress(
             base,
             value = float((t.number("value", "a number") ?: 0.0).coerceIn(low, top)),
@@ -601,6 +639,7 @@ object WidgetParser {
             zones = zones(t, gauge, low, top),
             stages = stages,
             stage = stage(t, stages.size),
+            details = details,
         )
     }
 

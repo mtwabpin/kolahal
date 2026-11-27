@@ -54,6 +54,7 @@ import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
+import com.mtwabpin.kolahal.widgets.cardBadge
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -106,6 +107,9 @@ private val AGENDA_PLACES = 200.dp
  * - "+3 more" is the line under the events.
  * - With nothing to show it says the description's `empty` text.
  * - The Now look draws what is on now, the free time and what is next ([NowAgenda]), for [box].
+ * - The card's badge ([cardBadge]) is at the end of the first day's heading; in the dated looks
+ *   ([DatedAgenda]) at the top end. It goes where it would meet an event ([BadgedLine]). A small
+ *   card, a card that is one shape and the Now look, which has no name line, have none.
  */
 @Composable
 internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?, box: WidgetSizes.Box) {
@@ -129,8 +133,9 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?, 
         NowAgenda(spec, minute.time / 1000, zone, clock24, box, onTap)
         return
     }
+    val badge = spec.cardBadge.takeUnless { box == WidgetSizes.Box.SMALL || LocalCardShaped.current }
     if (look == WidgetLook.BOLD || look == WidgetLook.SPLIT || look == WidgetLook.SHAPE) {
-        DatedAgenda(look, days, minute.time, zone, clock24, roleColor(spec.base), onTap)
+        DatedAgenda(look, days, minute.time, zone, clock24, roleColor(spec.base), onTap, badge)
         return
     }
     val color = roleColor(spec.base)
@@ -198,7 +203,10 @@ internal fun AgendaBody(spec: WidgetSpec.Agenda, onTap: ((WidgetTap) -> Unit)?, 
                                 timeWidth,
                                 onTap,
                                 back
-                            ) { DayHeading(day.label, heading, headDp) }
+                            ) {
+                                // The badge is at the end of the first day's heading.
+                                BadgedLine(badge.takeIf { d == 0 }, color) { DayHeading(day.label, heading, headDp) }
+                            }
                             else AgendaRow(line, rowDp.dp, places, narrow, timeWidth, onTap, back)
                         }
                     }
@@ -381,6 +389,8 @@ internal val DATED_SIDE = 240.dp
  * - Split: the date in a tile of its own, and each event in a tile with its time in a chip.
  * - An event of another day says so: "Gym · tomorrow", dim (Split: "Tomorrow" at its end).
  * - As many events as fit are shown, never under 42 dp; "+3 more" is left out. Each keeps its tap.
+ * - A [badge] is at the end of the date's row on top of a narrow box. Beside the date it is at the
+ *   top end of the events, or of Split's date tile, where the room over them holds it ([TopEndBadge]).
  */
 @Composable
 private fun DatedAgenda(
@@ -390,7 +400,8 @@ private fun DatedAgenda(
     zone: ZoneId,
     clock24: Boolean,
     role: Color,
-    onTap: ((WidgetTap) -> Unit)?
+    onTap: ((WidgetTap) -> Unit)?,
+    badge: String? = null
 ) {
     val lines = remember(days) {
         days.flatMap { day ->
@@ -416,7 +427,7 @@ private fun DatedAgenda(
         val side = maxWidth >= DATED_SIDE
         val heightDp = maxHeight.value.toInt()
         if (look == WidgetLook.SPLIT) {
-            SplitAgenda(lines, weekday, dayNumber, month, side, heightDp, looks, onTap)
+            SplitAgenda(lines, weekday, dayNumber, month, side, heightDp, looks, onTap, badge, role)
             return@BoxWithConstraints
         }
         if (side) {
@@ -443,7 +454,8 @@ private fun DatedAgenda(
                         minOf(boxHeight, 120.dp, boxWidth / 3)
                     )
                 }
-                DatedRows(
+                // The badge is at the top end of the events, in the room over them.
+                if (badge == null) DatedRows(
                     lines,
                     (heightDp / DATED_ROW_DP).coerceAtLeast(1),
                     timeWidth,
@@ -451,41 +463,54 @@ private fun DatedAgenda(
                     look == WidgetLook.BOLD,
                     onTap,
                     Modifier.weight(1f)
-                )
+                ) else TopEndBadge(badge, role, Modifier.weight(1f).fillMaxHeight()) {
+                    DatedRows(
+                        lines,
+                        (heightDp / DATED_ROW_DP).coerceAtLeast(1),
+                        timeWidth,
+                        looks,
+                        look == WidgetLook.BOLD,
+                        onTap,
+                        Modifier.fillMaxWidth()
+                    )
+                }
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                Row(Modifier.height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (look == WidgetLook.BOLD) {
-                        Text(
-                            dayNumber,
-                            style = MaterialTheme.typography.displaySmall.asBold(),
-                            color = looks.accent,
-                            maxLines = 1
-                        )
-                    } else {
-                        SunnyDate(null, dayNumber, looks, 52.dp)
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            weekday.uppercase(),
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.08.em
-                            ),
-                            color = looks.content,
-                            maxLines = 1
-                        )
-                        Text(
-                            month.uppercase(),
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.08.em
-                            ),
-                            color = looks.muted,
-                            maxLines = 1
-                        )
+                // The badge is at the end of the date's row.
+                BadgedLine(badge, role) {
+                    Row(Modifier.height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (look == WidgetLook.BOLD) {
+                            Text(
+                                dayNumber,
+                                style = MaterialTheme.typography.displaySmall.asBold(),
+                                color = looks.accent,
+                                maxLines = 1
+                            )
+                        } else {
+                            SunnyDate(null, dayNumber, looks, 52.dp)
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                weekday.uppercase(),
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.08.em
+                                ),
+                                color = looks.content,
+                                maxLines = 1
+                            )
+                            Text(
+                                month.uppercase(),
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.08.em
+                                ),
+                                color = looks.muted,
+                                maxLines = 1
+                            )
+                        }
                     }
                 }
                 DatedRows(
@@ -644,6 +669,31 @@ private fun DatedRows(
     }
 }
 
+/**
+ * [content] in the middle of the room it gets, with the card's [badge] in [role] at the room's top
+ * end ([CardBadge]) where the room over the content holds it whole. Where it doesn't, the badge
+ * goes: it never covers the content, which is placed as it would be alone.
+ */
+@Composable
+private fun TopEndBadge(badge: String, role: Color, modifier: Modifier, content: @Composable () -> Unit) {
+    BadgeLayout(badge, role, modifier, content) { inner, pill, constraints, pills ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val placed = inner.map { it.measure(loose) }
+        val wide = placed.maxOfOrNull { it.width } ?: 0
+        val high = placed.maxOfOrNull { it.height } ?: 0
+        val width = (if (constraints.hasBoundedWidth) constraints.maxWidth else wide)
+            .coerceAtLeast(constraints.minWidth)
+        val height = (if (constraints.hasBoundedHeight) constraints.maxHeight else high)
+            .coerceAtLeast(constraints.minHeight)
+        val fits = pill.width <= width && pill.height <= (height - high) / 2
+        val badges = if (fits) pills() else emptyList()
+        layout(width, height) {
+            placed.forEach { it.placeRelative((width - it.width) / 2, (height - it.height) / 2) }
+            if (fits) badges.forEach { it.placeRelative(width - it.width, 0) }
+        }
+    }
+}
+
 /** A day's label as a word inside a line: "tomorrow", or a date as it is ("Tue 20 Oct"). */
 private fun dayWord(label: String): String =
     if (label == WidgetWords.TOMORROW) label.lowercase() else label
@@ -651,7 +701,9 @@ private fun dayWord(label: String): String =
 /**
  * Split's agenda: today's date in a tile at the start ("Fri" over "20" over "Nov"), or along the top
  * of a narrow box, and each event in a tile of its own with its time in a chip. Today's chips are in
- * the role's container; another day's are gray, with the day at the tile's end.
+ * the role's container; another day's are gray, with the day at the tile's end. A [badge] in
+ * [role] is at the top end of the date's tile: at the end of its row along the top, or over the
+ * date at the start where the tile has the room ([TopEndBadge]).
  */
 @Composable
 private fun SplitAgenda(
@@ -662,7 +714,9 @@ private fun SplitAgenda(
     side: Boolean,
     heightDp: Int,
     looks: LookColors,
-    onTap: ((WidgetTap) -> Unit)?
+    onTap: ((WidgetTap) -> Unit)?,
+    badge: String? = null,
+    role: Color = Color.Unspecified
 ) {
     val gap = SplitCorners.GAP
     val type = MaterialTheme.typography
@@ -670,25 +724,30 @@ private fun SplitAgenda(
     if (side) {
         val count = ((heightDp + 4) / (DATED_ROW_DP + 4)).coerceIn(1, maxOf(1, lines.size))
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            Column(
-                Modifier
-                    .width(84.dp)
-                    .fillMaxHeight()
-                    .clip(
-                        SplitCorners.tile(
-                            topStart = true,
-                            topEnd = false,
-                            bottomEnd = false,
-                            bottomStart = true
-                        )
+            val dateTile = Modifier
+                .width(84.dp)
+                .fillMaxHeight()
+                .clip(
+                    SplitCorners.tile(
+                        topStart = true,
+                        topEnd = false,
+                        bottomEnd = false,
+                        bottomStart = true
                     )
-                    .background(looks.tile),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
+                )
+                .background(looks.tile)
+            val date: @Composable () -> Unit = {
                 Text(weekday, style = dim, color = looks.muted, maxLines = 1)
                 Text(day, style = type.headlineLarge.asValue(), color = looks.content, maxLines = 1)
                 if (heightDp >= 120) Text(month, style = dim, color = looks.muted, maxLines = 1)
+            }
+            if (badge == null) Column(
+                dateTile,
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) { date() }
+            else TopEndBadge(badge, role, dateTile.padding(6.dp)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) { date() }
             }
             Column(
                 Modifier
@@ -726,9 +785,16 @@ private fun SplitAgenda(
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(day, style = type.titleLarge.asValue(), color = looks.content, maxLines = 1)
-                Spacer(Modifier.width(8.dp))
-                Text("$weekday $month", style = dim, color = looks.muted, maxLines = 1)
+                val date: @Composable () -> Unit = {
+                    Text(day, style = type.titleLarge.asValue(), color = looks.content, maxLines = 1)
+                    Spacer(Modifier.width(8.dp))
+                    Text("$weekday $month", style = dim, color = looks.muted, maxLines = 1)
+                }
+                // The badge is at the end of the date's row.
+                if (badge == null) date()
+                else BadgedLine(badge, role) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { date() }
+                }
             }
             for (i in 0 until count) key(i) {
                 val shape = SplitCorners.tile(

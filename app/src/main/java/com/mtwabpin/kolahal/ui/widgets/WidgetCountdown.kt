@@ -33,6 +33,7 @@ import com.mtwabpin.kolahal.ui.home.rememberNow
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 import java.time.ZoneId
 
 /**
@@ -50,6 +51,9 @@ import java.time.ZoneId
  *   work. A wave that moves is drawn again on every frame, for days; a still one costs nothing.
  * - The bar moves in steps ([WidgetWords.barStep]), so a clock that ticks does not draw it again
  *   every second.
+ * - A badge ([cardBadge]) is at the end of the number's line; where a wide card's label shares that
+ *   line, right after the number. It goes when the line can't hold it ([BadgedLine]). A small card
+ *   leaves it out.
  */
 @Composable
 internal fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
@@ -117,10 +121,14 @@ internal fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
     ) {
         // With no label, the card's name says what the wait is for: "Goa trip".
         val label = spec.label ?: LocalUntitled.current
+        // A small card has no badge.
+        val badge = spec.cardBadge.takeIf { !small }
         if (!small && !large && bar != null && label != null) {
-            // A wide card's bar takes the line under the number: the label goes at the end of the number's line.
+            // A wide card's bar takes the line under the number: the label goes at the end of the number's line, and the badge right after the number.
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { CountdownValue(count, large = false, box) }
+                Box(Modifier.weight(1f)) {
+                    BadgedLine(badge, roleColor(spec.base), end = false) { CountdownValue(count, large = false, box) }
+                }
                 Text(
                     label,
                     style = type.bodySmall,
@@ -133,7 +141,7 @@ internal fun CountdownBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
                 )
             }
         } else {
-            CountdownValue(count, large, box)
+            BadgedLine(badge, roleColor(spec.base), Modifier.fillMaxWidth()) { CountdownValue(count, large, box) }
         }
         if (bar == null || large) label?.let {
             // A small box has room for two short lines: "to 20 / December".

@@ -23,6 +23,7 @@ class WidgetFieldsTest {
         "staleAfter" to 7200,
         "refresh" to 600,
         "note" to "Done today",
+        "footer" to "City sensors",
     )
 
     /** For each kind, descriptions that between them give each of its fields. */
@@ -31,7 +32,8 @@ class WidgetFieldsTest {
             base + mapOf(
                 "kind" to "stat", "value" to "27°", "label" to "Sunny", "unit" to "C", "delta" to "+2", "trend" to "up",
                 "more" to listOf(mapOf("value" to "62%", "label" to "humidity")),
-                "progress" to 0.4, "moving" to true, "points" to listOf(1, 2, 3), "scene" to "pond",
+                "progress" to 1.4, "moving" to true, "points" to listOf(1, 2, 3), "scene" to "pond",
+                "target" to "8,000", "badge" to "live",
             ),
             mapOf("tap" to mapOf("url" to "https://example.com/a"), "value" to 1),
         ),
@@ -63,7 +65,10 @@ class WidgetFieldsTest {
                 "value" to 40, "max" to 80, "min" to 10, "unit" to "°C", "style" to "gauge",
                 "zones" to listOf(mapOf("from" to 10, "color" to "good"), mapOf("from" to 60, "color" to "bad")),
             ),
-            mapOf("stages" to listOf("Ordered", "Shipped", "Delivered"), "stage" to 2, "value" to 0.5),
+            mapOf(
+                "stages" to listOf("Ordered", "Shipped", "Delivered"), "stage" to 2, "value" to 0.5,
+                "details" to listOf("Mon 09:12", "Tue 18:40"), "badge" to "2",
+            ),
         ),
         WidgetKind.CHART to listOf(
             base + mapOf(
@@ -80,13 +85,13 @@ class WidgetFieldsTest {
         WidgetKind.BUTTONS to listOf(
             base + mapOf(
                 "items" to listOf(
-                    mapOf("label" to "On", "icon" to "☀", "color" to "good", "tap" to mapOf("args" to "on")),
+                    mapOf("label" to "On", "icon" to "☀", "color" to "good", "tap" to mapOf("args" to "on"), "value" to "21°"),
                 ),
             ),
         ),
         WidgetKind.TOGGLES to listOf(
             base + mapOf(
-                "items" to listOf(mapOf("label" to "Mute", "icon" to "🌙", "on" to false, "tap" to mapOf("args" to "mute"))),
+                "items" to listOf(mapOf("label" to "Mute", "icon" to "🌙", "on" to false, "tap" to mapOf("args" to "mute"), "value" to "40%")),
             ),
         ),
         WidgetKind.CLOCK to listOf(
@@ -112,7 +117,10 @@ class WidgetFieldsTest {
         WidgetKind.VERSUS to listOf(
             base + mapOf(
                 "sides" to listOf(
-                    mapOf("name" to "Nilsen", "mark" to "N", "color" to "accent", "value" to 72, "text" to "1:12"),
+                    mapOf(
+                        "name" to "Nilsen", "mark" to "N", "color" to "accent", "value" to 72, "text" to "1:12",
+                        "detail" to "3rd · 41 pts",
+                    ),
                     mapOf("name" to "Carter"),
                 ),
                 "score" to "1–0", "turn" to 1, "moving" to true, "caption" to "17. b3", "badge" to "LIVE",

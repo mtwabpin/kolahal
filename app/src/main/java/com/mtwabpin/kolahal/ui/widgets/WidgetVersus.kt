@@ -67,6 +67,10 @@ private val VERSUS_ROW_FROM = VersusWords.ROW_FROM_DP.dp
  *   every look.
  * - With Last updated on, the card writes when its content was set ([LocalCardFooter], "Updated 3 min
  *   ago") itself from 4×1, in each look: after the last line, or in its place ([AgeAfter]).
+ * - A side's detail ("3rd · 41 pts") is under its name, small and quiet, at 4×1 and in a large card,
+ *   where there is room ([SideDetail]); a 2×1 card and a small one leave it out.
+ * - The script's footer ([com.mtwabpin.kolahal.widgets.WidgetBase.footer]) is on a 4×1 Plain or
+ *   Tonal card's last line, before the age ([VersusRow]); a large card has it on its foot line.
  */
 @Composable
 internal fun VersusBody(spec: WidgetSpec.Versus, box: WidgetSizes.Box) {
@@ -107,9 +111,9 @@ internal fun VersusBody(spec: WidgetSpec.Versus, box: WidgetSizes.Box) {
                     )
                 }
                 Spacer(Modifier.weight(1f))
-                spec.badge?.let { Badge(it, roleColor(spec.base), Modifier.padding(start = 8.dp)) }
+                spec.badge?.let { CardBadge(it, roleColor(spec.base), Modifier.padding(start = 8.dp)) }
             }
-            Faces(spec, roles, bold, type.displaySmall, 56f, Modifier.weight(1f).fillMaxWidth())
+            Faces(spec, roles, bold, type.displaySmall, 56f, c.muted, Modifier.weight(1f).fillMaxWidth())
             VersusBar(spec, roles, figures = true, Modifier.padding(top = 6.dp))
             AgeAfter(spec.line, c.muted, LocalCardFooter.current, Modifier.padding(top = 6.dp))
         }
@@ -147,9 +151,14 @@ private const val BAR_GAP = 2
  *   screen reader still says them.
  * - With Last updated on, the age ([LocalCardFooter]) ends the last line, which is cut first to make
  *   room for it. With no last line it is alone under the score, when the score keeps its size.
+ * - The script's footer, in Plain and Tonal ([UpdatedLine.footer]), is on that line before the age,
+ *   with Last updated on or off, and is cut first ([FooterRow]).
  * - The names get the width they need, and the score the rest, but never less than a share of the
  *   row ([VersusWords.middleDp]). A name is cut with "…" only when it can't fit beside that: its
  *   mark still says the side.
+ * - A side's detail is under its name. It shows only whole, where the sides have the room for it
+ *   beside the middle ([VersusWords.detailWhole]), and gives way before the last line does
+ *   ([VersusWords.rowPlan]).
  */
 @Composable
 private fun VersusRow(
@@ -174,9 +183,20 @@ private fun VersusRow(
     val lineDp = if (hasLine) linesDp(type.labelMedium) + 2 else 0
     val barDp = if (VersusWords.shares(spec) != null) maxOf(linesDp(rowFigureStyle()), BAR_LINE_DP) + BAR_GAP else 0
     val footer = LocalCardFooter.current
+    // The script's footer: Plain and Tonal only, as on every card ([UpdatedLine.footer]).
+    val script = spec.base.footer.takeIf { !bold }
     // The age's line is as tall as its type: under a score with no last line, room is short.
     val ageStyle = type.labelSmall.copy(lineHeight = type.labelSmall.fontSize)
-    val plan = VersusWords.rowPlan(height.value.toInt(), scoreHeights, lineDp, barDp, if (footer != null) linesDp(ageStyle) else 0)
+    // A side's name with its detail under it, where a side has one.
+    val sideDp = if (spec.sides.any { it.detail != null }) linesDp(nameWeight(type.titleSmall), type.labelSmall) else 0
+    val plan = VersusWords.rowPlan(
+        height.value.toInt(),
+        scoreHeights,
+        lineDp,
+        barDp,
+        if (footer != null || script != null) linesDp(ageStyle) else 0,
+        sideDp
+    )
     val scoreStyle = styles[plan.score]
     // As a side's name is drawn ([SideName], [nameWeight]): measured in another weight, a long name would be cut.
     val nameStyle = nameWeight(type.titleSmall)
@@ -184,35 +204,56 @@ private fun VersusRow(
     val badgeStyle = type.labelMediumEmphasized
     val showLine = plan.line && hasLine
     val age = footer?.takeIf { plan.age }
-    val middle = remember(spec, width, scoreStyle, nameStyle, lineStyle, showLine, age, density, measurer) {
+    val foot = script?.takeIf { plan.age }
+    // The middle's width, and whether the sides' details show: only whole, where the sides have the room for them.
+    val (middle, details) = remember(spec, width, scoreStyle, nameStyle, lineStyle, showLine, age, foot, plan, density, measurer) {
         fun dp(text: String, style: TextStyle): Float = with(density) {
             measurer.measure(text, style, maxLines = 1, softWrap = false).size.width.toDp().value
         }
         val names = spec.sides.maxOfOrNull { dp(it.name, nameStyle) } ?: 0f
-        val side = ROW_MARK.value + ROW_GAP.value + names + if (turn != null) DOT_ROOM else 0f
+        val fixed = ROW_MARK.value + ROW_GAP.value + if (turn != null) DOT_ROOM else 0f
+        val detailDp = if (plan.detail) spec.sides.maxOfOrNull { s -> s.detail?.let { dp(it, type.labelSmall) } ?: 0f } ?: 0f else 0f
         val score = dp(spec.score, scoreStyle)
         // The badge has 8 dp on each side of its text, and 6 dp after it.
         val line = (if (!showLine) 0f else
             (spec.badge?.let { dp(it, badgeStyle) + 22f } ?: 0f) + (spec.line?.let { dp(StyledText.plain(it), lineStyle) } ?: 0f)) +
             // The age, 8 dp after what is before it.
-            (age?.let { dp(it.text, ageStyle) + if (showLine) 8f else 0f } ?: 0f)
+            (age?.let { dp(it.text, ageStyle) + if (showLine) 8f else 0f } ?: 0f) +
+            // The script's footer, 8 dp from what is before it: whole where the names leave the room, else cut first.
+            (foot?.let { dp(it, ageStyle) + 8f } ?: 0f)
         val least = maxOf(width.value * MIDDLE_LEAST, score * MIDDLE_SHRINK) + 2 * MIDDLE_PAD
-        VersusWords.middleDp(width.value, maxOf(score, line) + 2 * MIDDLE_PAD, side, least)
+        fun middleFor(sideDp: Float) = VersusWords.middleDp(width.value, maxOf(score, line) + 2 * MIDDLE_PAD, sideDp, least)
+        // With the details, the sides ask for their width too. A detail gives way where it would take
+        // the middle's room (the last line, the badge, the age) or would still be cut.
+        val without = middleFor(fixed + names)
+        val withDetails = middleFor(fixed + maxOf(names, detailDp))
+        if (detailDp > 0f && withDetails >= without && VersusWords.detailWhole(width.value, withDetails, fixed, detailDp)) {
+            withDetails to true
+        } else without to false
     }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 Mark(spec, 0, roles, ROW_MARK)
-                SideName(spec, 0, roles, turn == 0, type.titleSmall, Modifier.padding(start = ROW_GAP).weight(1f, fill = false))
+                val detail = spec.sides.getOrNull(0)?.detail?.takeIf { details }
+                if (detail != null) Column(Modifier.padding(start = ROW_GAP).weight(1f, fill = false)) {
+                    SideName(spec, 0, roles, turn == 0, type.titleSmall)
+                    SideDetail(detail, c.muted)
+                } else SideName(spec, 0, roles, turn == 0, type.titleSmall, Modifier.padding(start = ROW_GAP).weight(1f, fill = false))
             }
             Column(
                 Modifier.width(middle.dp).padding(horizontal = MIDDLE_PAD.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Score(spec, scoreStyle, bold, ROW_BOLD_SIZES[plan.score].toFloat())
-                if (showLine || age != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                if (foot != null) Row(verticalAlignment = Alignment.CenterVertically) {
+                    // The badge, then the last line, the footer and the age on one line: the footer is cut first.
+                    if (showLine) spec.badge?.let { CardBadge(it, roleColor(spec.base), Modifier.padding(end = 6.dp)) }
+                    val lead = spec.line?.takeIf { showLine }?.let { FootLead(cardText(it), lineStyle, c.muted) }
+                    FooterRow(lead, foot, age, c.muted, Modifier.weight(1f, fill = false), end = false, style = ageStyle)
+                } else if (showLine || age != null) Row(verticalAlignment = Alignment.CenterVertically) {
                     if (showLine) {
-                        spec.badge?.let { Badge(it, roleColor(spec.base), Modifier.padding(end = 6.dp)) }
+                        spec.badge?.let { CardBadge(it, roleColor(spec.base), Modifier.padding(end = 6.dp)) }
                         spec.line?.let { LastLine(it, c.muted, Modifier.weight(1f, fill = false), center = true) }
                     }
                     age?.let { FooterLine(it, Modifier.padding(start = if (showLine) 8.dp else 0.dp), c.muted, ageStyle) }
@@ -223,7 +264,14 @@ private fun VersusRow(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                SideName(spec, 1, roles, turn == 1, type.titleSmall, Modifier.padding(end = ROW_GAP).weight(1f, fill = false), end = true)
+                val detail = spec.sides.getOrNull(1)?.detail?.takeIf { details }
+                if (detail != null) Column(
+                    Modifier.padding(end = ROW_GAP).weight(1f, fill = false),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    SideName(spec, 1, roles, turn == 1, type.titleSmall, end = true)
+                    SideDetail(detail, c.muted, end = true)
+                } else SideName(spec, 1, roles, turn == 1, type.titleSmall, Modifier.padding(end = ROW_GAP).weight(1f, fill = false), end = true)
                 Mark(spec, 1, roles, ROW_MARK)
             }
         }
@@ -251,7 +299,17 @@ private fun VersusNarrow(spec: WidgetSpec.Versus, roles: List<Color>, bold: Bool
     }
 }
 
-/** The marks either side of the score, each over its name: the middle of a large card. */
+/** The mark of a side in a large card, in dp. */
+private const val FACE_MARK = 40
+
+/** The parts of a large card's row of faces: a side, the score (1.3) and a side ([FacesRow]). */
+private const val FACES_PARTS = 3.3f
+
+/**
+ * The marks either side of the score, each over its name: the middle of a large card. A side's
+ * detail is under its name, in [muted], where the faces have the height for it and each side's
+ * column holds it whole.
+ */
 @Composable
 private fun Faces(
     spec: WidgetSpec.Versus,
@@ -259,26 +317,92 @@ private fun Faces(
     bold: Boolean,
     scoreStyle: TextStyle,
     boldSize: Float,
+    muted: Color,
+    modifier: Modifier,
+) {
+    val nameStyle = MaterialTheme.typography.labelLarge
+    if (spec.sides.none { it.detail != null }) {
+        FacesRow(spec, roles, bold, scoreStyle, boldSize, nameStyle, null, modifier)
+        return
+    }
+    // The mark, 4 dp, the name and the detail, one under the other.
+    val used = FACE_MARK + 4 + linesDp(nameWeight(nameStyle))
+    val detailStyle = MaterialTheme.typography.labelSmall
+    val detailDp = linesDp(detailStyle)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    // The widest detail: a side's column must hold it whole, as a detail cut to a few letters says nothing.
+    val widest = remember(spec, detailStyle, density, measurer) {
+        spec.sides.maxOf { s ->
+            s.detail?.let { with(density) { measurer.measure(it, detailStyle, maxLines = 1, softWrap = false).size.width.toDp().value } } ?: 0f
+        }
+    }
+    BoxWithConstraints(modifier) {
+        // Each side's column has 1 of the row's 3.3 parts ([FacesRow]).
+        val whole = widest <= maxWidth.value / FACES_PARTS
+        val fits = whole && VersusWords.detailFits(maxHeight.value.toInt(), used, detailDp)
+        FacesRow(spec, roles, bold, scoreStyle, boldSize, nameStyle, muted.takeIf { fits }, Modifier.fillMaxSize())
+    }
+}
+
+/** [Faces] as drawn: with [detail], each side's detail in that color under its name. */
+@Composable
+private fun FacesRow(
+    spec: WidgetSpec.Versus,
+    roles: List<Color>,
+    bold: Boolean,
+    scoreStyle: TextStyle,
+    boldSize: Float,
+    nameStyle: TextStyle,
+    detail: Color?,
     modifier: Modifier,
 ) {
     val turn = VersusWords.turnIndex(spec)
-    val nameStyle = MaterialTheme.typography.labelLarge
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         for (i in 0..1) {
             if (i == 1) Box(Modifier.weight(1.3f), contentAlignment = Alignment.Center) {
                 Score(spec, scoreStyle, bold, boldSize)
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Mark(spec, i, roles, 40.dp)
+                Mark(spec, i, roles, FACE_MARK.dp)
                 SideName(spec, i, roles, turn == i, nameStyle, Modifier.padding(top = 4.dp), center = true)
+                if (detail != null) spec.sides.getOrNull(i)?.detail?.let { SideDetail(it, detail, center = true) }
             }
         }
     }
 }
 
+/** A side's detail ("3rd · 41 pts") under its name: small and quiet, in [muted], cut with "…" before the name is. */
+@Composable
+private fun SideDetail(
+    text: String,
+    muted: Color,
+    modifier: Modifier = Modifier,
+    end: Boolean = false,
+    center: Boolean = false,
+) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = muted,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = when {
+            center -> TextAlign.Center
+            end -> TextAlign.End
+            else -> TextAlign.Start
+        },
+        modifier = modifier
+    )
+}
+
+/** The mark of a side's tile in a wide Split card, in dp. */
+private const val SPLIT_MARK = 26
+
 /**
  * Split: each side and the score on tiles of their own. Wide (4×1): three tiles in a row, the
- * sides' figures under their names and the bar under the score (or the last line, with no bar).
+ * sides' figures under their names and the bar under the score (or the last line, with no bar);
+ * each side's detail under its name where its tile has the height.
  * Narrower (2×1): the score between the marks over the two names ([SplitNarrow]). Large:
  * the title, the badge, the marks and the score on the top tile; the bar and the last line on the
  * bottom one. Small: one tile.
@@ -307,6 +431,12 @@ private fun SplitVersus(spec: WidgetSpec.Versus, roles: List<Color>, box: Widget
                 SplitNarrow(spec, roles, c)
                 return@BoxWithConstraints
             }
+            // Each side's detail under its name, where the side's tile has the height for it (8 dp over and under).
+            val details = spec.sides.any { it.detail != null } && VersusWords.detailFits(
+                maxHeight.value.toInt() - 16,
+                SPLIT_MARK + 2 + linesDp(nameWeight(type.labelLarge)) + if (bar) linesDp(figureStyle()) else 0,
+                linesDp(type.labelSmall)
+            )
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
                 for (i in 0..1) {
                     if (i == 1) Tile(SplitCorners.inRow(1, 3), c.tile, Modifier.weight(1.3f).fillMaxHeight()) {
@@ -328,8 +458,9 @@ private fun SplitVersus(spec: WidgetSpec.Versus, roles: List<Color>, box: Widget
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Mark(spec, i, roles, 26.dp)
+                            Mark(spec, i, roles, SPLIT_MARK.dp)
                             SideName(spec, i, roles, turn == i, type.labelLarge, Modifier.padding(top = 2.dp), center = true)
+                            if (details) spec.sides.getOrNull(i)?.detail?.let { SideDetail(it, c.muted, center = true) }
                             if (bar) VersusWords.figure(spec.sides[i])?.let {
                                 Text(it, style = figureStyle(), color = roles[i], maxLines = 1)
                             }
@@ -348,9 +479,9 @@ private fun SplitVersus(spec: WidgetSpec.Versus, roles: List<Color>, box: Widget
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             SmallTitle(LocalUntitled.current, c.content, Modifier.weight(1f, fill = false))
                             Spacer(Modifier.weight(1f))
-                            spec.badge?.let { Badge(it, roleColor(spec.base), Modifier.padding(start = 8.dp)) }
+                            spec.badge?.let { CardBadge(it, roleColor(spec.base), Modifier.padding(start = 8.dp)) }
                         }
-                        Faces(spec, roles, false, type.displaySmall, 0f, Modifier.weight(1f).fillMaxWidth())
+                        Faces(spec, roles, false, type.displaySmall, 0f, c.muted, Modifier.weight(1f).fillMaxWidth())
                     }
                 }
                 if (foot) Tile(SplitCorners.inColumn(1, 2), c.tile, Modifier.fillMaxWidth()) {
@@ -493,22 +624,6 @@ private fun nameWeight(style: TextStyle): TextStyle = style.copy(fontWeight = Fo
 @Composable
 private fun TurnDot(color: Color, modifier: Modifier = Modifier) {
     Box(modifier.size(7.dp).background(color, CircleShape))
-}
-
-/** A small text at the top of the card ("67'", "LIVE"), in [role] on its container. */
-@Composable
-private fun Badge(text: String, role: Color, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMediumEmphasized,
-        color = role,
-        maxLines = 1,
-        softWrap = false,
-        modifier = modifier
-            .clip(RoundedCornerShape(50))
-            .background(roleContainer(role))
-            .padding(horizontal = 8.dp, vertical = 1.dp)
-    )
 }
 
 /** The last line ("17. b3 · Berlin"), with the styles the script gave it, in [muted] where it has none. */

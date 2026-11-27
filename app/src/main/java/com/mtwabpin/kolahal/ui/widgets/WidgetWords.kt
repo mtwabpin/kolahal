@@ -60,6 +60,17 @@ internal object WidgetWords {
 
     fun percent(value: Float, max: Float): String = "${(fraction(value, max) * 100).roundToInt()}%"
 
+    /**
+     * A stat's share of its target ([WidgetSpec.Stat.target]): its progress as a percent, past 100
+     * when it is over ("112%"), up to 200.
+     */
+    fun share(progress: Float): String =
+        "${((if (progress.isNaN()) 0f else progress.coerceIn(0f, 2f)) * 100).roundToInt()}%"
+
+    /** A stat's value with its unit and its target: "6,240 of 8,000", "24°C". */
+    fun valueOf(spec: WidgetSpec.Stat): String =
+        joined(spec.value, spec.unit) + (spec.target?.let { " of $it" } ?: "")
+
     /** The arrow beside a change. An unknown trend has none. */
     fun arrow(trend: String?): String? = when (trend) {
         "up" -> "↑"
@@ -328,11 +339,12 @@ internal object WidgetWords {
         val parts = buildList {
             when (spec) {
                 is WidgetSpec.Stat -> {
-                    add(joined(spec.value, spec.unit))
+                    add(valueOf(spec))
                     add(spec.label)
                     add(words(trendWord(spec.trend), spec.delta))
                     spec.more.forEach { add(words(it.value, it.label)) }
-                    add(spec.progress?.let { percent(it, 1f) })
+                    // With a target, the share may be past 100%.
+                    add(spec.progress?.let { if (spec.target != null) share(it) else percent(it, 1f) })
                     // The sparkline's numbers, as a chart says them. The scene is a picture: nothing to say.
                     if (spec.points.isNotEmpty()) add(chartSummary(spec.points))
                 }
@@ -384,13 +396,12 @@ internal object WidgetWords {
                     add(spec.label)
                 }
                 // Each button and each switch is an item of its own for a screen reader. The card names them.
-                is WidgetSpec.Buttons -> spec.items.forEach { add(it.label) }
+                // A value is said after the label: "Heating, 21°, on".
+                is WidgetSpec.Buttons -> spec.items.forEach { add(listOfNotNull(it.label, it.value).joinToString(", ")) }
                 is WidgetSpec.Toggles -> spec.items.forEach {
                     add(
-                        words(
-                            it.label,
-                            if (it.on) "on" else "off"
-                        )
+                        if (it.value != null) listOf(it.label, it.value, if (it.on) "on" else "off").joinToString(", ")
+                        else words(it.label, if (it.on) "on" else "off")
                     )
                 }
 
@@ -446,10 +457,12 @@ internal object WidgetWords {
             }
         }
         // A few fields may be styled ([WidgetParser.STYLED]). A screen reader hears their plain words.
-        val said = StyledText.plain(parts.filterNot { it.isNullOrBlank() }.joinToString(", "))
-        // The note on a large card's last line ("Done today") is said after the title.
+        // The footer is said last, before the content's age, which the card adds after this.
+        val said = StyledText.plain((parts + spec.base.footer).filterNot { it.isNullOrBlank() }.joinToString(", "))
+        // The badge ("live") and the note on a large card's last line ("Done today") are said after
+        // the title. A versus card says its own badge with its sides ([VersusWords.said]).
         val heading =
-            listOfNotNull(title?.takeIf { it.isNotBlank() }, spec.base.note).joinToString(", ")
+            listOfNotNull(title?.takeIf { it.isNotBlank() }, spec.base.badge, spec.base.note).joinToString(", ")
         return if (heading.isEmpty()) said else "$heading: $said"
     }
 

@@ -21,6 +21,9 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
  * `text`: a few lines, cut with "…" where the box ends, and a caption under them. A small box has no
  * caption. A large box has the text in bold, as the mockup has it: there it is the card's main thing.
  * A large box has the card's name over the text ([CardName]): "Word of the day".
+ * The card's badge ([shownBadge]) is at the end of the name line; a wide box, with no name line,
+ * has it at the top end beside the text, where the whole text still fits in the width it leaves
+ * ([BadgedBlock]).
  */
 @Composable
 internal fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
@@ -35,15 +38,32 @@ internal fun TextBody(spec: WidgetSpec.Text, box: WidgetSizes.Box) {
         WidgetSizes.Box.WIDE -> type.bodyMedium
         WidgetSizes.Box.LARGE -> type.titleMediumEmphasized
     }
+    val badge = shownBadge(spec, box)
+    val role = roleColor(spec.base)
     Column(Modifier.fillMaxSize()) {
-        if (box == WidgetSizes.Box.LARGE) CardName(Modifier.padding(bottom = 4.dp))
+        if (box == WidgetSizes.Box.LARGE) {
+            if (badge != null) BadgedLine(badge, role, Modifier.padding(bottom = 4.dp)) { CardName() }
+            else CardName(Modifier.padding(bottom = 4.dp))
+        }
         // The text gets the height that is left, and its last line that fits ends in "…".
-        Text(
-            cardText(spec.text),
-            style = style,
-            color = MaterialTheme.colorScheme.onSurface,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
+        val text: @Composable (Modifier) -> Unit = { modifier ->
+            Text(
+                cardText(spec.text),
+                style = style,
+                color = MaterialTheme.colorScheme.onSurface,
+                overflow = TextOverflow.Ellipsis,
+                modifier = modifier
+            )
+        }
+        if (badge != null && box == WidgetSizes.Box.WIDE) BadgedBlock(
+            badge,
+            role,
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) { text(Modifier.fillMaxSize()) }
+        else text(
+            Modifier
                 .weight(1f)
                 .fillMaxWidth()
         )

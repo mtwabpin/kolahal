@@ -56,6 +56,7 @@ import com.mtwabpin.kolahal.ui.home.rememberNow
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 import java.time.ZoneId
 import java.util.Locale
 
@@ -91,6 +92,9 @@ private class SkyNow(
  * - The times follow Kolahal's 24-hour setting.
  * - Bold has the big text in the card's color and Bold's type; Split has the sky and the words on
  *   tiles of their own; Shape puts the sky in a Material shape: the sun's or, for the moon, a circle.
+ * - The card's badge ([cardBadge]) is on the place's line, beside the place, and goes where the line
+ *   can't hold both ([BadgedLine]). A small card, a card that is one shape and a card with no
+ *   title have none: it never sits on the sky.
  */
 @Composable
 internal fun SkyBody(spec: WidgetSpec.Sky, box: WidgetSizes.Box) {
@@ -118,12 +122,32 @@ internal fun SkyBody(spec: WidgetSpec.Sky, box: WidgetSizes.Box) {
     val look = LocalWidgetLook.current
     val role = roleColor(spec.base)
     val title = LocalUntitled.current
+    // The badge is on the title's line: none without a title, nor on a small card.
+    val badge = spec.cardBadge.takeIf { title != null && box != WidgetSizes.Box.SMALL }
     when {
-        look == WidgetLook.SPLIT -> SplitSky(spec, sky, box, role, title)
+        look == WidgetLook.SPLIT -> SplitSky(spec, sky, box, role, title, badge)
         look == WidgetLook.SHAPE && LocalCardShaped.current -> ShapedSky(spec, sky, role, title)
-        look == WidgetLook.SHAPE -> ShapeBesideSky(spec, sky, role, title)
-        else -> PlainSky(spec, sky, box, role, title, bold = look == WidgetLook.BOLD)
+        look == WidgetLook.SHAPE -> ShapeBesideSky(spec, sky, role, title, badge)
+        else -> PlainSky(spec, sky, box, role, title, bold = look == WidgetLook.BOLD, badge = badge)
     }
+}
+
+/**
+ * The sky's title ([SkyTitle]) on a line that holds the card's [badge] too ([BadgedLine]): at the
+ * line's end, or with [end] false right after the title, where the line's end has what comes next.
+ * [modifier] is the line's. Without a badge, the title as it always was.
+ */
+@Composable
+private fun BadgedSkyTitle(
+    title: String?,
+    color: Color,
+    badge: String?,
+    role: Color,
+    modifier: Modifier = Modifier,
+    end: Boolean = true,
+) {
+    if (badge == null) SkyTitle(title, color, modifier)
+    else BadgedLine(badge, role, modifier, end = end) { SkyTitle(title, color) }
 }
 
 /** A wide card keeps this much of its width for the sky, at the end. */
@@ -172,6 +196,8 @@ private fun SkyMain(text: String, style: TextStyle, bold: Boolean, role: Color, 
  *   no band: the horizon would cross the big value.
  * - Large: the place and what comes next (the moon's phase) over the sky, then the times at the
  *   arc's ends and their names, or the moon's next phases. Bold has the big text under the place.
+ * - A [badge] is on the place's line: at its end, or right after the place where what comes next
+ *   has the line's end (large, Plain and Tonal).
  */
 @Composable
 private fun PlainSky(
@@ -181,6 +207,7 @@ private fun PlainSky(
     role: Color,
     title: String?,
     bold: Boolean,
+    badge: String? = null,
 ) {
     val type = MaterialTheme.typography
     val c = lookColors(LocalWidgetLook.current, role)
@@ -205,7 +232,7 @@ private fun PlainSky(
                 // The title and what comes next are measured first, so neither is cut: the big
                 // value takes the height they leave. Bold's gets smaller to fit it.
                 Column(Modifier.weight(1f).fillMaxHeight()) {
-                    SkyTitle(title, c.content)
+                    BadgedSkyTitle(title, c.content, badge, role)
                     Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
                         SkyMain(sky.main, valueStyle(box), bold, role, 36f)
                     }
@@ -221,7 +248,7 @@ private fun PlainSky(
 
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             if (bold) {
-                SkyTitle(title, c.content)
+                BadgedSkyTitle(title, c.content, badge, role)
                 SkyMain(sky.main, type.displaySmall, true, role, 52f)
                 FirstThatFits(sky.lines, type.bodySmall, c.muted)
             } else {
@@ -230,7 +257,7 @@ private fun PlainSky(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SkyTitle(title, c.content, Modifier.weight(1f, fill = false))
+                    BadgedSkyTitle(title, c.content, badge, role, Modifier.weight(1f, fill = false), end = false)
                     Spacer(Modifier.width(8.dp))
                     FirstThatFits(sky.lines, type.bodySmall, c.muted, end = true)
                 }
@@ -327,10 +354,18 @@ private fun MoonDisc(phase: Float, waxing: Boolean, role: Color, modifier: Modif
 /**
  * Split: the sky and the words on tiles of their own. Wide: the words on a tile at the start, the
  * sky on one at the end. Large: the place and what comes next over the sky on the top tile, the
- * times and their names on the bottom one. Small: one tile.
+ * times and their names on the bottom one. Small: one tile. A [badge] is on the place's line, on
+ * the first tile.
  */
 @Composable
-private fun SplitSky(spec: WidgetSpec.Sky, sky: SkyNow, box: WidgetSizes.Box, role: Color, title: String?) {
+private fun SplitSky(
+    spec: WidgetSpec.Sky,
+    sky: SkyNow,
+    box: WidgetSizes.Box,
+    role: Color,
+    title: String?,
+    badge: String? = null,
+) {
     val type = MaterialTheme.typography
     val moon = spec.phase != null
     val c = lookColors(WidgetLook.SPLIT, role)
@@ -349,7 +384,7 @@ private fun SplitSky(spec: WidgetSpec.Sky, sky: SkyNow, box: WidgetSizes.Box, ro
                     Modifier.fillMaxSize().padding(horizontal = if (moon) 12.dp else 14.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    SkyTitle(title, c.content)
+                    BadgedSkyTitle(title, c.content, badge, role)
                     BigText(sky.main, valueStyle(box))
                     FirstThatFits(sky.lines, type.bodySmall, c.muted)
                 }
@@ -371,7 +406,7 @@ private fun SplitSky(spec: WidgetSpec.Sky, sky: SkyNow, box: WidgetSizes.Box, ro
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        SkyTitle(title, c.content, Modifier.weight(1f, fill = false))
+                        BadgedSkyTitle(title, c.content, badge, role, Modifier.weight(1f, fill = false), end = false)
                         Spacer(Modifier.width(8.dp))
                         FirstThatFits(sky.lines, type.bodySmall, c.muted, end = true)
                     }
@@ -416,15 +451,18 @@ private fun ShapedSky(spec: WidgetSpec.Sky, sky: SkyNow, role: Color, title: Str
     }
 }
 
-/** Shape outside a square box: the sky in the sun's shape (a circle for the moon) at the start, and beside it the place, the big text and what comes next. */
+/**
+ * Shape outside a square box: the sky in the sun's shape (a circle for the moon) at the start, and
+ * beside it the place, the big text and what comes next. A [badge] is at the end of the place's line.
+ */
 @Composable
-private fun ShapeBesideSky(spec: WidgetSpec.Sky, sky: SkyNow, role: Color, title: String?) {
+private fun ShapeBesideSky(spec: WidgetSpec.Sky, sky: SkyNow, role: Color, title: String?, badge: String? = null) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, role)
     BesideShape(skyPolygon(spec), c.shapeFill, inShape = { side ->
         SkyDrawing(sky, spec, role, c.shapeFill, Modifier.fillMaxSize().padding(side / 6), band = false)
     }) {
-        SkyTitle(title, c.content)
+        BadgedSkyTitle(title, c.content, badge, role)
         // The title and the words are measured first; the big value takes the height they leave.
         Box(Modifier.weight(1f, fill = false), contentAlignment = Alignment.CenterStart) {
             BigText(sky.main, type.titleLarge)

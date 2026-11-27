@@ -75,6 +75,8 @@ internal fun progressTint(spec: WidgetSpec.Progress): Color =
  * - Split: a tile with the dial, and a tile with the title and the word.
  * - Shape: the dial in the clover. A 1×1 or 2×2 card is the clover; a wider card has it at the start.
  * The word wraps to a second line, and gets smaller before it is cut ([GaugeWord]).
+ * The card's badge ([shownBadge]) is at the end of the title's line; Split has it at the dial
+ * tile's top end, where the dial leaves the room ([DialBadge]).
  */
 @Composable
 internal fun GaugeBody(
@@ -87,7 +89,7 @@ internal fun GaugeBody(
         look == WidgetLook.BOLD -> PlainGauge(spec, box, color, bold = true)
         look == WidgetLook.SPLIT -> SplitGauge(spec, box, color)
         look == WidgetLook.SHAPE && LocalCardShaped.current -> ShapedGauge(spec, box, color)
-        look == WidgetLook.SHAPE -> ShapeBesideGauge(spec, color)
+        look == WidgetLook.SHAPE -> ShapeBesideGauge(spec, box, color)
         else -> PlainGauge(spec, box, color)
     }
 }
@@ -104,6 +106,7 @@ private fun PlainGauge(
     // On Tonal's card the word is in the text color, as a ring's label is: the card is tinted already.
     val word = if (LocalWidgetLook.current == WidgetLook.TONAL) c.content else progressTint(spec)
     val title = LocalUntitled.current
+    val badge = shownBadge(spec, box)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val boxWidth = maxWidth
         val boxHeight = maxHeight
@@ -123,7 +126,9 @@ private fun PlainGauge(
                     title, spec, word, c,
                     Modifier
                         .padding(start = 12.dp)
-                        .weight(1f)
+                        .weight(1f),
+                    badge = badge,
+                    role = color
                 )
             }
 
@@ -138,7 +143,9 @@ private fun PlainGauge(
                     Modifier
                         .padding(start = 16.dp)
                         .weight(1f),
-                    large = true
+                    large = true,
+                    badge = badge,
+                    role = color
                 )
             }
 
@@ -146,7 +153,8 @@ private fun PlainGauge(
                 Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                SmallTitle(title, c.content, Modifier.fillMaxWidth())
+                if (badge != null) BadgedLine(badge, color, Modifier.fillMaxWidth()) { SmallTitle(title, c.content) }
+                else SmallTitle(title, c.content, Modifier.fillMaxWidth())
                 GaugeDial(
                     spec, color, c.card, ROUND_SWEEP,
                     Modifier
@@ -192,7 +200,11 @@ private fun GaugeWord(
     )
 }
 
-/** Beside a dial: the title, the word in [word]'s color, and the unit. [large] has bigger type. */
+/**
+ * Beside a dial: the title, the word in [word]'s color, and the unit. [large] has bigger type. The
+ * card's [badge], in [role], is at the end of the title's line, where the title leaves it room; with
+ * no title there is no such line, and no badge.
+ */
 @Composable
 private fun GaugeWords(
     title: String?,
@@ -200,18 +212,22 @@ private fun GaugeWords(
     word: Color,
     c: LookColors,
     modifier: Modifier = Modifier,
-    large: Boolean = false
+    large: Boolean = false,
+    badge: String? = null,
+    role: Color = Color.Unspecified,
 ) {
     val type = MaterialTheme.typography
     Column(modifier, verticalArrangement = Arrangement.Center) {
         title?.let {
-            Text(
-                cardText(it),
-                style = if (large) type.titleMediumEmphasized else type.titleSmallEmphasized,
-                color = c.content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            BadgedLine(badge, role) {
+                Text(
+                    cardText(it),
+                    style = if (large) type.titleMediumEmphasized else type.titleSmallEmphasized,
+                    color = c.content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         // The word takes the height the title and the unit leave, and fits itself in it.
         spec.label?.let {
@@ -240,7 +256,8 @@ private fun GaugeWords(
  * value with [unit]. [color] is the arc's where it has no zone; the knob stands out from [behind],
  * the color around it. With [bold] the value is in Bold's narrow type, as large as it fits. The
  * value moves to a new one on the theme's spring. The drawing is no item for a screen reader: the
- * card's description says the value.
+ * card's description says the value. With [badge], the card's badge is at the box's top end, where
+ * the arc leaves the room beside it ([DialBadge]).
  */
 @Composable
 private fun GaugeDial(
@@ -252,6 +269,7 @@ private fun GaugeDial(
     unit: Boolean = false,
     ink: Color = MaterialTheme.colorScheme.onSurface,
     bold: Boolean = false,
+    badge: String? = null,
 ) {
     val shown by animateFloatAsState(
         spec.value,
@@ -340,6 +358,26 @@ private fun GaugeDial(
                 )
             }
         }
+        // The room between the arc's end side, with its line and knob, and the box's end.
+        if (badge != null) DialBadge(
+            badge,
+            color,
+            w - (fit.cx + r + line / 2 + 3f),
+            Modifier.align(Alignment.TopEnd)
+        )
+    }
+}
+
+/**
+ * The card's [badge] in [role], drawn only where it fits in [freeDp] with [BADGE_GAP] before it
+ * ([badgeFits]): the room a dial leaves at its box's end.
+ */
+@Composable
+private fun DialBadge(badge: String, role: Color, freeDp: Float, modifier: Modifier = Modifier) {
+    BadgeLayout(badge, role, modifier, {}) { _, pill, _, pills ->
+        if (!badgeFits(freeDp, 0f, pill.width.toDp().value)) return@BadgeLayout layout(0, 0) {}
+        val placed = pills()
+        layout(placed.maxOfOrNull { it.width } ?: 0, placed.maxOfOrNull { it.height } ?: 0) { placed.forEach { it.placeRelative(0, 0) } }
     }
 }
 
@@ -352,6 +390,8 @@ private fun SplitGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
     val c = lookColors(WidgetLook.SPLIT, color)
     val title = LocalUntitled.current
     val word = progressTint(spec)
+    // The card's badge is at the top end of the dial's tile, the first one, where the dial leaves the room.
+    val badge = shownBadge(spec, box)
     val dial: @Composable (Modifier, Shape, Float) -> Unit = { modifier, shape, sweep ->
         Tile(shape, c.tile, modifier) {
             GaugeDial(
@@ -359,7 +399,8 @@ private fun SplitGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
                 Modifier
                     .fillMaxSize()
                     .padding(10.dp),
-                unit = box == WidgetSizes.Box.LARGE
+                unit = box == WidgetSizes.Box.LARGE,
+                badge = badge
             )
         }
     }
@@ -440,11 +481,11 @@ private fun ShapedGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
 
 /**
  * Shape's gauge in a wide card: the dial in a clover (or the shape chosen for the card, [cardShape])
- * at the start, and beside it the title, the word and the unit.
+ * at the start, and beside it the title, the word and the unit; the card's badge at the title's end.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeBesideGauge(spec: WidgetSpec.Progress, color: Color) {
+private fun ShapeBesideGauge(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val c = lookColors(WidgetLook.SHAPE, color)
     val fill = MaterialTheme.colorScheme.surfaceContainerHighest
     val title = LocalUntitled.current
@@ -459,6 +500,8 @@ private fun ShapeBesideGauge(spec: WidgetSpec.Progress, color: Color) {
                     .padding(side * 0.16f)
             )
         },
-        beside = { GaugeWords(title, spec, progressTint(spec), c) }
+        beside = {
+            GaugeWords(title, spec, progressTint(spec), c, badge = shownBadge(spec, box), role = color)
+        }
     )
 }

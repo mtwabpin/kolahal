@@ -50,6 +50,7 @@ import androidx.graphics.shapes.Morph
 import com.mtwabpin.kolahal.ui.home.rememberToday
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 import java.time.DayOfWeek
 import java.util.Locale
 import kotlin.math.sqrt
@@ -89,6 +90,9 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
     val value = spec.value
     val label = spec.label
     val words = value != null || label != null
+    // The card's badge, at the end of the value's line ([BadgedLine]); a small card has none.
+    val badge = spec.cardBadge
+    val role = roleColor(spec.base)
     when (box) {
         WidgetSizes.Box.LARGE -> BoxWithConstraints(Modifier.fillMaxSize()) {
             if (words && maxWidth >= CHART_SIDE_FROM) {
@@ -99,7 +103,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
                             .width(start)
                             .padding(top = 4.dp)
                     ) {
-                        if (value != null) BigText(value, valueStyle(box))
+                        if (value != null) BadgedLine(badge, role) { BigText(value, valueStyle(box)) }
                         if (label != null) Text(
                             label,
                             style = type.bodyMedium,
@@ -120,7 +124,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    if (words) ValueLine(value, label, type.titleLarge, type.bodyMedium, muted)
+                    if (words) ValueLine(value, label, type.titleLarge, type.bodyMedium, muted, badge, role)
                     // The days' letters keep the weeks clear of the value line: a 2×2 card has room for four weeks.
                     Dots(
                         spec, color, weeks = true, Modifier
@@ -140,7 +144,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
             ).coerceAtLeast(12.dp * DotCalendar.DAYS)
             if (!words || maxHeight - line >= STRIP_MIN) {
                 Column(Modifier.fillMaxSize()) {
-                    if (words) ValueLine(value, label, type.titleLarge, type.bodySmall, muted)
+                    if (words) ValueLine(value, label, type.titleLarge, type.bodySmall, muted, badge, role)
                     Dots(
                         spec, color, weeks = false, Modifier
                             .weight(1f)
@@ -154,7 +158,7 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
                             .padding(end = 12.dp)
                             .weight(1f, fill = false)
                     ) {
-                        if (value != null) BigText(value, type.titleLarge)
+                        if (value != null) BadgedLine(badge, role) { BigText(value, type.titleLarge) }
                         if (label != null) Text(
                             label,
                             style = type.bodySmall,
@@ -186,16 +190,38 @@ internal fun DotsBody(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
     }
 }
 
-/** A value with its label after it, on one line: "5 Days in a row". The label gives way first. */
+/**
+ * A value with its label after it, on one line: "5 Days in a row". The label gives way first. With a
+ * [badge], it is at the line's end when the line holds it with the words ([BadgedLine]).
+ */
 @Composable
 private fun ValueLine(
     value: String?,
     label: String?,
     valueStyle: TextStyle,
     labelStyle: TextStyle,
-    muted: Color
+    muted: Color,
+    badge: String? = null,
+    role: Color = Color.Unspecified,
 ) {
-    Row(Modifier.fillMaxWidth()) {
+    if (badge != null) {
+        BadgedLine(badge, role, Modifier.fillMaxWidth()) { ValueWords(value, label, valueStyle, labelStyle, muted, Modifier) }
+        return
+    }
+    ValueWords(value, label, valueStyle, labelStyle, muted, Modifier.fillMaxWidth())
+}
+
+/** [ValueLine]'s words, in a row with [modifier]. */
+@Composable
+private fun ValueWords(
+    value: String?,
+    label: String?,
+    valueStyle: TextStyle,
+    labelStyle: TextStyle,
+    muted: Color,
+    modifier: Modifier,
+) {
+    Row(modifier) {
         if (value != null) BigText(value, valueStyle, Modifier.alignByBaseline())
         if (label != null) {
             Text(

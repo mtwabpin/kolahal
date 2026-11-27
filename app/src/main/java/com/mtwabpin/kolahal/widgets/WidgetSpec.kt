@@ -115,6 +115,9 @@ data class WidgetTap(
 /**
  * The fields every kind has. All are optional. [staleAfter] and [refresh] are in seconds.
  * [note] is a short text on a large card's last line, in the card's color: "Done today".
+ * [badge] is a few characters in a pill at the top ("3", "live"), on every kind but buttons and
+ * switches; a versus card keeps its own ([WidgetSpec.Versus.badge]), so its base has none. [footer]
+ * is a quiet line on the card's foot line, after the note and before the content's age: "City sensors".
  * [shape] is the card's own shape in the Shape look, where it has one shape ([WidgetShape]), until
  * the user chooses another.
  */
@@ -127,7 +130,13 @@ data class WidgetBase(
     val staleAfter: Int? = null,
     val refresh: Int? = null,
     val note: String? = null,
+    val badge: String? = null,
+    val footer: String? = null,
 )
+
+/** The badge a card shows ([WidgetBase.badge]): a versus card's own, else its base's. */
+val WidgetSpec.cardBadge: String?
+    get() = if (this is WidgetSpec.Versus) badge else base.badge
 
 /**
  * A script's widget description after it was checked: one class for each kind. Texts are already
@@ -149,6 +158,8 @@ sealed interface WidgetSpec {
      * Kind `stat`: one big value. [trend] is `up`, `down` or `flat`. [progress] is 0 to 1.
      * [points] are the value's recent numbers, the oldest first, drawn as a soft line behind it.
      * [scene] names a shader whose still picture is the card's ground ([StatScenes]).
+     * [target] is the number the value is measured against, as text ("8,000"): shown "of 8,000". With
+     * a target, [progress] may go up to 2, past it.
      */
     data class Stat(
         override val base: WidgetBase,
@@ -162,6 +173,7 @@ sealed interface WidgetSpec {
         val moving: Boolean = false,
         val points: List<Float> = emptyList(),
         val scene: String? = null,
+        val target: String? = null,
     ) : WidgetSpec
 
     /** Kind `text`: a few lines and a caption. */
@@ -231,7 +243,8 @@ sealed interface WidgetSpec {
      * - A gauge is an arc from [min] to [max], in its [zones]' colors, filled to [value]. Its
      *   [unit] is written with the value. Only a gauge has a [min] other than 0, and [zones].
      * - With [stages], it is a path of named steps: [stage] (1 to their number) is the one it is
-     *   at, and [value] of [max] is how far along the way to the next one.
+     *   at, and [value] of [max] is how far along the way to the next one. [details] are a line
+     *   under each stage's name, in order ("Mon 09:12"); fewer than the stages leave the later ones blank.
      * [labelIcon] is a drawable before the ring's label: the Battery card's network. Only Kolahal's
      * own cards set it. A script can't, and it is never stored ([WidgetJson]).
      */
@@ -250,6 +263,7 @@ sealed interface WidgetSpec {
         val zones: List<GaugeZone> = emptyList(),
         val stages: List<String> = emptyList(),
         val stage: Int = 0,
+        val details: List<String> = emptyList(),
     ) : WidgetSpec
 
     /**
@@ -283,23 +297,28 @@ sealed interface WidgetSpec {
         val reached: String? = null,
     ) : WidgetSpec
 
-    /** One button of [Buttons]. */
+    /** One button of [Buttons]. [value] is a short text under its label: a reading such as "21°". */
     data class Button(
         val label: String,
         val tap: WidgetTap,
         val icon: String? = null,
-        val color: StyledText.ColorRole? = null
+        val color: StyledText.ColorRole? = null,
+        val value: String? = null,
     )
 
     /** Kind `buttons`: a grid of 1 to 8 buttons. A small card draws fewer buttons, never smaller ones. */
     data class Buttons(override val base: WidgetBase, val items: List<Button>) : WidgetSpec
 
-    /** One switch of [Toggles]. [on] is its state as the script last reported it. Its [tap] always has `args`. */
+    /**
+     * One switch of [Toggles]. [on] is its state as the script last reported it. Its [tap] always has
+     * `args`. [value] is a short text that takes the place of "On" or "Off": "21°", "40%".
+     */
     data class Toggle(
         val label: String,
         val on: Boolean,
         val tap: WidgetTap,
-        val icon: String? = null
+        val icon: String? = null,
+        val value: String? = null,
     )
 
     /** Kind `toggles`: 1 to 6 switches. A tap runs the script, and the script reports the new state. */
@@ -362,6 +381,7 @@ sealed interface WidgetSpec {
      *   Without it, the first letter of [name].
      * - [value] is the side's part of the bar between the two sides: its clock's time left, its
      *   share of the ball. [text] is what the bar's end says for it ("58:10"); without it, the value.
+     * - [detail] is a small line under its name: a place in a table, a record ("3rd · 41 pts").
      */
     data class Side(
         val name: String,
@@ -369,6 +389,7 @@ sealed interface WidgetSpec {
         val color: StyledText.ColorRole? = null,
         val value: Float? = null,
         val text: String? = null,
+        val detail: String? = null,
     )
 
     /**
@@ -510,6 +531,9 @@ object WidgetJson {
 
     private const val LOG = "log"
 
+    /** The kinds whose base has no badge: buttons and switches take none, and a versus card keeps its own. */
+    private val NO_BASE_BADGE = setOf(WidgetKind.BUTTONS, WidgetKind.TOGGLES, WidgetKind.VERSUS)
+
     /**
      * The JSON for [spec]. Fields that are null, false or empty are left out. A true-or-false field
      * that says something when it is false (a switch's `on`, a row's `done`) is written then too.
@@ -583,6 +607,8 @@ object WidgetJson {
             "staleAfter" to base.staleAfter,
             "refresh" to base.refresh,
             "note" to base.note,
+            "badge" to base.badge,
+            "footer" to base.footer,
         )
         val own = when (spec) {
             is WidgetSpec.Stat -> fields(
@@ -597,6 +623,7 @@ object WidgetJson {
                 "moving" to flag(spec.moving),
                 "points" to spec.points.takeIf { it.isNotEmpty() }?.map { number(it) },
                 "scene" to spec.scene,
+                "target" to spec.target,
             )
 
             is WidgetSpec.Text -> fields("text" to spec.text, "caption" to spec.caption)
@@ -653,6 +680,7 @@ object WidgetJson {
                     ?.map { fields("from" to number(it.from), "color" to it.color.role) },
                 "stages" to spec.stages.takeIf { it.isNotEmpty() },
                 "stage" to spec.stage.takeIf { spec.stages.isNotEmpty() },
+                "details" to spec.details.takeIf { it.isNotEmpty() && spec.stages.isNotEmpty() },
             )
 
             is WidgetSpec.Chart -> fields(
@@ -681,7 +709,8 @@ object WidgetJson {
                         "label" to it.label,
                         "icon" to it.icon,
                         "color" to it.color?.role,
-                        "tap" to tapMap(it.tap)
+                        "tap" to tapMap(it.tap),
+                        "value" to it.value,
                     )
                 },
             )
@@ -692,7 +721,8 @@ object WidgetJson {
                         "label" to it.label,
                         "icon" to it.icon,
                         "on" to it.on,
-                        "tap" to tapMap(it.tap)
+                        "tap" to tapMap(it.tap),
+                        "value" to it.value,
                     )
                 },
             )
@@ -733,6 +763,7 @@ object WidgetJson {
                         "color" to it.color?.role,
                         "value" to number(it.value),
                         "text" to it.text,
+                        "detail" to it.detail,
                     )
                 },
                 "score" to spec.score,
@@ -871,6 +902,9 @@ object WidgetJson {
             staleAfter = m.number("staleAfter")?.toInt()?.coerceIn(MIN_STALE, MAX_STALE),
             refresh = m.number("refresh")?.toInt()?.coerceIn(MIN_REFRESH, MAX_REFRESH),
             note = m.text("note"),
+            // Buttons and switches take no badge, and a versus card keeps its own.
+            badge = m.text("badge").takeIf { kind !in NO_BASE_BADGE },
+            footer = m.text("footer")?.let(StyledText::capitalized),
         )
         return when (kind) {
             WidgetKind.STAT -> WidgetSpec.Stat(
@@ -888,10 +922,12 @@ object WidgetJson {
                         )
                     }
                 },
-                progress = m.number("progress")?.coerceIn(0f, 1f),
+                // With a target, a stat's progress may go up to 2: past it.
+                progress = m.number("progress")?.coerceIn(0f, if (m["target"] != null) 2f else 1f),
                 moving = m.flag("moving"),
                 points = m.list("points").orEmpty().takeLast(MAX_POINTS).map(::finite),
                 scene = m.text("scene")?.also { if (StatScenes.problem(it) != null) odd() },
+                target = m.text("target"),
             )
 
             WidgetKind.TEXT -> WidgetSpec.Text(
@@ -962,6 +998,10 @@ object WidgetJson {
                     // The stage it is at must be one of them.
                     stage = if (stages.isEmpty()) 0 else
                         m.number("stage")?.toInt()?.takeIf { it in 1..stages.size } ?: odd(),
+                    details = m.list("details").orEmpty().take(stages.size).map {
+                        (it as? String)?.takeIf { s -> s.length <= MAX_TEXT && !StyledText.hasMarker(s) }
+                            ?.let(StyledText::capitalized) ?: odd()
+                    },
                 )
             }
 
@@ -998,7 +1038,8 @@ object WidgetJson {
                         StyledText.capitalized(b.needText("label")),
                         b.tap("tap") ?: odd(),
                         b.text("icon"),
-                        b.color("color")
+                        b.color("color"),
+                        b.text("value"),
                     )
                 },
             )
@@ -1013,7 +1054,8 @@ object WidgetJson {
                         StyledText.capitalized(t.needText("label")),
                         t.flagOrNull("on") ?: odd(),
                         tap,
-                        t.text("icon")
+                        t.text("icon"),
+                        t.text("value"),
                     )
                 },
             )
@@ -1064,6 +1106,7 @@ object WidgetJson {
                         color = s.color("color"),
                         value = s.number("value")?.coerceAtLeast(0f),
                         text = s.text("text"),
+                        detail = s.text("detail")?.let(StyledText::capitalized),
                     )
                 } ?: odd(),
                 score = m.needText("score"),

@@ -39,10 +39,11 @@ import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 
 // ---- chart -----------------------------------------------------------------------------------
 
-/** `chart` in Bold, Split or Shape ([ChartBody] draws Plain and Tonal). */
+/** `chart` in Bold, Split or Shape ([ChartBody] draws Plain and Tonal). Shape has no badge. */
 @Composable
 internal fun ChartLook(
     spec: WidgetSpec.Chart,
@@ -67,6 +68,8 @@ internal val CHART_SIDE_FROM = 260.dp
  * read on the card (a habit's dark green on a dark theme) gives the value the text color instead.
  * A wide large card has the pills beside the value, with the first and the last label under them. A chart of dots has its dots
  * where the pills go ([Dots]): a calendar in a large card, the last seven days in the others.
+ * A badge is at the end of the title's line, at the top; it goes when the title leaves no room for
+ * it ([BadgedLine]). A small card has none.
  */
 @Composable
 private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
@@ -75,6 +78,10 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
     // The value in the role's hue, moved just far enough to read on the card at 3:1 ([valueInk]).
     val ink = valueInk(color, c.card)
     val title = LocalUntitled.current
+    val badge = spec.cardBadge
+    val top: @Composable () -> Unit = {
+        BadgedLine(badge, color, Modifier.fillMaxWidth()) { SmallTitle(title, c.content) }
+    }
     val bars = spec.style == "bars"
     val rest = olderBars(color)
     val labelStyle = type.labelLargeEmphasized
@@ -108,7 +115,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
                         .width(valueWidth)
                         .fillMaxHeight()
                 ) {
-                    SmallTitle(title, c.content)
+                    top()
                     Box(
                         Modifier
                             .weight(1f)
@@ -138,7 +145,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
             }
 
             box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-                SmallTitle(title, c.content)
+                top()
                 spec.value?.let { BoldText(it, 48.sp, ink, Modifier.padding(top = 6.dp)) }
                 spec.label?.let {
                     Text(
@@ -170,7 +177,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
                         .weight(0.45f)
                         .fillMaxHeight()
                 ) {
-                    SmallTitle(title, c.content)
+                    top()
                     Box(
                         Modifier
                             .weight(1f)
@@ -212,6 +219,7 @@ private fun BoldChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color
  * Split's chart: a tile with the title, the value and its label beside (or over) a tile with the
  * plot, and the first and the last label under the plot. A chart of dots has its dots in the
  * plot's tile ([Dots]): a calendar in a large card, the last seven days in the others.
+ * A badge is at the top end of the value's tile, after the title. A small card has none.
  */
 @Composable
 private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Color) {
@@ -235,13 +243,15 @@ private fun SplitChart(spec: WidgetSpec.Chart, box: WidgetSizes.Box, color: Colo
                 horizontalAlignment = if (small) Alignment.CenterHorizontally else Alignment.Start
             ) {
                 if (!small) {
-                    Text(
-                        title.orEmpty(),
-                        style = type.labelMediumEmphasized,
-                        color = c.content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    BadgedLine(spec.cardBadge, color, Modifier.fillMaxWidth()) {
+                        Text(
+                            title.orEmpty(),
+                            style = type.labelMediumEmphasized,
+                            color = c.content,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     Spacer(Modifier.weight(1f))
                 }
                 spec.value?.let { BigText(it, style) }

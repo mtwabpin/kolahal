@@ -71,7 +71,8 @@ private val BOLD_LINE = 44.dp
  * Bold's list: the title small in the role's color with "+3 more" at its end, the first row (or
  * the list's lead) large, then as many rows as fit as plain lines. Every row keeps its own tap.
  * Rows with a range have a bar ([boldBars]): a line before its end text, the first row at the end
- * of its second line, all in one column.
+ * of its second line, all in one column. The card's badge is at the title's end, before "+3 more",
+ * where the title leaves it room.
  */
 @Composable
 private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
@@ -79,6 +80,7 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
     val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.BOLD, role)
     val title = LocalUntitled.current
+    val badge = shownBadge(spec, box)
     val lead = spec.lead
     // Without a lead, the first row is the lead.
     val first = if (lead == null) spec.items.firstOrNull() else null
@@ -131,14 +133,16 @@ private fun BoldRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widge
         val (bars, firstBar) = boldBars(first, second, shown, maxWidth, lineStyle, endStyle)
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    title.orEmpty(),
-                    style = type.labelMediumEmphasized,
-                    color = smallInk(role, c.card),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+                BadgedLine(badge, role, Modifier.weight(1f)) {
+                    Text(
+                        title.orEmpty(),
+                        style = type.labelMediumEmphasized,
+                        color = smallInk(role, c.card),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 if (more > 0) Text(
                     "+$more more",
                     style = type.labelMedium,
@@ -506,7 +510,8 @@ private fun LeadWords(
  * with its rank on a round chip. A 1-row card has the title in a tile at the start and the rows
  * beside it; a small one has the rows alone. Rows with a range have a bar before their end text
  * ([RangeBars]), where the tiles have room: the ranks give way first. A small card's rows have
- * their titles alone, so no bars either.
+ * their titles alone, so no bars either. The card's badge is in the title's tile, at the title's
+ * end (before "+3 more"), where the title leaves it room.
  */
 @Composable
 private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((WidgetTap) -> Unit)?) {
@@ -514,6 +519,7 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
     val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SPLIT, role)
     val title = LocalUntitled.current
+    val badge = shownBadge(spec, box)
     val lead = spec.lead
     val items = spec.items
     val gap = SplitCorners.GAP
@@ -554,14 +560,16 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                                 .padding(horizontal = 18.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                title.orEmpty(),
-                                style = type.labelLargeEmphasized,
-                                color = c.content,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
-                            )
+                            BadgedLine(badge, role, Modifier.weight(1f)) {
+                                Text(
+                                    title.orEmpty(),
+                                    style = type.labelLargeEmphasized,
+                                    color = c.content,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                             if (more > 0) Text(
                                 "+$more more",
                                 style = type.labelMedium,
@@ -663,13 +671,15 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                                 .align(Alignment.CenterStart)
                                 .padding(horizontal = 12.dp)
                         ) {
-                            Text(
-                                title.orEmpty(),
-                                style = type.labelMediumEmphasized,
-                                color = c.content,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            BadgedLine(badge, role) {
+                                Text(
+                                    title.orEmpty(),
+                                    style = type.labelMediumEmphasized,
+                                    color = c.content,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                             if (more > 0) Text(
                                 "+$more more",
                                 style = type.labelSmall,
@@ -798,7 +808,8 @@ private fun SplitRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
  * Shape's list: the title with "+3 more" (in a large card), then as many rows as fit, each with
  * its rank in a small shape: a cookie, a clover, a sun, in turn. A list's lead is in a cookie.
  * Rows with a range have a bar before their end text ([RangeBars]) where they have room: the
- * shapes give way first.
+ * shapes give way first. A large card has the card's badge at the title's end, before "+3 more",
+ * where the title leaves it room; the others have no title line, and no badge.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -807,6 +818,7 @@ private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
     val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.SHAPE, role)
     val title = LocalUntitled.current
+    val badge = shownBadge(spec, box)
     val lead = spec.lead
     val items = spec.items
     val large = box == WidgetSizes.Box.LARGE
@@ -857,14 +869,16 @@ private fun ShapeRows(spec: WidgetSpec.Rows, box: WidgetSizes.Box, onTap: ((Widg
                         .height(24.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        title.orEmpty(),
-                        style = type.labelLargeEmphasized,
-                        color = c.content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
+                    BadgedLine(badge, role, Modifier.weight(1f)) {
+                        Text(
+                            title.orEmpty(),
+                            style = type.labelLargeEmphasized,
+                            color = c.content,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                     if (more > 0) Text(
                         "+$more more",
                         style = type.labelMedium,

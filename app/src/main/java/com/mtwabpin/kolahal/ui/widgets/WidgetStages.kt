@@ -77,6 +77,11 @@ private fun currentName(spec: WidgetSpec.Progress): String =
  * - Split: a tile with the words, and a tile with the marks.
  * - Shape: a cookie with "3/4" at the start, and beside it the current stage, the label and the
  *   marks. A 1×1 or 2×2 card is the clover, with the current stage and "3 of 4" in it.
+ * - Details, a line under each stage's name: where the names show under the marks and the card has
+ *   a line for them, a 4×2 and larger in Plain, Tonal and Split ([StagesTrack]). Elsewhere a
+ *   screen reader still says them.
+ * - The card's badge ([shownBadge]) is at the end of the first line: the title's, or in Split the
+ *   words' tile's; Shape has it after the current stage. It goes where the line has no room for it.
  */
 @Composable
 internal fun StagesBody(
@@ -89,7 +94,7 @@ internal fun StagesBody(
         look == WidgetLook.BOLD -> BoldStages(spec, box, color)
         look == WidgetLook.SPLIT -> SplitStages(spec, box, color)
         look == WidgetLook.SHAPE && LocalCardShaped.current -> ShapedStages(spec, box, color)
-        look == WidgetLook.SHAPE -> ShapeBesideStages(spec, color)
+        look == WidgetLook.SHAPE -> ShapeBesideStages(spec, box, color)
         else -> PlainStages(spec, box, color)
     }
 }
@@ -100,6 +105,7 @@ private fun PlainStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
     val c = lookColors()
     val title = LocalUntitled.current
     val name = currentName(spec)
+    val badge = shownBadge(spec, box)
     // On Tonal's card of the card's color, the current stage is in the text color.
     val strong = if (LocalWidgetLook.current == WidgetLook.TONAL) c.content else color
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -107,21 +113,33 @@ private fun PlainStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
         when (box) {
             WidgetSizes.Box.WIDE -> Column(Modifier.fillMaxSize()) {
                 if (named) {
+                    // The badge at the line's end, after the label (or the title), where they leave it room.
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        title?.let { StageTitle(it, c, Modifier.weight(1f, fill = false)) }
-                        spec.label?.let {
-                            Text(
-                                it,
-                                style = type.bodySmall,
-                                color = c.muted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier
-                                    .padding(start = 12.dp)
-                                    .weight(1f)
-                            )
+                        val label = spec.label
+                        title?.let {
+                            if (label == null && badge != null) BadgedLine(badge, color, Modifier.weight(1f)) {
+                                StageTitle(it, c)
+                            } else StageTitle(it, c, Modifier.weight(1f, fill = false))
                         }
+                        if (label != null) {
+                            val line: @Composable (Modifier) -> Unit = { modifier ->
+                                Text(
+                                    label,
+                                    style = type.bodySmall,
+                                    color = c.muted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.End,
+                                    modifier = modifier
+                                )
+                            }
+                            val place = Modifier
+                                .padding(start = 12.dp)
+                                .weight(1f)
+                            if (badge != null) BadgedFill(badge, color, place) { line(Modifier.fillMaxWidth()) }
+                            else line(place)
+                        }
+                        if (title == null && label == null && badge != null) BadgedLine(badge, color, Modifier.weight(1f)) {}
                     }
                     StagesTrack(
                         spec, color, c, 26.dp, names = true,
@@ -130,8 +148,10 @@ private fun PlainStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
                             .padding(top = 4.dp)
                     )
                 } else {
-                    title?.let { StageTitle(it, c) }
-                    StageLine(name, spec.label, strong, c, type.titleSmall)
+                    if (title != null) BadgedLine(badge, color) { StageTitle(title, c) }
+                    BadgedLine(badge.takeIf { title == null }, color) {
+                        StageLine(name, spec.label, strong, c, type.titleSmall)
+                    }
                     StagesTrack(
                         spec, color, c, 20.dp, names = false,
                         modifier = Modifier
@@ -142,7 +162,7 @@ private fun PlainStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
             }
 
             WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-                SmallTitle(title, c.content)
+                BadgedLine(badge, color) { SmallTitle(title, c.content) }
                 Spacer(Modifier.weight(1f))
                 Text(
                     name,
@@ -161,7 +181,7 @@ private fun PlainStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
                     )
                 }
                 Spacer(Modifier.weight(1f))
-                StagesTrack(spec, color, c, 28.dp, names = named)
+                StagesTrack(spec, color, c, 28.dp, names = named, details = true)
             }
 
             WidgetSizes.Box.SMALL -> Column(
@@ -206,18 +226,22 @@ private fun StageLine(name: String, label: String?, strong: Color, c: LookColors
     Text(line, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
-/** Bold's stages: the current stage as large as it fits, the title small over it, the label under it. */
+/**
+ * Bold's stages: the current stage as large as it fits, the title small over it, the label under it.
+ * The card's badge is at the title's end. Bold has no room for details.
+ */
 @Composable
 private fun BoldStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.BOLD, color)
     val title = LocalUntitled.current
     val name = currentName(spec)
+    val badge = shownBadge(spec, box)
     when (box) {
         WidgetSizes.Box.LARGE -> BoxWithConstraints(Modifier.fillMaxSize()) {
             val named = maxWidth / spec.stages.size >= NAMED_STAGE
             Column(Modifier.fillMaxSize()) {
-                SmallTitle(title, c.content)
+                BadgedLine(badge, color) { SmallTitle(title, c.content) }
                 Box(
                     Modifier
                         .weight(1f)
@@ -242,7 +266,7 @@ private fun BoldStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
             Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.Center
         ) {
-            SmallTitle(title, c.content)
+            BadgedLine(badge, color) { SmallTitle(title, c.content) }
             // The name takes the height the title and the label leave, and gets smaller to fit it.
             Box(Modifier.weight(1f, fill = false), contentAlignment = Alignment.CenterStart) {
                 BoldText(name, 36.sp, c.content)
@@ -278,7 +302,8 @@ private fun BoldStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
 /**
  * Split's stages: a tile with the title, the current stage and the label, and a tile with the
  * marks: side by side in a 1-row card, one over the other in a 2-row one. A 1×1 is one tile with
- * the current stage over the marks.
+ * the current stage over the marks. The card's badge is at the title's end in the words' tile; a
+ * 2-row card has the details under the names in the marks' tile, room allowing.
  */
 @Composable
 private fun SplitStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
@@ -287,6 +312,7 @@ private fun SplitStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
     val title = LocalUntitled.current
     val name = currentName(spec)
     val gap = SplitCorners.GAP
+    val badge = shownBadge(spec, box)
     val words: @Composable (Modifier, Shape) -> Unit = { modifier, shape ->
         Tile(shape, c.tile, modifier) {
             Column(
@@ -296,7 +322,9 @@ private fun SplitStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
                 verticalArrangement = Arrangement.Center
             ) {
                 // The title wraps to a second line in the room the stage and the label leave.
-                SmallTitle(title, c.content, Modifier.weight(1f, fill = false), lines = 2)
+                if (badge != null) BadgedLine(badge, color, Modifier.weight(1f, fill = false)) {
+                    SmallTitle(title, c.content, lines = 2)
+                } else SmallTitle(title, c.content, Modifier.weight(1f, fill = false), lines = 2)
                 Text(
                     name,
                     style = type.titleSmallEmphasized,
@@ -324,7 +352,10 @@ private fun SplitStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: 
                     .padding(horizontal = 6.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
-                StagesTrack(spec, color, c, 24.dp, names = maxWidth / spec.stages.size >= NAMED_STAGE)
+                StagesTrack(
+                    spec, color, c, 24.dp, names = maxWidth / spec.stages.size >= NAMED_STAGE,
+                    details = box == WidgetSizes.Box.LARGE
+                )
             }
         }
     }
@@ -422,11 +453,12 @@ private fun ShapedStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color:
 
 /**
  * Shape's stages in a wide card: a cookie (or the shape chosen for the card, [cardShape]) with "3/4"
- * at the start, and beside it the current stage, the label and the marks.
+ * at the start, and beside it the current stage, the label and the marks. The card's badge is at the
+ * end of the current stage's line, where it leaves the room.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ShapeBesideStages(spec: WidgetSpec.Progress, color: Color) {
+private fun ShapeBesideStages(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: Color) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, color)
     BesideShape(
@@ -441,13 +473,15 @@ private fun ShapeBesideStages(spec: WidgetSpec.Progress, color: Color) {
             )
         },
         beside = {
-            Text(
-                currentName(spec),
-                style = type.titleSmallEmphasized,
-                color = c.content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            BadgedLine(shownBadge(spec, box), color) {
+                Text(
+                    currentName(spec),
+                    style = type.titleSmallEmphasized,
+                    color = c.content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             spec.label?.let {
                 Text(
                     it,
@@ -471,6 +505,8 @@ private fun ShapeBesideStages(spec: WidgetSpec.Progress, color: Color) {
  *   ([LevelBar]) as far as `value` of `max`, a little of it always, that moves with `moving` while
  *   the page is in view; after that, the dim track.
  * - With [names], each stage's name is under its mark, the current one in bold.
+ * - With [details] too, each stage's detail is on a line under its name, quiet, where the height
+ *   holds that line with the marks at their full size ([ProgressStyles.detailsFit]).
  * - The cookie is [mark] across, or less when the height given is less; never under 10 dp.
  * It is no item for a screen reader: the card's description says the stages.
  */
@@ -484,19 +520,24 @@ private fun StagesTrack(
     names: Boolean,
     modifier: Modifier = Modifier,
     behind: Color = c.onAccent,
+    details: Boolean = false,
 ) {
     val type = MaterialTheme.typography
     val count = spec.stages.size
     val at = spec.stage.coerceIn(1, count) - 1
     val track = color.copy(alpha = 0.24f)
     val namesRoom = if (names) with(LocalDensity.current) { 16.sp.toDp() } + 4.dp else 0.dp
+    // A detail's line is as tall as a name's: labelMedium's 16 sp.
+    val detailRoom = with(LocalDensity.current) { 16.sp.toDp() }
     BoxWithConstraints(
         modifier
             .fillMaxWidth()
             .clearAndSetSemantics {},
         contentAlignment = Alignment.Center
     ) {
-        val side = min(mark, maxHeight - namesRoom).coerceAtLeast(10.dp)
+        val lines = details &&
+                ProgressStyles.detailsFit(spec, names, maxHeight.value, mark.value, namesRoom.value, detailRoom.value)
+        val side = min(mark, maxHeight - namesRoom - if (lines) detailRoom else 0.dp).coerceAtLeast(10.dp)
         val share = maxWidth / count
         val line = (side / 7.5f).coerceAtLeast(2.dp)
         // Each mark's size: a dot done, the cookie, a ring to come.
@@ -597,6 +638,22 @@ private fun StagesTrack(
                             stage,
                             style = if (i == at) type.labelMediumEmphasized else type.labelMedium,
                             color = if (i == at) c.content else c.muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.width(share)
+                        )
+                    }
+                }
+            }
+            // Each stage's detail under its name ("Mon 09:12"); one with none leaves its place blank.
+            if (lines) Row(Modifier.fillMaxWidth()) {
+                for (i in 0 until count) {
+                    key(i) {
+                        Text(
+                            ProgressStyles.stageDetail(spec, i).orEmpty(),
+                            style = type.labelMedium,
+                            color = c.muted,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = TextAlign.Center,

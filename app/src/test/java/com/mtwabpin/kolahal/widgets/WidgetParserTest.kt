@@ -265,15 +265,15 @@ class WidgetParserTest {
             refused(mapOf("items" to emptyMap<String, Any?>()), WidgetKind.BUTTONS)
         )
         assertEquals(
-            "widget: items is needed: a list of buttons, each { label, icon, color, tap }",
+            "widget: items is needed: a list of buttons, each { label, icon, color, tap, value }",
             refused(emptyMap(), WidgetKind.BUTTONS)
         )
         assertEquals(
-            "widget: items must be a list of { label, icon, color, tap }, not 'x'",
+            "widget: items must be a list of { label, icon, color, tap, value }, not 'x'",
             refused(mapOf("items" to "x"), WidgetKind.BUTTONS)
         )
         assertEquals(
-            "widget: item 1 of items: must be { label, icon, color, tap }, not 'x'",
+            "widget: item 1 of items: must be { label, icon, color, tap, value }, not 'x'",
             refused(mapOf("items" to listOf("x")), WidgetKind.BUTTONS)
         )
     }
@@ -302,7 +302,7 @@ class WidgetParserTest {
             )
         )
         assertEquals(
-            "widget: item 1 of items: no field 'command'; use label, icon, color, tap",
+            "widget: item 1 of items: no field 'command'; use label, icon, color, tap, value",
             refused(
                 mapOf("items" to listOf(button("A") + ("command" to "torch"))),
                 WidgetKind.BUTTONS
@@ -393,7 +393,7 @@ class WidgetParserTest {
             refused(mapOf("items" to emptyList<Any>()), WidgetKind.TOGGLES)
         )
         assertEquals(
-            "widget: items is needed: a list of switches, each { label, icon, on, tap }",
+            "widget: items is needed: a list of switches, each { label, icon, on, tap, value }",
             refused(emptyMap(), WidgetKind.TOGGLES)
         )
     }
@@ -434,7 +434,7 @@ class WidgetParserTest {
             no("label" to "A", "on" to false, "tap" to mapOf("url" to "https://example.com")),
         )
         assertEquals(
-            "widget: item 1 of items: no field 'color'; use label, icon, on, tap",
+            "widget: item 1 of items: no field 'color'; use label, icon, on, tap, value",
             no("label" to "A", "on" to true, tap, "color" to "good")
         )
     }
@@ -644,7 +644,7 @@ class WidgetParserTest {
         assertEquals(spec, WidgetJson.decode(WidgetJson.encode(spec)))
         // Only an event has it. Anywhere else it is an unknown field, as before.
         assertEquals(
-            "widget: an agenda widget has no field 'id'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, events, days, empty",
+            "widget: an agenda widget has no field 'id'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, badge, footer, events, days, empty",
             refused(mapOf("id" to 1, "events" to rows), WidgetKind.AGENDA)
         )
         assertEquals(
@@ -811,7 +811,7 @@ class WidgetParserTest {
             noImage("image" to link, "alt" to "a", "fit" to "stretch")
         )
         assertEquals(
-            "widget: an image widget has no field 'src'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, image, alt, caption, fit",
+            "widget: an image widget has no field 'src'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, badge, footer, image, alt, caption, fit",
             noImage("src" to link, "alt" to "a")
         )
     }
@@ -1325,12 +1325,12 @@ class WidgetParserTest {
     @Test
     fun anUnknownFieldListsTheKnownOnes() {
         assertEquals(
-            "widget: a stat widget has no field 'colour'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, value, label, unit, delta, trend, more, progress, moving, points, scene",
+            "widget: a stat widget has no field 'colour'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, badge, footer, value, label, unit, delta, trend, more, progress, moving, points, scene, target",
             refused(mapOf("value" to 1, "colour" to "good")),
         )
         // Another kind's field is unknown too.
         assertEquals(
-            "widget: a text widget has no field 'value'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, text, caption",
+            "widget: a text widget has no field 'value'; use kind, title, icon, color, shape, tap, staleAfter, refresh, note, badge, footer, text, caption",
             refused(mapOf("text" to "a", "value" to 1), WidgetKind.TEXT),
         )
         assertEquals(

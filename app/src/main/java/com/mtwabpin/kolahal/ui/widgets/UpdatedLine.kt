@@ -21,6 +21,7 @@ import com.mtwabpin.kolahal.widgets.WidgetSpec
  * - Never at 1×1, nor in a look that is the content (Bold, Split, Shape, Poster) but a versus
  *   card's: those leave it out. A screen reader still hears it.
  * Content keeps its size and its lines: the line takes room the card had free, or the card leaves it out.
+ * The script's footer goes on the same line, before the age, wherever the line may show ([footer]).
  */
 internal object UpdatedLine {
     /** Where the line goes: nowhere, under the content ([CARD]), or where the body places it ([BODY]). */
@@ -62,6 +63,31 @@ internal object UpdatedLine {
         val kind = spec?.let(WidgetJson::kindOf)
         if (!asked || why(spec, kind, look, widthDp, heightDp) != null) return Place.NONE
         return if (kind == WidgetKind.VERSUS) Place.BODY else Place.CARD
+    }
+
+    /**
+     * Where a card showing [spec] in [look] (as drawn), [widthDp] by [heightDp], writes the script's
+     * footer ([com.mtwabpin.kolahal.widgets.WidgetBase.footer]), on the one foot line with the note
+     * and the age ([FootRoom]). Last updated on or off doesn't matter: a footer alone takes the line.
+     * - A large card in the looks that frame it: always ([Place.CARD]); a picture that covers its card,
+     *   in its chip.
+     * - A wide card in those looks: wherever the age may show ([why] is null), but not a picture that
+     *   covers its card, whose chip has no room for it. A versus card writes it in its body ([Place.BODY]).
+     * - Never at 1×1, nor in Bold, Split, Shape or Poster, as the age. A screen reader still hears it.
+     */
+    fun footer(spec: WidgetSpec?, look: WidgetLook, widthDp: Int, heightDp: Int): Place {
+        if (spec?.base?.footer == null || !framed(look)) return Place.NONE
+        val kind = WidgetJson.kindOf(spec)
+        return when (WidgetSizes.box(widthDp, heightDp)) {
+            WidgetSizes.Box.LARGE -> Place.CARD
+            WidgetSizes.Box.SMALL -> Place.NONE
+            WidgetSizes.Box.WIDE -> when {
+                why(spec, kind, look, widthDp, heightDp) != null -> Place.NONE
+                kind == WidgetKind.VERSUS -> Place.BODY
+                spec is WidgetSpec.Image && covers(spec) -> Place.NONE
+                else -> Place.CARD
+            }
+        }
     }
 
     /**

@@ -42,15 +42,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onVisibilityChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onLongClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -84,6 +92,7 @@ import com.mtwabpin.kolahal.widgets.WidgetRef
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSource
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.WidgetSpecs
 import com.mtwabpin.kolahal.widgets.WidgetStates
 import com.mtwabpin.kolahal.widgets.WidgetTap
 import kotlinx.coroutines.Dispatchers
@@ -215,7 +224,8 @@ internal fun rememberCardCorners(): CardCorners? {
  * - With a [note], it shows that and not the content. [failure] is the text of [CardNote.FAILED].
  * - [footer] is the content's age, or "Failed 10:42": a large card's last line. With Last updated on
  *   ([WidgetWords.Footer.asked]) a wide card has it too where there is room ([UpdatedLine]).
- *   A small card has none.
+ *   A small card has none. The script's footer ([WidgetBase.footer]) goes on the same line, before
+ *   it ([UpdatedLine.footer]).
  * - [description] is the whole card for a screen reader, in one item. Rows with their own tap are
  *   items of their own inside it.
  * - [onClick] is a tap on the card and [onLongClick] a long-press. With a long-press and no tap, a
@@ -297,6 +307,11 @@ internal fun WidgetCard(
         val named = title.takeUnless { WidgetParts.NAME in hidden }
         // A built-in card's look of its own ([body]) is drawn on a Plain card.
         val look = if (body != null) WidgetLook.PLAIN else drawnLook(LocalWidgetLook.current, shown, note, footer)
+        // The Shape look draws no badge, as Poster and a 1×1 don't: the shapes are the card. A versus
+        // card keeps its own, as it always has ([cardBadge]).
+        val drawn = if (look == WidgetLook.SHAPE && shown?.base?.badge != null) {
+            WidgetSpecs.withBase(shown, shown.base.copy(badge = null))
+        } else shown
         val colors = lookColors(look, roleColor(shown?.base))
         // In the Shape look, the card's shape at this size: the one chosen for it, else the one its
         // script names, else its own ([cardShapeOf]). The settings page and the toolbar show the same.
@@ -315,6 +330,11 @@ internal fun WidgetCard(
         val small = box == WidgetSizes.Box.SMALL
         // Where the content's age goes: under the body, in it (a versus card), or nowhere ([UpdatedLine]).
         val footPlace = UpdatedLine.place(shown, look, widthDp, heightDp, footer?.asked == true)
+        // The script's footer, where the card's frame writes it on the foot line ([UpdatedLine.footer]).
+        // A versus card writes it in its body, and a card with a note has none.
+        val scriptFooter = shown?.base?.footer?.takeIf {
+            note == null && UpdatedLine.footer(shown, look, widthDp, heightDp) == UpdatedLine.Place.CARD
+        }
         // The scene chosen on its settings page, else a stat's own ([CardScenes.shown]).
         val scene = CardScenes.shown(LocalChosenScene.current, (shown as? WidgetSpec.Stat)?.scene)
         // On Now playing the cover wins while there is one: album art and a scene are one choice ([CardScenes.overArt]).
@@ -351,16 +371,17 @@ internal fun WidgetCard(
                         if (body != null && note == null && shown != null) {
                             body(box, onTap)
                         } else if (polygon != null && shown != null) {
-                            ShapedCard(named, shown, polygon, side, box, onTap, stamp)
+                            ShapedCard(named, drawn!!, polygon, side, box, onTap, stamp)
                         } else {
                             // Bold, Split and Shape have no line for the content's age: they leave it out, and TalkBack still says it.
                             CardLayout(
                                 named,
-                                shown,
+                                drawn,
                                 note,
                                 failure,
                                 footer.takeUnless { look.untitled() },
                                 footPlace == UpdatedLine.Place.CARD,
+                                scriptFooter,
                                 box,
                                 onTap,
                                 stamp,
@@ -439,11 +460,12 @@ private fun ShapedCard(
 /**
  * The content and the footer, placed for [box]. No card has a title line: the content names the
  * card small where it needs to ([LocalUntitled]), as the looks without one have always done.
- * - Large: the content, and under it the foot line ([FootLine]): the script's note and the age of
- *   the content, or "Failed 10:42".
+ * - Large: the content, and under it the foot line ([FootLine]): the script's note, its [script]
+ *   footer, and the age of the content, or "Failed 10:42".
  * - Wide: the content alone, or with Last updated on and room for it ([footed], [UpdatedLine]) the
- *   age under it, in the room the card's edges had. There is no room for the script's note.
- * - Small: the content alone. A screen reader still hears the note and the age.
+ *   age under it, in the room the card's edges had. The [script] footer takes that line too, also
+ *   alone. There is no room for the script's note.
+ * - Small: the content alone. A screen reader still hears the note, the footer and the age.
  * - A cropped picture, large or wide, covers the whole card ([BleedImageCard]).
  */
 @Composable
@@ -454,6 +476,7 @@ private fun CardLayout(
     failure: String?,
     footer: WidgetWords.Footer?,
     footed: Boolean,
+    script: String?,
     box: WidgetSizes.Box,
     onTap: ((WidgetTap) -> Unit)?,
     stamp: Long,
@@ -462,7 +485,7 @@ private fun CardLayout(
 ) {
     // A cropped picture covers the card. With a note (loading, failed) the card has its usual frame. Shape cuts it to a shape.
     if (spec is WidgetSpec.Image && spec.fit != "fit" && note == null && box != WidgetSizes.Box.SMALL && look != WidgetLook.SHAPE) {
-        BleedImageCard(title, spec, footer, box)
+        BleedImageCard(title, spec, footer, box, script)
         return
     }
     if (look.untitled()) {
@@ -491,12 +514,13 @@ private fun CardLayout(
                     )
                 }
             }
-            FootLine(spec?.base?.takeIf { note == null }, footer.takeIf { footed }, colors.muted)
+            FootLine(spec?.base?.takeIf { note == null }, footer.takeIf { footed }, colors.muted, script)
         }
 
         // Last updated: the age under the content, which keeps its height but for the card's own
-        // edges: 10 dp over it and 8 dp under the line, where it has 12 dp.
-        WidgetSizes.Box.WIDE -> if (footer != null && footed && note == null) Column(
+        // edges: 10 dp over it and 8 dp under the line, where it has 12 dp. The script's footer
+        // takes the line as well, with the age or alone.
+        WidgetSizes.Box.WIDE -> if (note == null && (footer != null && footed || script != null)) Column(
             Modifier
                 .fillMaxSize()
                 .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp)
@@ -517,7 +541,9 @@ private fun CardLayout(
                     )
                 }
             }
-            FooterLine(footer, color = colors.muted)
+            if (script != null) {
+                FooterRow(null, script, footer.takeIf { footed }, colors.muted, Modifier.fillMaxWidth())
+            } else if (footer != null) FooterLine(footer, color = colors.muted)
         } else Box(
             Modifier
                 .fillMaxSize()
@@ -555,10 +581,25 @@ private fun CardLayout(
 /**
  * A large card's last line: the script's note ([WidgetBase.note], "Done today", in the card's
  * color), then the content's age or "Failed 10:42" ([FooterLine]) in [muted]. Nothing without either.
+ * With the [script] footer ([WidgetBase.footer]) the line is a [FooterRow]: the note, the footer,
+ * and the age at the line's end.
  */
 @Composable
-private fun FootLine(base: WidgetBase?, footer: WidgetWords.Footer?, muted: Color) {
+private fun FootLine(base: WidgetBase?, footer: WidgetWords.Footer?, muted: Color, script: String? = null) {
     val note = base?.note
+    if (script != null) {
+        val lead = note?.let { FootLead(AnnotatedString(it), MaterialTheme.typography.labelMedium, roleColor(base)) }
+        FooterRow(
+            lead,
+            script,
+            footer,
+            muted,
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp)
+        )
+        return
+    }
     if (note == null && footer == null) return
     Row(
         Modifier
@@ -654,13 +695,16 @@ private fun UntitledLayout(
  * The card's own corners clip it. A chip over its lower start holds what the title line holds on
  * other cards: the caption (large only) over the title, and the footer. So "Failed 10:42" still
  * shows. Without the picture the body says its `alt` text, and the chip stays.
+ * A large card's chip has the [script] footer ([WidgetBase.footer]) between the title and the age,
+ * cut first ([FooterRow]); a wide card's chip has no room for it.
  */
 @Composable
 private fun BleedImageCard(
     title: String?,
     spec: WidgetSpec.Image,
     footer: WidgetWords.Footer?,
-    box: WidgetSizes.Box
+    box: WidgetSizes.Box,
+    script: String? = null,
 ) {
     val type = MaterialTheme.typography
     val scheme = MaterialTheme.colorScheme
@@ -684,7 +728,11 @@ private fun BleedImageCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            val chipFooter = script?.takeIf { box == WidgetSizes.Box.LARGE }
+            if (chipFooter != null) {
+                val lead = title?.let { FootLead(AnnotatedString(it), type.labelSmall, scheme.onSurfaceVariant) }
+                FooterRow(lead, chipFooter, footer, scheme.onSurfaceVariant, end = false)
+            } else Row(verticalAlignment = Alignment.CenterVertically) {
                 if (title != null) Text(
                     title,
                     style = type.labelSmall,
@@ -722,6 +770,113 @@ internal fun FooterLine(
 
 /** The tag of a card's small line ([FooterLine]), for tests. */
 internal const val FOOTER_TAG = "widget-footer"
+
+/** The tag of the script's footer on a card's foot line ([FooterRow]), for tests. */
+internal const val SCRIPT_FOOTER_TAG = "widget-script-footer"
+
+/** What comes first on a foot line with the script's footer ([FooterRow]): its [text], in [style] and [color]. */
+internal data class FootLead(val text: AnnotatedString, val style: TextStyle, val color: Color)
+
+/** The parts of a [FooterRow], for its layout. */
+private enum class FootPart { LEAD, FOOTER, AGE }
+
+/**
+ * A foot line with the script's [footer] ([WidgetBase.footer]): [lead] first (the note, a versus
+ * card's last line, a picture's title), then the footer, quiet in [muted], then the content's
+ * [age] or "Failed 10:42" ([FooterLine]). One line, never two.
+ * - The age is never cut, so the script's words can't pass for Kolahal's. On a short line it takes
+ *   its short form, "3 min ago" ([FootRoom.plan]).
+ * - The footer is cut with "…" first, and goes where too little of it would be left; then the lead
+ *   is cut.
+ * - With [end] the line is as wide as it may be, and the age is at its end. Else the parts sit one
+ *   after the other.
+ * [style] is the type of the footer and the age.
+ */
+@Composable
+internal fun FooterRow(
+    lead: FootLead?,
+    footer: String,
+    age: WidgetWords.Footer?,
+    muted: Color,
+    modifier: Modifier = Modifier,
+    end: Boolean = true,
+    style: TextStyle = MaterialTheme.typography.labelSmall,
+) {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier) {
+        val line = maxWidth
+        val short = age?.let(FootRoom::shortAge)
+        val plan = remember(lead, footer, age, short, style, line, density, measurer) {
+            FootRoom.plan(
+                line.value,
+                lead?.let { dpOf(measurer, density, it.text, it.style) } ?: 0f,
+                dpOf(measurer, density, AnnotatedString(footer), style),
+                age?.let { dpOf(measurer, density, AnnotatedString(it.text), style) } ?: 0f,
+                short?.let { dpOf(measurer, density, AnnotatedString(it), style) },
+            )
+        }
+        val shownAge = if (plan.short && short != null) age?.copy(text = short) else age
+        Layout(
+            content = {
+                lead?.let {
+                    Text(
+                        it.text,
+                        Modifier.layoutId(FootPart.LEAD),
+                        color = it.color,
+                        style = it.style,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (plan.footer) Text(
+                    footer,
+                    Modifier
+                        .layoutId(FootPart.FOOTER)
+                        .testTag(SCRIPT_FOOTER_TAG),
+                    color = muted,
+                    style = style,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                shownAge?.let { FooterLine(it, Modifier.layoutId(FootPart.AGE), muted, style) }
+            }
+        ) { parts, constraints ->
+            val gap = FootRoom.GAP_DP.dp.roundToPx()
+            val bounded = constraints.hasBoundedWidth
+            fun upTo(width: Int) =
+                Constraints(maxWidth = if (bounded) width.coerceAtLeast(0) else Constraints.Infinity, maxHeight = constraints.maxHeight)
+            fun part(id: FootPart) = parts.firstOrNull { it.layoutId == id }
+            // The age first, whole; then the lead in what is left, then the footer in the rest.
+            val agePlaced = part(FootPart.AGE)?.measure(upTo(Constraints.Infinity))
+            var rest = constraints.maxWidth - (agePlaced?.let { it.width + gap } ?: 0)
+            val leadPlaced = part(FootPart.LEAD)?.measure(upTo(rest))
+            leadPlaced?.let { rest -= it.width + gap }
+            val footerPlaced = part(FootPart.FOOTER)?.measure(upTo(rest))
+            val shown = listOfNotNull(leadPlaced, footerPlaced, agePlaced)
+            val used = shown.sumOf { it.width } + gap * (shown.size - 1).coerceAtLeast(0)
+            val width = (if (end && bounded) constraints.maxWidth else used)
+                .coerceIn(constraints.minWidth, constraints.maxWidth)
+            val height = (shown.maxOfOrNull { it.height } ?: 0).coerceIn(constraints.minHeight, constraints.maxHeight)
+            layout(width, height) {
+                var x = 0
+                leadPlaced?.let {
+                    it.placeRelative(0, (height - it.height) / 2)
+                    x = it.width + gap
+                }
+                footerPlaced?.let {
+                    it.placeRelative(x, (height - it.height) / 2)
+                    x += it.width + gap
+                }
+                agePlaced?.let { it.placeRelative(if (end) width - it.width else x, (height - it.height) / 2) }
+            }
+        }
+    }
+}
+
+/** How wide [text] is in [style] on one line, in dp. */
+private fun dpOf(measurer: TextMeasurer, density: Density, text: AnnotatedString, style: TextStyle): Float =
+    with(density) { measurer.measure(text, style, maxLines = 1, softWrap = false).size.width.toDp().value }
 
 /**
  * The line about the content ([WidgetWords.Footer]) for a body that places it itself

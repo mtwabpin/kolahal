@@ -160,6 +160,32 @@ internal object ReferenceExamplesVariants {
             )
         },
         Widget(
+            "steps-target", WidgetKind.STAT, WidgetSize.S2X1, "Steps",
+            lua = """
+            widget.show{
+              kind = "stat",
+              value = "6,240",
+              label = "Steps today",
+              target = "8,000",
+              progress = 6240 / 8000,
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "stat",
+              value: "6,240",
+              label: "Steps today",
+              target: "8,000",
+              progress: 6240 / 8000,
+            });
+            """,
+            of = "steps", variant = "With a target",
+        ) { _, _ ->
+            WidgetSpec.Stat(
+                WidgetBase(), value = "6,240", label = "Steps today", target = "8,000", progress = 0.78f,
+            )
+        },
+        Widget(
             "text-long", WidgetKind.TEXT, WidgetSize.S2X2, "Text",
             lua = """
             widget.show{
@@ -192,6 +218,34 @@ internal object ReferenceExamplesVariants {
                         "Call the plumber about the kitchen tap, and ask for the price first. " +
                         "Bread and milk on the way home.",
                 "Left on the fridge",
+            )
+        },
+        Widget(
+            "text-footer", WidgetKind.TEXT, WidgetSize.S2X2, "Text",
+            lua = """
+            widget.show{
+              kind = "text",
+              title = "Quote of the day",
+              text = "Begin anywhere. The middle will find you on the way.",
+              caption = "Proverb",
+              footer = "A new quote each morning",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "text",
+              title: "Quote of the day",
+              text: "Begin anywhere. The middle will find you on the way.",
+              caption: "Proverb",
+              footer: "A new quote each morning",
+            });
+            """,
+            of = "text", variant = "With a footer",
+        ) { _, _ ->
+            WidgetSpec.Text(
+                WidgetBase(title = "Quote of the day", footer = "A new quote each morning"),
+                "Begin anywhere. The middle will find you on the way.",
+                "Proverb",
             )
         },
         Widget(
@@ -464,6 +518,67 @@ internal object ReferenceExamplesVariants {
             )
         },
         Widget(
+            "list-badge", WidgetKind.LIST, WidgetSize.S4X2, "List",
+            lua = """
+            widget.show{
+              kind = "list",
+              title = "Inbox",
+              badge = "3",
+              items = {
+                {
+                  title = "Plans for Saturday",
+                  detail = "Sam · see you at ten?",
+                  trailing = "09:12",
+                },
+                {
+                  title = "Your order has shipped",
+                  detail = "Shop · arrives Thursday",
+                  trailing = "08:40",
+                },
+                {
+                  title = "Book club notes",
+                  detail = "Ana · chapter six",
+                  trailing = "Mon",
+                },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "list",
+              title: "Inbox",
+              badge: "3",
+              items: [
+                {
+                  title: "Plans for Saturday",
+                  detail: "Sam · see you at ten?",
+                  trailing: "09:12",
+                },
+                {
+                  title: "Your order has shipped",
+                  detail: "Shop · arrives Thursday",
+                  trailing: "08:40",
+                },
+                {
+                  title: "Book club notes",
+                  detail: "Ana · chapter six",
+                  trailing: "Mon",
+                },
+              ],
+            });
+            """,
+            of = "list", variant = "With a badge",
+        ) { _, _ ->
+            WidgetSpec.Rows(
+                WidgetBase(title = "Inbox", badge = "3"),
+                listOf(
+                    WidgetSpec.Row("Plans for Saturday", detail = "Sam · see you at ten?", trailing = "09:12"),
+                    WidgetSpec.Row("Your order has shipped", detail = "Shop · arrives Thursday", trailing = "08:40"),
+                    WidgetSpec.Row("Book club notes", detail = "Ana · chapter six", trailing = "Mon"),
+                ),
+            )
+        },
+        Widget(
             "progress-bars", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
             lua = """
             widget.show{
@@ -700,6 +815,59 @@ internal object ReferenceExamplesVariants {
                 label = "Gate 23",
                 stages = listOf("Check-in", "Security", "Boarding", "Departed"),
                 stage = 3,
+            )
+        },
+        Widget(
+            "progress-details", WidgetKind.PROGRESS, WidgetSize.S2X1, "Progress",
+            lua = """
+            widget.show{
+              kind = "progress",
+              title = "Parcel",
+              stages = {
+                "Ordered",
+                "Shipped",
+                "Out for delivery",
+                "Delivered",
+              },
+              stage = 3,
+              value = 0.5,
+              label = "By 6 PM",
+              details = {
+                "Mon 09:12",
+                "Tue 18:40",
+                "Today 07:05",
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "progress",
+              title: "Parcel",
+              stages: [
+                "Ordered",
+                "Shipped",
+                "Out for delivery",
+                "Delivered",
+              ],
+              stage: 3,
+              value: 0.5,
+              label: "By 6 PM",
+              details: [
+                "Mon 09:12",
+                "Tue 18:40",
+                "Today 07:05",
+              ],
+            });
+            """,
+            of = "progress", variant = "Stages with details",
+        ) { _, _ ->
+            // The details show where the stages' names do: 4x2 and larger.
+            WidgetSpec.Progress(
+                WidgetBase(title = "Parcel"), value = 0.5f,
+                label = "By 6 PM",
+                stages = listOf("Ordered", "Shipped", "Out for delivery", "Delivered"),
+                stage = 3,
+                details = listOf("Mon 09:12", "Tue 18:40", "Today 07:05"),
             )
         },
         Widget(
@@ -1187,6 +1355,67 @@ internal object ReferenceExamplesVariants {
                 })
         },
         Widget(
+            "buttons-value", WidgetKind.BUTTONS, WidgetSize.S4X1, "Buttons",
+            lua = """
+            widget.show{
+              kind = "buttons",
+              title = "Heating",
+              items = {
+                {
+                  label = "Colder",
+                  icon = "down",
+                  tap = { args = "colder" },
+                },
+                {
+                  label = "Living room",
+                  icon = "temp",
+                  value = "21°",
+                  tap = { args = "room" },
+                },
+                {
+                  label = "Warmer",
+                  icon = "up",
+                  tap = { args = "warmer" },
+                },
+              },
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "buttons",
+              title: "Heating",
+              items: [
+                {
+                  label: "Colder",
+                  icon: "down",
+                  tap: { args: "colder" },
+                },
+                {
+                  label: "Living room",
+                  icon: "temp",
+                  value: "21°",
+                  tap: { args: "room" },
+                },
+                {
+                  label: "Warmer",
+                  icon: "up",
+                  tap: { args: "warmer" },
+                },
+              ],
+            });
+            """,
+            of = "buttons", variant = "With a value",
+        ) { _, _ ->
+            WidgetSpec.Buttons(
+                WidgetBase(title = "Heating"),
+                listOf(
+                    WidgetSpec.Button("Colder", WidgetTap(args = "colder"), icon = "down"),
+                    WidgetSpec.Button("Living room", WidgetTap(args = "room"), icon = "temp", value = "21°"),
+                    WidgetSpec.Button("Warmer", WidgetTap(args = "warmer"), icon = "up"),
+                ),
+            )
+        },
+        Widget(
             "toggles-2", WidgetKind.TOGGLES, WidgetSize.S4X1, "Toggles",
             lua = """
             -- Each switch is a setting in the
@@ -1402,6 +1631,84 @@ internal object ReferenceExamplesVariants {
                 listOf(
                     WidgetSpec.Toggle("Porch", on = true, tap = WidgetTap(args = "Porch"), icon = "torch"),
                     WidgetSpec.Toggle("Garden", on = false, tap = WidgetTap(args = "Garden"), icon = "leaf"),
+                ),
+            )
+        },
+        Widget(
+            "toggles-values", WidgetKind.TOGGLES, WidgetSize.S4X1, "Toggles",
+            lua = """
+            -- Each switch is a setting in the
+            -- script's store: a tap flips it.
+            if event and event.name == "action" then
+              store.set(
+                args[1],
+                store.get(args[1]) == "on" and "off"
+                  or "on"
+              )
+            end
+
+            widget.show{
+              kind = "toggles",
+              title = "Home",
+              items = {
+                {
+                  label = "Heating",
+                  icon = "temp",
+                  value = "21°",
+                  on = store.get("Heating") == "on",
+                  tap = { args = "Heating" },
+                },
+                {
+                  label = "Fan",
+                  icon = "wind",
+                  on = store.get("Fan") == "on",
+                  tap = { args = "Fan" },
+                },
+              },
+            }
+            """,
+            js = """
+            // Each switch is a setting in the
+            // script's store: a tap flips it.
+            if (event && event.name === "action") {
+              store.set(
+                args[0],
+                store.get(args[0]) === "on"
+                  ? "off"
+                  : "on",
+              );
+            }
+
+            widget.show({
+              kind: "toggles",
+              title: "Home",
+              items: [
+                {
+                  label: "Heating",
+                  icon: "temp",
+                  value: "21°",
+                  on: store.get("Heating") === "on",
+                  tap: { args: "Heating" },
+                },
+                {
+                  label: "Fan",
+                  icon: "wind",
+                  on: store.get("Fan") === "on",
+                  tap: { args: "Fan" },
+                },
+              ],
+            });
+            """,
+            of = "toggles", variant = "With a value",
+        ) { _, _ ->
+            // The heating is on: its switch says 21° in place of On. The fan is off and says Off.
+            WidgetSpec.Toggles(
+                WidgetBase(title = "Home", staleAfter = 60),
+                listOf(
+                    WidgetSpec.Toggle(
+                        "Heating", on = true, tap = WidgetTap(args = "Heating"), icon = "temp", value = "21°"
+                    ),
+                    WidgetSpec.Toggle("Fan", on = false, tap = WidgetTap(args = "Fan"), icon = "wind"),
                 ),
             )
         },
@@ -1782,6 +2089,63 @@ internal object ReferenceExamplesVariants {
                 score = "1–1",
                 line = "Penalties next",
                 badge = "FT",
+            )
+        },
+        Widget(
+            "versus-details", WidgetKind.VERSUS, WidgetSize.S2X2, "Match",
+            lua = """
+            widget.show{
+              kind = "versus",
+              title = "League",
+              badge = "67'",
+              score = "2–1",
+              sides = {
+                {
+                  name = "North",
+                  color = "info",
+                  detail = "3rd · 41 pts",
+                },
+                {
+                  name = "South",
+                  color = "warn",
+                  detail = "7th · 33 pts",
+                },
+              },
+              caption = "Second half",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "versus",
+              title: "League",
+              badge: "67'",
+              score: "2–1",
+              sides: [
+                {
+                  name: "North",
+                  color: "info",
+                  detail: "3rd · 41 pts",
+                },
+                {
+                  name: "South",
+                  color: "warn",
+                  detail: "7th · 33 pts",
+                },
+              ],
+              caption: "Second half",
+            });
+            """,
+            of = "versus", variant = "With each side's place",
+        ) { _, _ ->
+            WidgetSpec.Versus(
+                WidgetBase(title = "League"),
+                listOf(
+                    WidgetSpec.Side("North", color = ColorRole.INFO, detail = "3rd · 41 pts"),
+                    WidgetSpec.Side("South", color = ColorRole.WARN, detail = "7th · 33 pts"),
+                ),
+                score = "2–1",
+                line = "Second half",
+                badge = "67'",
             )
         },
         Widget(

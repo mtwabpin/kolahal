@@ -5,6 +5,7 @@ package com.mtwabpin.kolahal.ui.widgets
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -27,6 +29,7 @@ import com.mtwabpin.kolahal.ui.home.rememberWebImage
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 
 /** The corners of a picture inside its card. The card's own corners are rounder. */
 private val PICTURE_SHAPE = RoundedCornerShape(12.dp)
@@ -40,6 +43,9 @@ private val PICTURE_SHAPE = RoundedCornerShape(12.dp)
  * - With [bleed], the picture covers the whole card, to its edges, and the card puts the caption on
  *   a chip over it ([BleedImageCard]). This body then draws neither the caption nor corners.
  * - The Shape look cuts the picture to a Material shape ([ShapedImage]).
+ * - With `fit = "fit"`, the card's badge ([cardBadge]) is right after the caption, on its line
+ *   ([BadgedLine]). A cropped picture has none: it would sit on the photo. Nor has a card without
+ *   the caption.
  *
  * Home fetches the picture, not the script ([rememberWebImage], [LogImages]):
  * - Only while the widgets page is in view ([LocalWidgetsShown]). The page is composed beside the
@@ -102,7 +108,26 @@ internal fun ImageBody(spec: WidgetSpec.Image, box: WidgetSizes.Box, bleed: Bool
                 QuietLine(note, small = box == WidgetSizes.Box.SMALL)
             }
         }
-        if (caption != null) {
+        val badge = spec.cardBadge.takeIf { spec.fit == "fit" }
+        if (caption != null && badge != null) {
+            // The caption and the badge after it, in the middle of the line, as the caption alone is.
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                BadgedLine(badge, roleColor(spec.base), end = false) {
+                    Text(
+                        cardText(caption),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        } else if (caption != null) {
             Text(
                 cardText(caption),
                 style = MaterialTheme.typography.labelMedium,

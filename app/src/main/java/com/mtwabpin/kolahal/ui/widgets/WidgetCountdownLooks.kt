@@ -46,11 +46,13 @@ import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 
 // ---- countdown -------------------------------------------------------------------------------
 
 /**
  * `countdown` in Bold, Split, Shape or Poster ([CountdownBody] draws Plain and Tonal, and does the ticking).
+ * Shape and Poster have no badge.
  * - [count] is the time left, read only where it is drawn, so a tick draws the number again and no more.
  * - [bar] is how much of the wait is over, in steps, or null without a start.
  * - [moment] is the moment in words ("20 Dec", or "17:25" on the day), [ends] the start and the
@@ -133,7 +135,11 @@ private fun CountWords(
     }
 }
 
-/** Bold's countdown: the title small with the moment at its end, the number as big as it fits in the role's color, and the bar or the label under it. */
+/**
+ * Bold's countdown: the title small with the moment at its end, the number as big as it fits in the
+ * role's color, and the bar or the label under it. A badge is at the top end, before the moment; it
+ * goes when the title leaves no room for it ([BadgedLine]). A small card has none.
+ */
 @Composable
 private fun BoldCountdown(
     spec: WidgetSpec.Countdown,
@@ -146,9 +152,11 @@ private fun BoldCountdown(
     val role = roleColor(spec.base)
     val c = lookColors(WidgetLook.BOLD, role)
     val title = LocalUntitled.current
+    val badge = spec.cardBadge
     val top: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            SmallTitle(title, c.content, Modifier.weight(1f))
+            if (badge != null) BadgedLine(badge, role, Modifier.weight(1f)) { SmallTitle(title, c.content) }
+            else SmallTitle(title, c.content, Modifier.weight(1f))
             moment?.let {
                 Text(
                     it,
@@ -235,6 +243,7 @@ private fun BoldCountdown(
  * Split's countdown: a big tile with the title, the icon and the time left, over small tiles. With
  * days left they have the hours and the minutes after the days ("07 hours", "41 minutes"); else the
  * moment and the label. A 1-row card has the moment in a tile beside the time; a small one under it.
+ * A badge is at the top end of the big tile, before the icon ([BadgedTitleAndIcon]). A small card has none.
  */
 @Composable
 private fun SplitCountdown(
@@ -280,7 +289,7 @@ private fun SplitCountdown(
                             .fillMaxSize()
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        TitleAndIcon(title, spec.base.icon, c.content, role)
+                        BadgedTitleAndIcon(title, spec.base.icon, c.content, role, spec.cardBadge)
                         Spacer(Modifier.weight(1f))
                         CountWords(
                             count,
@@ -351,7 +360,7 @@ private fun SplitCountdown(
                         .fillMaxSize()
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
-                    TitleAndIcon(title, spec.base.icon, c.content, role)
+                    BadgedTitleAndIcon(title, spec.base.icon, c.content, role, spec.cardBadge)
                     Box(
                         Modifier
                             .weight(1f)

@@ -18,24 +18,25 @@ The `@widget` size is where a card starts; the user can give it any of the six s
 | `versus` | 2x1, 2x2, 4x1, 4x2 | Plain, Tonal, Bold, Split |
 | `sky` | 2x1, 2x2 | Plain, Tonal, Bold, Split, Shape |
 
-Plain is the default. Tonal fills the card with its `color`; Bold makes the main value large; Split draws connected tiles; Shape puts the main value in a shape; Poster makes the value so large the edge crops it; Now shows an agenda's event now and the free time to the next. While a card has a `note` or its last run failed, any look but Tonal draws as Plain.
+Plain is the default. Tonal fills the card with its `color`; Bold makes the main value large; Split draws connected tiles; Shape puts the main value in a shape; Poster makes the value so large the edge crops it; Now shows an agenda's event now and the free time to the next. While a card has a `note` or its last run failed, any look but Tonal draws as Plain; a `footer` doesn't.
 
 A shape the user picks for the card wins over `shape`. It is left out for `countdown`, `sky`, `list`, `agenda`, `buttons`, `toggles`, `versus` and progress bars; a clock, a gauge and rings skip `slanted`, `arch`, `ghost` and `pill`. In a square card (1x1, 2x2) the shape is the whole card; in a wide one the main value sits in it.
 
 ### What a card shows at each size
 
-A card draws for the space it gets: **small** (1x1), **wide** (one row: 2x1, 4x1) or **large** (two rows or more). There is no title line; a large text or list shows `title` over its content, and a stat without `label` uses `title` as its label. Small and wide cards have no last line.
+A card draws for the space it gets: **small** (1x1), **wide** (one row: 2x1, 4x1) or **large** (two rows or more). There is no title line; a large text or list shows `title` over its content, and a stat without `label` uses `title` as its label. Small and wide cards have no last line. A `badge` sits at the top; 1x1, Poster, one-shape cards and cropped pictures leave it out.
 
-- `stat`: small shows `value`, `unit` and `label` only. Wide puts `delta` by the value and `more` between it and the label, as many as fit. `points` draw only on wide and large; large has `more` and the `progress` bar at the bottom.
+- `stat`: small shows `value`, `unit` and `label` only. Wide puts `delta` by the value and `more` between it and the label, as many as fit. `points` draw only on wide and large; large has `more` and the `progress` bar at the bottom. `target` follows the value, or the label at 2x1.
 - `text`: small has no `caption`; large shows the text bold.
 - `list`: as many rows as fit, then "+3 more". Under 200 dp wide (a 2x2 on most phones) `detail` is left out. Small and wide show only the `lead`, when there is one; large shows it over the rows.
-- `progress`: without `style` the space picks a ring or a bar. A wide ring has the title and `label` beside it; a large one has `label` under it.
+- `progress`: without `style` the space picks a ring or a bar. A wide ring has the title and `label` beside it; a large one has `label` under it. Stage `details` show at 4x2 and up.
 - `chart`: `labels` show on large only, with `value` large and `label`.
 - `countdown`: the `from` bar is left out on small, takes the label's place on wide, and is at the bottom with dates at its ends on large.
-- `buttons`: 2 fit at 2x1, 4 at 2x2 and 4x1, 8 at 4x2; a button is never under 48 dp, so later ones are left out: put the most used first.
+- `buttons`: 2 fit at 2x1, 4 at 2x2 and 4x1, 8 at 4x2; a button is never under 48 dp, so later ones are left out: put the most used first. A button's or switch's `value` is left out in icon-only and low cells.
 - `clock`: small, or one zone: one large time. Wide: zones side by side. Large: a row a zone.
 - `image`: `caption` on large only. Cropped (`fit = "crop"`, the default) on wide and large, the picture covers the card.
 - `agenda`: as many events as fit, then "+3 more".
+- `versus`: a side's `detail` is left out at 2x1 and 1x1.
 
 ### Options of a card
 
@@ -50,7 +51,7 @@ The card's settings page also has its color (the script's own or a role), its sh
 - A card never has two runs at once; a run asked for meanwhile is dropped.
 - A card with no content yet shows a loading shape, then "Nothing to show" after 20 seconds.
 - A failed run with no content yet shows the error's first line and its line number; an older failure reads "Failed 2 d ago". A timer run's failure doesn't mark the card; its error is logged once, until a run works.
-- The age ("Updated 3 min ago", "Updated yesterday") shows on a large card once the content is older than `staleAfter`. With **Last updated** on, it always shows, also on a wide card with room for it; never at 1x1, nor in Bold, Split, Shape or Poster.
+- The age ("Updated 3 min ago", "Updated yesterday") shows on a large card once the content is older than `staleAfter`. With **Last updated** on, it always shows, also on a wide card with room for it; never at 1x1, nor in Bold, Split, Shape or Poster. The last line is the `note`, the `footer` (cut first), then the age; the footer shows where the age may.
 
 ### Taps
 

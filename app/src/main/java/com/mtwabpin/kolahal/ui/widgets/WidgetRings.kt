@@ -67,6 +67,8 @@ private fun tintOf(bar: WidgetSpec.Bar, color: Color): Color = bar.color?.let { 
  * - Bold writes the values in its narrow type, larger. Shape sets the rings in a cookie, and marks
  *   each value with a small shape where the others have a dot.
  * - Split: a tile for the rings, and a tile for their values; a 4×2 has a tile for each ring's row.
+ * - The card's badge ([shownBadge]): at the end of the first ring's row, or at the top end beside
+ *   the rings (Split: in the rings' tile), where there is room for it.
  */
 @Composable
 internal fun RingsBody(
@@ -93,6 +95,7 @@ private fun PlainRings(
     val c = lookColors()
     val how = RingType(bold, shaped)
     val rings: @Composable (Dp) -> Unit = { side -> RingsIn(spec, color, side, shaped) }
+    val badge = shownBadge(spec, box)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val boxWidth = maxWidth
         val boxHeight = maxHeight
@@ -107,7 +110,8 @@ private fun PlainRings(
                     Modifier
                         .padding(start = 20.dp)
                         .weight(1f)
-                        .fillMaxHeight()
+                        .fillMaxHeight(),
+                    badge
                 )
             }
 
@@ -120,7 +124,10 @@ private fun PlainRings(
                         .weight(1f)
                         .fillMaxWidth(),
                     contentAlignment = Alignment.Center
-                ) { rings(min(maxWidth, maxHeight)) }
+                ) {
+                    val side = min(maxWidth, maxHeight)
+                    if (badge != null) CenteredBadged(badge, color) { rings(side) } else rings(side)
+                }
                 RingLegend(
                     spec, color, c, how,
                     Modifier
@@ -139,7 +146,8 @@ private fun PlainRings(
                     Modifier
                         .padding(start = 12.dp)
                         .weight(1f)
-                        .fillMaxHeight()
+                        .fillMaxHeight(),
+                    badge
                 )
             }
 
@@ -160,6 +168,8 @@ private fun SplitRings(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
     val c = lookColors(WidgetLook.SPLIT, color)
     val how = RingType(bold = false, shaped = false)
     val gap = SplitCorners.GAP
+    // The card's badge is at the rings' tile's top end, where the rings leave the room.
+    val badge = shownBadge(spec, box)
     val rings: @Composable (Modifier, androidx.compose.ui.graphics.Shape) -> Unit = { modifier, shape ->
         Tile(shape, c.tile, modifier) {
             BoxWithConstraints(
@@ -167,7 +177,11 @@ private fun SplitRings(spec: WidgetSpec.Progress, box: WidgetSizes.Box, color: C
                     .fillMaxSize()
                     .padding(10.dp),
                 contentAlignment = Alignment.Center
-            ) { NestedRings(spec, color, min(maxWidth, maxHeight)) }
+            ) {
+                val side = min(maxWidth, maxHeight)
+                if (badge != null) CenteredBadged(badge, color) { NestedRings(spec, color, side) }
+                else NestedRings(spec, color, side)
+            }
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -382,7 +396,8 @@ private const val LEGEND = 3
 
 /**
  * Beside the rings of a 1-row card: a short row for each ring, as many as fit: a mark, its name and
- * its value (its text, or its percent).
+ * its value (its text, or its percent). The card's [badge] is on the first row, after its name,
+ * where the name leaves it room.
  */
 @Composable
 private fun RingList(
@@ -390,7 +405,8 @@ private fun RingList(
     color: Color,
     c: LookColors,
     how: RingType,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    badge: String? = null
 ) {
     val type = MaterialTheme.typography
     BoxWithConstraints(modifier) {
@@ -402,16 +418,21 @@ private fun RingList(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val tint = tintOf(bar, color)
                         RingMark(i, tint, 7.dp, how)
-                        Text(
-                            bar.label.orEmpty(),
-                            style = type.bodySmall,
-                            color = c.muted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .padding(start = 6.dp)
-                                .weight(1f)
-                        )
+                        val place = Modifier
+                            .padding(start = 6.dp)
+                            .weight(1f)
+                        val name: @Composable (Modifier) -> Unit = {
+                            Text(
+                                bar.label.orEmpty(),
+                                style = type.bodySmall,
+                                color = c.muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = it
+                            )
+                        }
+                        if (i == 0 && badge != null) BadgedLine(badge, color, place) { name(Modifier) }
+                        else name(place)
                         val value = bar.text ?: WidgetWords.percent(bar.value, bar.max)
                         if (how.bold) BoldText(value, 16.sp, tint, Modifier.padding(start = 6.dp))
                         else Text(
@@ -431,7 +452,8 @@ private fun RingList(
 /**
  * Beside the rings of a 4×2: a row for each ring, as many as fit ([FitColumn]): a mark, its name,
  * its value large in its color, and its scale ("of 8,000"), under the value when the line is full.
- * The names take a quarter of the width, so the values line up.
+ * The names take a quarter of the width, so the values line up. The card's [badge] is at the end of
+ * the first row, where its value and scale leave it room.
  */
 @Composable
 private fun RingRows(
@@ -439,11 +461,14 @@ private fun RingRows(
     color: Color,
     c: LookColors,
     how: RingType,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    badge: String? = null
 ) {
     FitColumn(modifier) {
         spec.items.forEachIndexed { i, bar ->
-            key(i) { RingRow(i, bar, color, c, how, NAME_SHARE, Modifier.fillMaxWidth()) }
+            key(i) {
+                RingRow(i, bar, color, c, how, NAME_SHARE, Modifier.fillMaxWidth(), badge.takeIf { i == 0 })
+            }
         }
     }
 }
@@ -510,7 +535,11 @@ private fun ValueThenScale(
     }
 }
 
-/** One ring's row: a mark, its name in [nameShare] of the width, its value large in its color, and its scale after it or under it ([ValueThenScale]). */
+/**
+ * One ring's row: a mark, its name in [nameShare] of the width, its value large in its color, and its
+ * scale after it or under it ([ValueThenScale]). The card's [badge], in [color], is at the row's end
+ * where they leave it room ([BadgedLine]).
+ */
 @Composable
 private fun RingRow(
     index: Int,
@@ -519,47 +548,50 @@ private fun RingRow(
     c: LookColors,
     how: RingType,
     nameShare: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    badge: String? = null
 ) {
     val type = MaterialTheme.typography
     val tint = tintOf(bar, color)
     BoxWithConstraints(modifier) {
         val nameWidth = maxWidth * nameShare
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RingMark(index, tint, 9.dp, how)
-            Text(
-                bar.label.orEmpty(),
-                style = type.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = c.content,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .width(nameWidth)
-            )
-            val value = ProgressStyles.ringValue(bar)
-            ValueThenScale(
-                value = {
-                    if (how.bold) BoldText(value, 28.sp, tint)
-                    else Text(
-                        value,
-                        style = type.titleLarge.asValue(),
-                        color = tint,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                },
-                scale = {
-                    Text(
-                        ProgressStyles.ringOf(bar),
-                        style = type.bodySmall,
-                        color = c.muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                modifier = Modifier.padding(start = 6.dp)
-            )
+        BadgedLine(badge, color) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RingMark(index, tint, 9.dp, how)
+                Text(
+                    bar.label.orEmpty(),
+                    style = type.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = c.content,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .width(nameWidth)
+                )
+                val value = ProgressStyles.ringValue(bar)
+                ValueThenScale(
+                    value = {
+                        if (how.bold) BoldText(value, 28.sp, tint)
+                        else Text(
+                            value,
+                            style = type.titleLarge.asValue(),
+                            color = tint,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    },
+                    scale = {
+                        Text(
+                            ProgressStyles.ringOf(bar),
+                            style = type.bodySmall,
+                            color = c.muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    modifier = Modifier.padding(start = 6.dp)
+                )
+            }
         }
     }
 }

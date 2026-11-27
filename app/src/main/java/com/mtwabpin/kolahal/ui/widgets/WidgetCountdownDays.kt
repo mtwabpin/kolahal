@@ -51,6 +51,7 @@ import com.mtwabpin.kolahal.ui.home.rememberNow
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 import java.time.ZoneId
 import kotlin.math.PI
 import kotlin.math.cos
@@ -79,6 +80,9 @@ private const val DOT_RING = 0.46f
  *   has the bar from `from`.
  * - The words and the dots change at midnight and, on the moment's day, when the moment passes.
  *   They are made again on the minute's tick ([rememberNow]), with no run of the script.
+ * - A badge ([cardBadge]) is at the end of the first line: the name's (before the moment where it
+ *   has one), else the number's. It goes when the line can't hold it ([BadgedLine]). A small card
+ *   and Shape have none.
  */
 @Composable
 internal fun CountdownDaysBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box) {
@@ -88,6 +92,7 @@ internal fun CountdownDaysBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box)
     val clock24 = rememberClock24()
     val look = LocalWidgetLook.current
     val role = roleColor(spec.base)
+    val badge = spec.cardBadge.takeIf { box != WidgetSizes.Box.SMALL && look != WidgetLook.SHAPE }
     if (spec.style == CountdownDays.PAGE) {
         val locale = LocalLocale.current.platformLocale
         val page = remember(spec.to, spec.reached, minute, zone, clock24, locale) {
@@ -96,7 +101,7 @@ internal fun CountdownDaysBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box)
         val bar = remember(spec.from, spec.to, minute) {
             WidgetWords.countdownFraction(spec.from, spec.to, now)?.let(WidgetWords::barStep)
         }
-        PageCountdown(page, bar, box, look, role)
+        PageCountdown(page, bar, box, look, role, badge)
     } else {
         val dots = remember(spec.to, spec.from, minute, zone) { CountdownDays.dots(spec.to, spec.from, now, zone) }
         val count = remember(spec.to, spec.reached, minute, zone) { CountdownDays.count(spec.to, now, zone, spec.reached) }
@@ -106,7 +111,7 @@ internal fun CountdownDaysBody(spec: WidgetSpec.Countdown, box: WidgetSizes.Box)
         // The label, and when a dot is a week, that it is.
         val under = listOfNotNull(spec.label, CountdownDays.A_DOT_A_WEEK.takeIf { dots?.week == true })
             .joinToString(" · ").ifEmpty { null }
-        DotsCountdown(dots, count, moment, under, box, look, role)
+        DotsCountdown(dots, count, moment, under, box, look, role, badge)
     }
 }
 
@@ -122,7 +127,8 @@ private fun DotsCountdown(
     under: String?,
     box: WidgetSizes.Box,
     look: WidgetLook,
-    role: Color
+    role: Color,
+    badge: String?
 ) {
     val c = lookColors(look, role)
     val type = MaterialTheme.typography
@@ -137,9 +143,20 @@ private fun DotsCountdown(
             else under?.let { Text(it, style = type.bodySmall, color = c.muted, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         }
 
-        look == WidgetLook.SPLIT -> SplitDots(dots, count, moment, under, box, c)
-        else -> PlainDots(dots, count, moment, under, box, look == WidgetLook.BOLD, c)
+        look == WidgetLook.SPLIT -> SplitDots(dots, count, moment, under, box, c, badge)
+        else -> PlainDots(dots, count, moment, under, box, look == WidgetLook.BOLD, c, badge)
     }
+}
+
+/**
+ * A small title with the card's [badge] at the end of its room ([BadgedLine]), for the top line of
+ * a countdown's days. With a [modifier] of a row's weight, the badge sits before what follows the
+ * title. Without a badge it is [SmallTitle] as it is.
+ */
+@Composable
+private fun BadgedTitle(title: String?, color: Color, badge: String?, role: Color, modifier: Modifier = Modifier, lines: Int = 1) {
+    if (badge == null) return SmallTitle(title, color, modifier, lines)
+    BadgedLine(badge, role, modifier) { SmallTitle(title, color, lines = lines) }
 }
 
 /**
@@ -156,7 +173,8 @@ private fun PlainDots(
     under: String?,
     box: WidgetSizes.Box,
     bold: Boolean,
-    c: LookColors
+    c: LookColors,
+    badge: String?
 ) {
     val type = MaterialTheme.typography
     val title = LocalUntitled.current
@@ -164,7 +182,7 @@ private fun PlainDots(
     when (box) {
         WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                SmallTitle(title, c.content, Modifier.weight(1f))
+                BadgedTitle(title, c.content, badge, c.accent, Modifier.weight(1f))
                 Text(moment, style = type.labelMedium, color = c.muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
             }
             Box(Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp)) {
@@ -184,9 +202,12 @@ private fun PlainDots(
                     CountdownDays.grid(dots.count, width.value / 2, height.value, DOT_PITCH_MOST).pitch >= DOT_PITCH_LEAST
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    SmallTitle(title, c.content)
-                    if (bold) BoldValue(value, null, 44.sp, valueInk(c.accent, c.card))
-                    else BigText(value, type.headlineMedium, color = c.content)
+                    // The badge at the end of the first line: the name's, else the number's.
+                    BadgedTitle(title, c.content, badge.takeIf { title != null }, c.accent)
+                    BadgedLine(badge.takeIf { title == null }, c.accent, Modifier.fillMaxWidth()) {
+                        if (bold) BoldValue(value, null, 44.sp, valueInk(c.accent, c.card))
+                        else BigText(value, type.headlineMedium, color = c.content)
+                    }
                     UnitAndLabel(count.unit, under, c.muted)
                 }
                 if (fits && dots != null) DayDots(
@@ -242,12 +263,14 @@ private fun SplitDots(
     moment: String,
     under: String?,
     box: WidgetSizes.Box,
-    c: LookColors
+    c: LookColors,
+    badge: String?
 ) {
     val type = MaterialTheme.typography
     val title = LocalUntitled.current
     val gap = SplitCorners.GAP
-    val numberTile: @Composable (Shape, Modifier) -> Unit = { shape, modifier ->
+    // With a [first] badge, the number's tile is the first: the badge is at the end of the number's line.
+    val numberTile: @Composable (Shape, Modifier, String?) -> Unit = { shape, modifier, first ->
         Tile(shape, c.tile, modifier) {
             Column(
                 Modifier
@@ -255,33 +278,35 @@ private fun SplitDots(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 if (box == WidgetSizes.Box.LARGE) {
-                    DaysCount(count, type.headlineLarge, c.content)
+                    BadgedLine(first, c.accent, Modifier.fillMaxWidth()) { DaysCount(count, type.headlineLarge, c.content) }
                     under?.let { Text(it, style = type.bodySmall, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 } else {
                     // A narrow tile has no room for "days left" beside the number: it goes under it, with the label.
-                    BigText(StyledText.capitalized(count.value), type.headlineMedium, color = c.content)
+                    BadgedLine(first, c.accent, Modifier.fillMaxWidth()) {
+                        BigText(StyledText.capitalized(count.value), type.headlineMedium, color = c.content)
+                    }
                     UnitAndLabel(count.unit, under, c.muted)
                 }
             }
         }
     }
     when {
-        box == WidgetSizes.Box.SMALL || dots == null -> numberTile(SplitCorners.inColumn(0, 1), Modifier.fillMaxSize())
+        box == WidgetSizes.Box.SMALL || dots == null -> numberTile(SplitCorners.inColumn(0, 1), Modifier.fillMaxSize(), badge)
         box == WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
             Tile(SplitCorners.inColumn(0, 2), c.tile, Modifier.fillMaxWidth().weight(1.5f)) {
                 Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        SmallTitle(title, c.content, Modifier.weight(1f))
+                        BadgedTitle(title, c.content, badge, c.accent, Modifier.weight(1f))
                         Text(moment, style = type.labelMedium, color = c.muted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
                     }
                     DayDots(dots, c.accent, c.content, Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp))
                 }
             }
-            numberTile(SplitCorners.inColumn(1, 2), Modifier.fillMaxWidth().weight(1f))
+            numberTile(SplitCorners.inColumn(1, 2), Modifier.fillMaxWidth().weight(1f), null)
         }
 
         else -> Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            numberTile(SplitCorners.inRow(0, 2), Modifier.weight(1f).fillMaxHeight())
+            numberTile(SplitCorners.inRow(0, 2), Modifier.weight(1f).fillMaxHeight(), badge)
             Tile(SplitCorners.inRow(1, 2), c.tile, Modifier.weight(1f).fillMaxHeight()) {
                 DayDots(dots, c.accent, c.content, Modifier.fillMaxSize().padding(10.dp))
             }
@@ -422,7 +447,7 @@ private fun DaysCount(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun PageCountdown(page: CountdownDays.Page, bar: Float?, box: WidgetSizes.Box, look: WidgetLook, role: Color) {
+private fun PageCountdown(page: CountdownDays.Page, bar: Float?, box: WidgetSizes.Box, look: WidgetLook, role: Color, badge: String?) {
     val c = lookColors(look, role)
     val title = LocalUntitled.current
     val bold = look == WidgetLook.BOLD
@@ -439,7 +464,7 @@ private fun PageCountdown(page: CountdownDays.Page, bar: Float?, box: WidgetSize
             CalendarPage(page, c, Color.Transparent, null, Modifier.fillMaxSize())
         }) { PageWords(page, title, c, null, large = false) }
 
-        look == WidgetLook.SPLIT -> SplitPage(page, bar, box, c, paper)
+        look == WidgetLook.SPLIT -> SplitPage(page, bar, box, c, paper, badge)
         box == WidgetSizes.Box.SMALL -> Column(
             Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -467,7 +492,7 @@ private fun PageCountdown(page: CountdownDays.Page, bar: Float?, box: WidgetSize
                     Row {
                         CalendarPage(page, c, paper, RoundedCornerShape(16.dp), Modifier.size(side * 0.94f, side), bold = bold)
                         Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                            SmallTitle(title, c.content, lines = 2)
+                            BadgedTitle(title, c.content, badge, c.accent, lines = 2)
                             Text(page.weekday, style = MaterialTheme.typography.bodySmall, color = c.muted, maxLines = 1)
                         }
                     }
@@ -481,7 +506,7 @@ private fun PageCountdown(page: CountdownDays.Page, bar: Float?, box: WidgetSize
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     CalendarPage(page, c, paper, RoundedCornerShape(16.dp), Modifier.size(side * 0.94f, side), bold = bold)
                     Column(Modifier.padding(start = 14.dp).weight(1f)) {
-                        PageWords(page, title, c, bar.takeIf { width >= 280.dp }, large = box == WidgetSizes.Box.LARGE)
+                        PageWords(page, title, c, bar.takeIf { width >= 280.dp }, large = box == WidgetSizes.Box.LARGE, badge = badge)
                     }
                 }
             }
@@ -489,33 +514,40 @@ private fun PageCountdown(page: CountdownDays.Page, bar: Float?, box: WidgetSize
     }
 }
 
-/** The words beside a page: the card's name, "In 26 days" in the card's color, the weekday, and the bar under them when given. */
+/**
+ * The words beside a page: the card's name, "In 26 days" in the card's color, the weekday, and the
+ * bar under them when given. A [badge] is at the end of the first line: the name's, else "In 26 days".
+ */
 @Composable
-private fun PageWords(page: CountdownDays.Page, title: String?, c: LookColors, bar: Float?, large: Boolean) {
+private fun PageWords(page: CountdownDays.Page, title: String?, c: LookColors, bar: Float?, large: Boolean, badge: String? = null) {
     val type = MaterialTheme.typography
     title?.let {
+        BadgedLine(badge, c.accent, Modifier.fillMaxWidth()) {
+            Text(
+                it,
+                style = type.titleSmallEmphasized,
+                color = c.content,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+    BadgedLine(badge.takeIf { title == null }, c.accent, Modifier.fillMaxWidth()) {
         Text(
-            it,
-            style = type.titleSmallEmphasized,
-            color = c.content,
+            page.left,
+            style = (if (large) type.headlineSmall else type.titleMedium).copy(fontWeight = FontWeight.Bold),
+            color = c.accent,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
-    Text(
-        page.left,
-        style = (if (large) type.headlineSmall else type.titleMedium).copy(fontWeight = FontWeight.Bold),
-        color = c.accent,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
-    )
     Text(page.weekday, style = type.bodySmall, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
     bar?.let { LevelBar(it, moving = false, c.accent, Modifier.padding(top = 6.dp), wavy = true) }
 }
 
 /** Split's page: the page in a tile of its own at the start, the words in the next; a large square card has "In 26 days" and the bar in a tile under them. */
 @Composable
-private fun SplitPage(page: CountdownDays.Page, bar: Float?, box: WidgetSizes.Box, c: LookColors, paper: Color) {
+private fun SplitPage(page: CountdownDays.Page, bar: Float?, box: WidgetSizes.Box, c: LookColors, paper: Color, badge: String?) {
     val type = MaterialTheme.typography
     val title = LocalUntitled.current
     val gap = SplitCorners.GAP
@@ -546,10 +578,10 @@ private fun SplitPage(page: CountdownDays.Page, bar: Float?, box: WidgetSizes.Bo
                 ) {
                     Column(Modifier.align(Alignment.CenterStart).padding(horizontal = 14.dp)) {
                         if (stacked) {
-                            SmallTitle(title, c.content, lines = 2)
+                            BadgedTitle(title, c.content, badge, c.accent, lines = 2)
                             Text(page.weekday, style = type.bodySmall, color = c.muted, maxLines = 1)
                         } else {
-                            PageWords(page, title, c, bar.takeIf { width >= 280.dp }, large = false)
+                            PageWords(page, title, c, bar.takeIf { width >= 280.dp }, large = false, badge = badge)
                         }
                     }
                 }

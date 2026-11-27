@@ -80,6 +80,7 @@ import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 import com.mtwabpin.kolahal.widgets.WidgetTap
+import com.mtwabpin.kolahal.widgets.cardBadge
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -114,6 +115,9 @@ private const val STRIPS_FROM_DP = 300
  *   for two lines has the difference under the name ([PlaceAndDifference]).
  * - Large and wide (a 4×2 card), in Plain and Tonal: the rows also have a strip of the day
  *   ([ClockStrips]). [onTap] null takes no tap on the strips (the Widgets screen).
+ * - The card's badge ([cardBadge]) is at the end of the first place's first line: its time where
+ *   the time is over the name, else its name. It goes where the line can't hold it beside the
+ *   place ([BadgedLine]). A small card, Poster and a card that is one shape have none.
  * - The time follows Kolahal's 24-hour setting. It moves by the minute, with the header's clock.
  *   With `seconds` it moves by the second, but only while the widgets page is in view.
  * - The size of the digits comes from the room, never from the text: a clock that ticks does not
@@ -159,6 +163,8 @@ internal fun ClockBody(
     }
     val chars = WidgetWords.clockChars(clock24, spec.seconds)
     val zone = places.firstOrNull()?.second ?: here
+    // A small card has no room for the badge ([BadgedLine]); Poster's time fills the card.
+    val badge = spec.cardBadge.takeUnless { box == WidgetSizes.Box.SMALL }
     when (LocalWidgetLook.current) {
         WidgetLook.POSTER -> return PosterClock(times, ::time, zone, now, box, roleColor(spec.base))
         WidgetLook.BOLD -> return BoldClock(
@@ -168,11 +174,12 @@ internal fun ClockBody(
             now,
             box,
             chars,
-            roleColor(spec.base)
+            roleColor(spec.base),
+            badge
         )
 
-        WidgetLook.SPLIT -> return SplitClock(times, ::time, box, chars)
-        WidgetLook.SHAPE -> return ShapeClock(times, ::time, zone, now, box, roleColor(spec.base))
+        WidgetLook.SPLIT -> return SplitClock(times, ::time, box, chars, badge, roleColor(spec.base))
+        WidgetLook.SHAPE -> return ShapeClock(times, ::time, zone, now, box, roleColor(spec.base), badge)
         else -> {}
     }
     val tile = lookColors().tile
@@ -191,7 +198,9 @@ internal fun ClockBody(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = if (box == WidgetSizes.Box.SMALL) Alignment.CenterHorizontally else Alignment.Start,
             ) {
-                ClockTime(time(0), WidgetWords.clockTextDp(width, chars, minOf(fits, 40)))
+                BadgedLine(badge, roleColor(spec.base)) {
+                    ClockTime(time(0), WidgetWords.clockTextDp(width, chars, minOf(fits, 40)))
+                }
                 PlaceLabel(times[0])
             }
 
@@ -208,7 +217,10 @@ internal fun ClockBody(
                     times.take(columns).forEachIndexed { i, time ->
                         key(i) {
                             Column(Modifier.weight(1f)) {
-                                ClockTime(time(i), size)
+                                // The badge is at the end of the first place's time.
+                                BadgedLine(badge.takeIf { i == 0 }, roleColor(spec.base)) {
+                                    ClockTime(time(i), size)
+                                }
                                 PlaceLabel(time)
                             }
                         }
@@ -226,7 +238,8 @@ internal fun ClockBody(
                 roleColor(spec.base),
                 tappable = onTap != null,
                 width,
-                height
+                height,
+                badge
             )
 
             else -> {
@@ -253,16 +266,22 @@ internal fun ClockBody(
                                         .padding(end = 8.dp)
                                 ) {
                                     // A tall row has the difference on a second line, as the mockup has it.
+                                    // The badge is at the end of the first place's name.
+                                    val badged = badge.takeIf { i == 0 }
                                     if (row >= twoLines) PlaceAndDifference(
                                         time,
                                         nameStyle,
-                                        type.bodySmall
+                                        type.bodySmall,
+                                        badged,
+                                        roleColor(spec.base)
                                     )
-                                    else PlaceLabel(
-                                        time,
-                                        style = type.labelLargeEmphasized,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
+                                    else BadgedLine(badged, roleColor(spec.base)) {
+                                        PlaceLabel(
+                                            time,
+                                            style = type.labelLargeEmphasized,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
                                 }
                                 ClockTime(time(i), size)
                             }
@@ -329,6 +348,7 @@ private fun ClockStrips(
     tappable: Boolean,
     widthDp: Int,
     heightDp: Int,
+    badge: String? = null,
 ) {
     // The hour a tap picked, from 0 to 24 of today here, or null for now.
     var picked by remember { mutableStateOf<Int?>(null) }
@@ -415,12 +435,16 @@ private fun ClockStrips(
                                 .weight(1f)
                                 .padding(end = 8.dp)
                         ) {
-                            if (twoLines) PlaceAndDifference(place, nameStyle, lineStyle)
-                            else PlaceLabel(
-                                place,
-                                style = nameStyle,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            // The badge is at the end of the first place's name.
+                            val badged = badge.takeIf { i == 0 }
+                            if (twoLines) PlaceAndDifference(place, nameStyle, lineStyle, badged, role)
+                            else BadgedLine(badged, role) {
+                                PlaceLabel(
+                                    place,
+                                    style = nameStyle,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                         ClockTime(time(i), size)
                     }
@@ -719,7 +743,7 @@ private const val BOLD_WIDTH = 0.9f
 /**
  * The Bold clock: the first place's time at display size in the card's [accent], under its name
  * and its date. The other places are small, under it in a large box and beside it in a wide one,
- * as many as fit.
+ * as many as fit. A [badge] is at the end of the name's line, the top end of the card in a large box.
  */
 @Composable
 private fun BoldClock(
@@ -729,7 +753,8 @@ private fun BoldClock(
     now: State<Long>,
     box: WidgetSizes.Box,
     chars: Int,
-    accent: Color
+    accent: Color,
+    badge: String? = null
 ) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val width = maxWidth.value.toInt()
@@ -760,7 +785,7 @@ private fun BoldClock(
                 val mainWidth = width - beside * 80
                 Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        PlaceAndDate(first, zone, now)
+                        BadgedLine(badge, accent) { PlaceAndDate(first, zone, now) }
                         ClockTime(
                             time(0),
                             WidgetWords.clockTextDp(
@@ -785,7 +810,7 @@ private fun BoldClock(
             }
 
             WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-                PlaceAndDate(first, zone, now)
+                BadgedLine(badge, accent) { PlaceAndDate(first, zone, now) }
                 val others = (times.size - 1).coerceAtMost(maxOf(1, (width + 16) / 88))
                 // The big time takes what the place line and the row of the others leave.
                 val room = height - 20 - if (others > 0) 44 else 0
@@ -866,14 +891,17 @@ private fun SmallPlace(
 
 /**
  * The Split clock: the first place in a big tile, its name over its time, and the others in small
- * tiles under it (large) or beside it (wide), as many as fit at 64 dp each.
+ * tiles under it (large) or beside it (wide), as many as fit at 64 dp each. A [badge] in [role]
+ * is at the top end of the first tile, at the end of the place's name.
  */
 @Composable
 private fun SplitClock(
     times: List<WidgetWords.ZoneTime>,
     time: (Int) -> () -> String,
     box: WidgetSizes.Box,
-    chars: Int
+    chars: Int,
+    badge: String? = null,
+    role: Color = Color.Unspecified
 ) {
     val tile = lookColors().tile
     val gap = SplitCorners.GAP
@@ -901,13 +929,15 @@ private fun SplitClock(
                             .background(tile)
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        Text(
-                            times[0].label,
-                            style = MaterialTheme.typography.labelMediumEmphasized,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        BadgedLine(badge, role) {
+                            Text(
+                                times[0].label,
+                                style = MaterialTheme.typography.labelMediumEmphasized,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                         Spacer(Modifier.weight(1f))
                         ClockTime(
                             time(0),
@@ -964,7 +994,9 @@ private fun SplitClock(
                         SplitCorners.inRow(0, count),
                         tile,
                         Modifier.weight(1.5f),
-                        start = true
+                        start = true,
+                        badge = badge,
+                        role = role
                     )
                     for (i in 1..others) key(i) {
                         SplitPlace(
@@ -991,7 +1023,10 @@ private fun SplitClock(
     }
 }
 
-/** One of Split's clock tiles: the place's name, dim, over its time, in the middle or at the [start]. */
+/**
+ * One of Split's clock tiles: the place's name, dim, over its time, in the middle or at the [start].
+ * A [badge] in [role] is at the end of the name's line, where it fits beside the name ([BadgedLine]).
+ */
 @Composable
 private fun SplitPlace(
     place: WidgetWords.ZoneTime,
@@ -1000,7 +1035,9 @@ private fun SplitPlace(
     shape: Shape,
     tile: Color,
     modifier: Modifier,
-    start: Boolean = false
+    start: Boolean = false,
+    badge: String? = null,
+    role: Color = Color.Unspecified
 ) {
     Column(
         modifier
@@ -1011,7 +1048,7 @@ private fun SplitPlace(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = if (start) Alignment.Start else Alignment.CenterHorizontally,
     ) {
-        PlaceLabel(place)
+        BadgedLine(badge, role) { PlaceLabel(place) }
         ClockTime(time, sizeDp)
     }
 }
@@ -1023,6 +1060,8 @@ private fun SplitPlace(
  * - Wide: the dial in a small cookie at the start, the times beside it in words: "Pune 14:32" over
  *   "London 09:02 · New York 04:02".
  * - Large but not square: the dial at the start, a row for each place beside it.
+ * - A [badge] is at the end of the first place's line, beside the dial. A card that is the shape,
+ *   and a small one, have none.
  */
 @Composable
 private fun ShapeClock(
@@ -1031,7 +1070,8 @@ private fun ShapeClock(
     zone: ZoneId,
     now: State<Long>,
     box: WidgetSizes.Box,
-    accent: Color
+    accent: Color,
+    badge: String? = null
 ) {
     val looks = lookColors(WidgetLook.SHAPE, accent)
     if (LocalCardShaped.current) {
@@ -1056,13 +1096,15 @@ private fun ShapeClock(
             if (box == WidgetSizes.Box.WIDE) {
                 Column(Modifier.weight(1f)) {
                     val first = time(0)
-                    Text(
-                        "${times[0].label} ${first()}",
-                        style = type.titleSmallEmphasized,
-                        color = looks.content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    BadgedLine(badge, accent) {
+                        Text(
+                            "${times[0].label} ${first()}",
+                            style = type.titleSmallEmphasized,
+                            color = looks.content,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     if (times.size > 1) {
                         val others = (1 until times.size).map { it to time(it) }
                         Text(
@@ -1079,7 +1121,9 @@ private fun ShapeClock(
                     val rows = times.size.coerceAtMost(maxOf(1, (boxHeight.value.toInt() + 8) / 56))
                     for (i in 0 until rows) key(i) {
                         Column {
-                            PlaceLabel(times[i], style = type.labelMedium)
+                            BadgedLine(badge.takeIf { i == 0 }, accent) {
+                                PlaceLabel(times[i], style = type.labelMedium)
+                            }
                             ClockTime(time(i), 22)
                         }
                     }
@@ -1204,23 +1248,28 @@ private fun ClockDial(
 
 /**
  * A place's name in bold, over its difference from the phone's time in dim words: the first of its
- * lines ([WidgetWords.placeLines]) that fits whole, "5 h 30 min behind" or "−5:30".
+ * lines ([WidgetWords.placeLines]) that fits whole, "5 h 30 min behind" or "−5:30". A [badge] in
+ * [role] is at the end of the name's line, where it fits beside the name ([BadgedLine]).
  */
 @Composable
 private fun PlaceAndDifference(
     time: WidgetWords.ZoneTime,
     nameStyle: TextStyle,
-    lineStyle: TextStyle
+    lineStyle: TextStyle,
+    badge: String? = null,
+    role: Color = Color.Unspecified
 ) {
     val lines = remember(time) { WidgetWords.placeLines(time) }
     Column {
-        Text(
-            time.label,
-            style = nameStyle,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        BadgedLine(badge, role) {
+            Text(
+                time.label,
+                style = nameStyle,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
         FittingLine(lines, lineStyle, lookColors().muted)
     }
 }

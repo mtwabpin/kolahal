@@ -35,6 +35,7 @@ import com.mtwabpin.kolahal.ui.home.rememberWebImage
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
+import com.mtwabpin.kolahal.widgets.cardBadge
 
 /** From this many times as wide as it is tall, a large card has its picture at the start and the words beside it. */
 private const val BESIDE_FROM = 1.6f
@@ -45,6 +46,9 @@ private const val BESIDE_FROM = 1.6f
  *   that. A large card much wider than tall (4×2) has the cookie at the start and the words beside it.
  * - Wide (2×1): the picture in a clover at the start, the caption beside it over the title.
  * - Small: the picture in a cookie alone.
+ * - The card's badge ([cardBadge]) is at the end of the first line beside the picture, the
+ *   caption's or else the title's ([BadgedLine]): never on the picture. A card that is the shape, a
+ *   small one, and a large one with the words under the picture have none.
  * - A shape is always covered: the picture loses its edges, also with `fit = "fit"`.
  * - Until the picture is there, and when it fails, the shape is in the card's color with the
  *   card's icon in it, or the words the card says in its place ([WidgetWords.pictureNote]).
@@ -57,6 +61,8 @@ internal fun ShapedImage(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
     val type = MaterialTheme.typography
     val c = lookColors(WidgetLook.SHAPE, roleColor(spec.base))
     val title = LocalUntitled.current
+    val badge = spec.cardBadge.takeUnless { box == WidgetSizes.Box.SMALL || LocalCardShaped.current }
+    val role = roleColor(spec.base)
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val boxWidth = maxWidth
         val boxHeight = maxHeight
@@ -77,23 +83,28 @@ internal fun ShapedImage(spec: WidgetSpec.Image, box: WidgetSizes.Box) {
                     verticalArrangement = Arrangement.Center
                 ) {
                     spec.caption?.let {
-                        Text(
-                            cardText(it),
-                            style = type.titleSmall,
-                            color = c.content,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        BadgedLine(badge, role) {
+                            Text(
+                                cardText(it),
+                                style = type.titleSmall,
+                                color = c.content,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                     title?.let {
-                        Text(
-                            it,
-                            style = type.bodySmall,
-                            color = c.muted,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
+                        // Without a caption, the title's is the first line, and has the badge.
+                        BadgedLine(badge.takeIf { spec.caption == null }, role) {
+                            Text(
+                                it,
+                                style = type.bodySmall,
+                                color = c.muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
                     }
                 }
             }
