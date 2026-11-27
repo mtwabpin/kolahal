@@ -146,6 +146,9 @@ class LogLineActionsTest {
     fun setUp() {
         apps.refresh()
         waitUntil("the app list") { apps.apps.value.isNotEmpty() }
+        // The lines before the test are hidden, as `fresh` hides them (logLines puts the mark back): a
+        // test's first line is the first shown, so it has no Fresh from here, whatever the tests before left.
+        logs.hideScreen()
     }
 
     // The lines go after this, by the rule: also when a wait here times out.

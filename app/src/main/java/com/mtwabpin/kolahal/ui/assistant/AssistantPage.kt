@@ -96,7 +96,10 @@ internal fun sentLine(service: Service) =
 @Composable
 fun AssistantPage(config: Config, onSettings: () -> Unit, asker: Asker? = null) {
     val app = LocalContext.current.applicationContext
-    val scope = rememberCoroutineScope()
+    // On the main thread: what a launch does after its IO call (an answer, a saved key, a conversation opened)
+    // changes the thread. A test's effects run unconfined, and went on on the IO thread, where a change made
+    // while the thread was measured broke it (IndexOutOfBounds) or wasn't shown.
+    val scope = rememberCoroutineScope { Dispatchers.Main.immediate }
     val keys = remember { AssistantKeys(app) }
     val store = remember { ConversationStore(KvShelf(app)) }
     val session = remember { AssistantSession(app, asker ?: HttpAsker(keys), store) }
@@ -370,7 +373,7 @@ private fun HistorySheet(
     onDeleted: (String) -> Unit,
     onOpen: (com.mtwabpin.kolahal.assistant.Conversation) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope { Dispatchers.Main.immediate } // As the page's: on the main thread.
     var reads by remember { mutableIntStateOf(0) }
     val list by produceState<List<Summary>?>(null, reads) { value = withContext(Dispatchers.IO) { store.list() } }
     GuiSheet(onDismiss = onDismiss, scroll = true) {

@@ -157,7 +157,9 @@ internal class HomeState(
 
     /**
      * Opens a menu titled [title]. The menu's actions ask the system for an app's shortcuts, so
-     * [build] runs off the main thread, and the menu shows when they are ready.
+     * [build] runs off the main thread, and the menu shows when they are ready. The menu is set on
+     * the main thread: a test's effects run unconfined, so set where [build] ended, the sheet's
+     * dialog could be composed on the IO thread, which can't make one.
      */
     fun showMenu(
         title: String,
@@ -167,13 +169,10 @@ internal class HomeState(
         build: () -> List<LogAction>
     ) {
         scope.launch {
-            menu = ActionMenu(
-                title,
-                withContext(Dispatchers.IO) { build() },
-                id,
-                url = url,
-                detail = detail
-            )
+            val actions = withContext(Dispatchers.IO) { build() }
+            withContext(Dispatchers.Main.immediate) {
+                menu = ActionMenu(title, actions, id, url = url, detail = detail)
+            }
         }
     }
 }

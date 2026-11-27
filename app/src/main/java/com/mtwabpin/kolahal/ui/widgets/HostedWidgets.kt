@@ -345,13 +345,11 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
                     fade = vm.widgetsSelectorFade,
                     stripArea = area?.let { (it.top - top)..(it.bottom - top) },
                     onLongPress = { app ->
-                        // An app's shortcuts come from the system. Build them off the main thread and show them when ready.
+                        // An app's shortcuts come from the system. Build them off the main thread and show them when
+                        // ready, set on the main thread (as HomeState.showMenu).
                         menuScope.launch {
-                            menu = ActionMenu(
-                                app.label,
-                                withContext(Dispatchers.IO) { vm.appActions(app) },
-                                null
-                            )
+                            val actions = withContext(Dispatchers.IO) { vm.appActions(app) }
+                            withContext(Dispatchers.Main.immediate) { menu = ActionMenu(app.label, actions, null) }
                         }
                     },
                 )

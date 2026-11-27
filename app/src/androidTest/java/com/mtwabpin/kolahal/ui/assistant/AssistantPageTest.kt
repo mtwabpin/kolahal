@@ -2,6 +2,9 @@ package com.mtwabpin.kolahal.ui.assistant
 
 import android.app.Application
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
@@ -73,11 +76,13 @@ class AssistantPageTest {
         Services.ALL.forEach { keys.set(it, null) }
     }
 
+    // Without the keyboard's inset: the keyboard comes up in an animation, which moves the key card's Save
+    // as a click lands, and the click is missed.
     private fun show(asker: FakeAsker) {
         compose.setContent {
             focusManager = androidx.compose.ui.platform.LocalFocusManager.current
             KolahalTheme {
-                Box(Modifier.size(360.dp, 720.dp)) { AssistantPage(config, onSettings = { settingsOpened++ }, asker = asker) }
+                Box(Modifier.size(360.dp, 720.dp).consumeWindowInsets(WindowInsets.ime)) { AssistantPage(config, onSettings = { settingsOpened++ }, asker = asker) }
             }
         }
     }
