@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_idea: a light bulb, for an idea. -->
+  <!-- idea_kolahal: a light bulb, for an idea. -->
   <path d="M64 10 C38 10 22 28 22 50 C22 66 32 74 40 84 V92 H88 V84 C96 74 106 66 106 50 C106 28 90 10 64 10 Z" fill="{{dark.warn}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
   <path d="M50 70 L58 58 L64 70 L70 58 L78 70" fill="none" stroke="{{dark.background}}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M58 70 V88 M70 70 V88" fill="none" stroke="{{dark.background}}" stroke-width="5" stroke-linecap="round"/>

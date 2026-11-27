@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_logo: the website's icon in the theme's colors: the log's bar, two lines and the prompt over a dusk scene (docs/release/graphics/icon-ideas/b-log-over-a-scene.svg). -->
+  <!-- kolahal: the website's icon in the theme's colors: the log's bar, two lines and the prompt over a dusk scene (docs/release/graphics/icon-ideas/b-log-over-a-scene.svg). -->
   <clipPath id="plate"><rect x="4" y="4" width="120" height="120" rx="30"/></clipPath>
   <g clip-path="url(#plate)">
     <svg x="4" y="4" width="120" height="120" viewBox="18 18 72 72">

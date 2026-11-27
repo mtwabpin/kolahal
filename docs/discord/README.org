@@ -50,42 +50,47 @@ Discord changes them now and then; the upload screen has the last word.
 
 128 × 128 PNG with clear corners, each a few KB (Discord's limit is 256 KB; it shows emojis at
 22 × 22 in a line of text and 48 × 48 large or as a reaction). Upload in Server Settings → Emoji →
-Upload Emoji; the file's name without =.png= becomes the emoji's name, such as =:kolahal_bug:=
-(2 to 32 letters, digits and underscores). A server has 50 slots for still emojis at boost level 0.
+Upload Emoji; the file's name without =.png= becomes the emoji's name, such as =:bug_kolahal:=
+(2 to 32 letters, digits and underscores). Names put the icon's name first and =_kolahal= last, so
+typing =:bug= finds it. A server has 50 slots for still emojis at boost level 0; 26 are used.
 
 Each one has a dark outline (Rosé Pine's base) or sits on a dark plate, so it reads on Discord's
 light and dark themes alike.
 
 The app's own marks:
 
-- [[file:emoji/kolahal_logo.png][kolahal_logo.png]]: The server's icon, small. For Kolahal itself.
-- [[file:emoji/kolahal_prompt.png][kolahal_prompt.png]]: The prompt's chevron and caret. For typing a command, or the app's way of doing things.
-- [[file:emoji/kolahal_log.png][kolahal_log.png]]: A log group: its colored bar and two lines of an answer. For the log, or an answer in it.
-- [[file:emoji/kolahal_selector.png][kolahal_selector.png]]: The app selector's bubble with a letter, and the wave of letters along the edge. For the app selector.
-- [[file:emoji/kolahal_widget.png][kolahal_widget.png]]: A widget card with its scalloped badge and a bar chart. For widgets.
-- [[file:emoji/kolahal_script.png][kolahal_script.png]]: A script's braces. For scripts, and for sharing one.
-- [[file:emoji/kolahal_shader.png][kolahal_shader.png]]: A sun over the mountains, as the shaders draw scenes. For shaders and scenes.
-- [[file:emoji/kolahal_theme.png][kolahal_theme.png]]: Rose, gold, foam and iris in a circle. For themes and colors.
-- [[file:emoji/kolahal_touch.png][kolahal_touch.png]]: A tap with its ripple. For gestures and touch.
-- [[file:emoji/kolahal_type.png][kolahal_type.png]]: A key with the prompt's chevron. For typing and the keyboard.
-- [[file:emoji/kolahal_lantern.png][kolahal_lantern.png]]: A sky lantern, from the lanterns scene. For good night, or for something well made.
+- [[file:emoji/kolahal.png][kolahal.png]]: The server's icon, small. For Kolahal itself.
+- [[file:emoji/prompt_kolahal.png][prompt_kolahal.png]]: The prompt's chevron and caret. For typing a command, or the app's way of doing things.
+- [[file:emoji/log_kolahal.png][log_kolahal.png]]: A log group: its colored bar and two lines of an answer. For the log, or an answer in it.
+- [[file:emoji/selector_kolahal.png][selector_kolahal.png]]: The app selector's bubble with a letter, and the wave of letters along the edge. For the app selector.
+- [[file:emoji/widget_kolahal.png][widget_kolahal.png]]: A widget card with its scalloped badge and a bar chart. For widgets.
+- [[file:emoji/script_kolahal.png][script_kolahal.png]]: A script's braces. For scripts, and for sharing one.
+- [[file:emoji/shader_kolahal.png][shader_kolahal.png]]: A sun over the mountains, as the shaders draw scenes. For shaders and scenes.
+- [[file:emoji/theme_kolahal.png][theme_kolahal.png]]: Rose, gold, foam and iris in a circle. For themes and colors.
+- [[file:emoji/gesture_kolahal.png][gesture_kolahal.png]]: A tap with its ripple. For gestures and touch.
+- [[file:emoji/keyboard_kolahal.png][keyboard_kolahal.png]]: A key with the prompt's chevron. For typing and the keyboard.
+- [[file:emoji/well_made_kolahal.png][well_made_kolahal.png]]: A sky lantern, from the lanterns scene. For something well made.
 
 For the server's everyday talk:
 
-- [[file:emoji/kolahal_bug.png][kolahal_bug.png]]: A bug. For a bug report, or "this is a bug".
-- [[file:emoji/kolahal_idea.png][kolahal_idea.png]]: A light bulb. For an idea or a feature request.
-- [[file:emoji/kolahal_question.png][kolahal_question.png]]: A question mark in a speech bubble. For a question, or "can you say more?".
-- [[file:emoji/kolahal_guide.png][kolahal_guide.png]]: An open book. For "the user's guide answers this".
-- [[file:emoji/kolahal_screenshot.png][kolahal_screenshot.png]]: A phone in a viewfinder. For "a screenshot, please".
-- [[file:emoji/kolahal_cant_reproduce.png][kolahal_cant_reproduce.png]]: A magnifying glass with a question mark. For "can't reproduce".
-- [[file:emoji/kolahal_works_for_me.png][kolahal_works_for_me.png]]: A phone with a check mark. For "works on my phone".
-- [[file:emoji/kolahal_on_it.png][kolahal_on_it.png]]: A wrench. For "being worked on".
-- [[file:emoji/kolahal_not_yet.png][kolahal_not_yet.png]]: An hourglass. For "planned, not yet done".
-- [[file:emoji/kolahal_done.png][kolahal_done.png]]: A check mark. For done, fixed or yes.
-- [[file:emoji/kolahal_no.png][kolahal_no.png]]: A cross. For no, won't do, or doesn't work.
-- [[file:emoji/kolahal_release.png][kolahal_release.png]]: A rocket. For a release, or "in the next release".
-- [[file:emoji/kolahal_plus_one.png][kolahal_plus_one.png]]: +1. For "me too" on a request.
-- [[file:emoji/kolahal_thanks.png][kolahal_thanks.png]]: A heart. For thanks.
+- [[file:emoji/bug_kolahal.png][bug_kolahal.png]]: A bug. For a bug report, or "this is a bug".
+- [[file:emoji/idea_kolahal.png][idea_kolahal.png]]: A light bulb. For an idea or a feature request.
+- [[file:emoji/question_kolahal.png][question_kolahal.png]]: A question mark in a speech bubble. For a question, or "can you say more?".
+- [[file:emoji/docs_kolahal.png][docs_kolahal.png]]: An open book. For "the user's guide answers this".
+- [[file:emoji/screenshot_kolahal.png][screenshot_kolahal.png]]: A phone in a viewfinder. For "a screenshot, please".
+- [[file:emoji/cant_reproduce_kolahal.png][cant_reproduce_kolahal.png]]: A magnifying glass with a question mark. For "can't reproduce".
+- [[file:emoji/works_for_me_kolahal.png][works_for_me_kolahal.png]]: A phone with a check mark. For "works on my phone".
+- [[file:emoji/on_it_kolahal.png][on_it_kolahal.png]]: A wrench. For "being worked on".
+- [[file:emoji/not_yet_kolahal.png][not_yet_kolahal.png]]: An hourglass. For "planned, not yet done".
+- [[file:emoji/done_kolahal.png][done_kolahal.png]]: A check mark. For done, fixed or yes.
+- [[file:emoji/no_kolahal.png][no_kolahal.png]]: A cross. For no, won't do, or doesn't work.
+- [[file:emoji/release_kolahal.png][release_kolahal.png]]: A rocket. For a release, or "in the next release".
+- [[file:emoji/plus_one_kolahal.png][plus_one_kolahal.png]]: +1. For "me too" on a request.
+- [[file:emoji/thanks_kolahal.png][thanks_kolahal.png]]: A heart. For thanks.
+
+On the server, not drawn here:
+
+- =love_kolahal=: A heart. On the server since before this set.
 
 * Stickers
 

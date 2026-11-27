@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_theme: a theme's colors: its accent, warning, info and private colors (Rosé Pine's rose, gold, foam and iris). -->
+  <!-- theme_kolahal: a theme's colors: its accent, warning, info and private colors (Rosé Pine's rose, gold, foam and iris). -->
   <path d="M64 64 L64 10 A54 54 0 0 1 118 64 Z" fill="{{dark.warn}}"/>
   <path d="M64 64 L118 64 A54 54 0 0 1 64 118 Z" fill="{{dark.info}}"/>
   <path d="M64 64 L64 118 A54 54 0 0 1 10 64 Z" fill="{{dark.private}}"/>

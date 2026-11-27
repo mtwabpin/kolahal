@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_on_it: a wrench, for being worked on. -->
+  <!-- on_it_kolahal: a wrench, for being worked on. -->
   <defs>
     <mask id="cut-outline"><rect width="128" height="128" fill="#fff"/><rect x="60" y="-10" width="8" height="38" fill="#000"/></mask>
     <mask id="cut"><rect width="128" height="128" fill="#fff"/><rect x="55" y="-10" width="18" height="44" rx="4" fill="#000"/></mask>

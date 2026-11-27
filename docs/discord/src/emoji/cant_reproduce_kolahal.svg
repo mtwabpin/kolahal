@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_cant_reproduce: a magnifying glass with a question mark, for a bug that can't be made to happen again. -->
+  <!-- cant_reproduce_kolahal: a magnifying glass with a question mark, for a bug that can't be made to happen again. -->
   <path d="M80 80 L112 112" fill="none" stroke="{{dark.background}}" stroke-width="30" stroke-linecap="round"/>
   <path d="M80 80 L112 112" fill="none" stroke="{{dark.private}}" stroke-width="16" stroke-linecap="round"/>
   <circle cx="52" cy="52" r="40" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="8"/>

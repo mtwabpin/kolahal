@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_widget: a widget card in the app's rounded shapes: its scalloped badge, a title and a bar chart. -->
+  <!-- widget_kolahal: a widget card in the app's rounded shapes: its scalloped badge, a title and a bar chart. -->
   <rect x="6" y="12" width="116" height="104" rx="30" fill="{{dark.surface}}" stroke="{{dark.background}}" stroke-width="8"/>
   <rect x="10" y="16" width="108" height="96" rx="26" fill="none" stroke="{{extra.rule}}" stroke-width="3"/>
   <path d="M37 26 L41.6 29.6 47.4 28.8 49.6 34.2 55 36.4 54.2 42.2 57.8 46.8 54.2 51.4 55 57.2 49.6 59.4 47.4 64.8 41.6 64 37 67.6 32.4 64 26.6 64.8 24.4 59.4 19 57.2 19.8 51.4 16.2 46.8 19.8 42.2 19 36.4 24.4 34.2 26.6 28.8 32.4 29.6 Z" fill="{{dark.warn}}"/>

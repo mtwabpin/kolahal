@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_release: a rocket, for a release. -->
+  <!-- release_kolahal: a rocket, for a release. -->
   <g transform="rotate(45 64 64)" stroke="{{dark.background}}" stroke-linejoin="round">
     <path d="M52 92 L64 124 L76 92 Z" fill="{{dark.warn}}" stroke-width="7"/>
     <path d="M44 66 L26 86 L28 104 L46 92 Z" fill="{{dark.error}}" stroke-width="7"/>

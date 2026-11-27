@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_selector: the app selector: the bubble with the current letter, and the wave of letters along the edge. -->
+  <!-- selector_kolahal: the app selector: the bubble with the current letter, and the wave of letters along the edge. -->
   <circle cx="50" cy="64" r="40" fill="{{dark.accent}}" stroke="{{dark.background}}" stroke-width="8"/>
   <path d="M38 44 V84 M64 44 L40 68 M50 60 L66 84" fill="none" stroke="{{dark.background}}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="104" cy="36" r="9" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="6"/>

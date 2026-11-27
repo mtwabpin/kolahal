@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_no: a cross, for no, won't do or doesn't work. -->
+  <!-- no_kolahal: a cross, for no, won't do or doesn't work. -->
   <circle cx="64" cy="64" r="54" fill="{{dark.error}}" stroke="{{dark.background}}" stroke-width="8"/>
   <path d="M44 44 L84 84 M84 44 L44 84" fill="none" stroke="{{dark.background}}" stroke-width="15" stroke-linecap="round"/>
 </svg>

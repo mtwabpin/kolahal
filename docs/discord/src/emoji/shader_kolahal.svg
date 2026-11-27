@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_shader: a scene, as the app's shaders draw them: a sun over the mountains at dusk. -->
+  <!-- shader_kolahal: a scene, as the app's shaders draw them: a sun over the mountains at dusk. -->
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="{{dark.private}}"/><stop offset="0.55" stop-color="{{dark.accent}}"/><stop offset="1" stop-color="{{dark.warn}}"/>

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_type: a key on a keyboard, with the prompt's chevron. -->
+  <!-- keyboard_kolahal: a key on a keyboard, with the prompt's chevron. -->
   <rect x="8" y="10" width="112" height="108" rx="26" fill="{{dark.muted}}" stroke="{{dark.background}}" stroke-width="8"/>
   <rect x="20" y="18" width="88" height="80" rx="18" fill="{{dark.text}}"/>
   <path d="M44 38 L66 58 L44 78" fill="none" stroke="{{dark.background}}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>

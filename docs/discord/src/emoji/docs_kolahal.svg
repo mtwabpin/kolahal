@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- kolahal_guide: an open book, for an answer in the user's guide. -->
+  <!-- docs_kolahal: an open book, for an answer in the user's guide. -->
   <path d="M6 32 V108 C30 104 50 108 64 118 C78 108 98 104 122 108 V32 Z" fill="{{dark.private}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
   <path d="M64 30 C52 20 32 16 12 20 V98 C32 94 52 98 64 108 Z" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
   <path d="M64 30 C76 20 96 16 116 20 V98 C96 94 76 98 64 108 Z" fill="{{dark.text}}" stroke="{{dark.background}}" stroke-width="8" stroke-linejoin="round"/>
