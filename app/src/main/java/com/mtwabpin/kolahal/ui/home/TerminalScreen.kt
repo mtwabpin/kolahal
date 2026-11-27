@@ -29,6 +29,7 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.script.ScriptMeta
 import com.mtwabpin.kolahal.terminal.KeyBarKey
+import com.mtwabpin.kolahal.terminal.LineSwipe
 import com.mtwabpin.kolahal.terminal.Scramble
 import com.mtwabpin.kolahal.terminal.ScrambledLog
 import com.mtwabpin.kolahal.terminal.Suggestion
@@ -297,12 +298,12 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     // They also depend on the day: at midnight, today's first lines need a divider, and "Yesterday" moves.
     val today = rememberToday()
     if (preview == null) LaunchedEffect(today) { vm.onDayChanged(today) }
-    // A swipe copy shows "Copied" where Undo shows after a delete, for COPIED_MS.
-    LaunchedEffect(state.copies) {
-        if (state.copies == 0) return@LaunchedEffect
-        state.copiedShown = true
+    // A swipe copy shows "Copied" where Undo shows after a delete, for COPIED_MS, and a star "Starred".
+    LaunchedEffect(state.swipeNotes) {
+        if (state.swipeNotes == 0) return@LaunchedEffect
+        state.swipeNoteShown = true
         kotlinx.coroutines.delay(COPIED_MS)
-        state.copiedShown = false
+        state.swipeNoteShown = false
     }
     val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
     val rowsLoaded by vm.rowsLoaded.collectAsStateWithLifecycle()
@@ -345,8 +346,18 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             // A long-press on an app opens its menu, wherever the app shows: in a line, in the search
             // results, in the selector and in the suggestions.
             onAppLongPress = { app -> state.showMenu(app.label, null) { vm.appActions(app) } },
-            onSwipeCopy = { shown -> real(shown)?.let { e -> vm.swipeCopy(e); state.copies++ } },
-            onSwipeDelete = { e -> real(e)?.let(vm::swipeDelete) },
+            onSwipe = { shown, does ->
+                real(shown)?.let { e ->
+                    vm.swipe(e, does)
+                    // A starred line looks the same as any other, so the star says so as a copy does.
+                    when (does) {
+                        LineSwipe.COPY -> state.swiped("Copied")
+                        LineSwipe.STAR -> state.swiped(if (e.starred) "Unstarred" else "Starred")
+                        else -> Unit
+                    }
+                }
+            },
+            swipeDoes = { shown, does -> real(shown)?.let { vm.swipeDoes(it, does) } == true },
             onAction = { e, index -> real(e)?.let { vm.runLineAction(it, index) } },
             onOpenUrl = vm::openUrl,
             onLogWidth = vm::onLogWidth,
@@ -485,7 +496,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             selector = selector,
             keyBar = keyBar,
             // The log on the character grid, or a search's results in its place.
-            logArea = { results, deleteRight, log, found ->
+            logArea = { results, swipes, log, found ->
                 if (results != null) TtySearchResults(
                     search = results,
                     menuEntryId = state.menu?.entryId,
@@ -494,7 +505,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                     configVersion = configVersion,
                     timeFormat = lineTimeFormat,
                     today = today,
-                    deleteRight = deleteRight,
+                    swipes = swipes,
                     modifier = found,
                 ) else TtyLog(
                     rows = reversedRows,
@@ -506,7 +517,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
                     rowsLoaded = rowsLoaded,
                     timeFormat = lineTimeFormat,
                     today = today,
-                    deleteRight = deleteRight,
+                    swipes = swipes,
                     modifier = log,
                 )
             },

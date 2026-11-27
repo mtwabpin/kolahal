@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasAnyAncestor
@@ -18,6 +19,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -200,5 +203,52 @@ class TtyLogTest {
         // The widgets pages are left of the log by default: a swipe right copies.
         compose.onNodeWithTag("line-$id").performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Copied").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    /** What a screen reader offers on the line [id] after its links, buttons and fold: its swipes, by name. */
+    private fun actions(id: Long): List<String> =
+        compose.onNodeWithTag("line-$id").fetchSemanticsNode().config
+            .getOrElse(SemanticsActions.CustomActions) { emptyList() }.map { it.label }
+
+    /**
+     * Set to star and fresh, the grid's swipes do that, and a screen reader offers them by name, fresh not on
+     * the first line shown. "▴ N earlier lines" brings the lines a fresh hid back. With both none a line offers
+     * neither and stays where it is.
+     */
+    @Test
+    fun swipesSetToStarAndFreshDoThatOnTheGrid() {
+        config.set(Keys.HOME_STYLE, "tty")
+        config.set(Keys.LOG_SWIPE_RIGHT, "star")
+        config.set(Keys.LOG_SWIPE_LEFT, "fresh")
+        logs.hideScreen(logs.maxId())
+        val hidden = logs.hiddenCount()
+        val token = "grid swipes ${System.nanoTime()}"
+        val ids = (0 until 3).map { logs.add(LogKind.OUTPUT, "$token $it") }
+        show()
+        waitForLine(ids[2])
+        assertEquals(listOf("Star line", "Fresh from here"), actions(ids[2]))
+        assertEquals(listOf("Star line"), actions(ids[0]))
+
+        compose.onNodeWithTag("line-${ids[2]}").performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Starred").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { logs.recent(10).any { it.id == ids[2] && it.starred } }
+        compose.waitUntil(5_000) { actions(ids[2]).firstOrNull() == "Unstar line" }
+
+        compose.onNodeWithTag("line-${ids[2]}").performTouchInput { swipeLeft(startX = right - 10f, endX = left + 10f) }
+        val row = "▴ ${hidden + 2} earlier lines · tap to show"
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(row).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(compose.onAllNodesWithTag("line-${ids[0]}").fetchSemanticsNodes().isEmpty())
+        compose.onNodeWithText(row).performClick()
+        waitForLine(ids[0])
+
+        compose.runOnIdle {
+            config.set(Keys.LOG_SWIPE_RIGHT, "none")
+            config.set(Keys.LOG_SWIPE_LEFT, "none")
+        }
+        compose.waitUntil(5_000) { actions(ids[1]).isEmpty() }
+        compose.onNodeWithTag("line-${ids[1]}").performTouchInput { swipeLeft(startX = right - 10f, endX = left + 10f) }
+        compose.waitForIdle()
+        waitForLine(ids[1])
+        assertTrue(compose.onAllNodesWithText("Undo").fetchSemanticsNodes().isEmpty())
     }
 }

@@ -16,6 +16,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performCustomAccessibilityActionWithLabel
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
@@ -49,7 +51,11 @@ class HomePagesTest {
 
     @After
     fun tearDown() =
-        listOf(Keys.WIDGETS_SHOW, Keys.HOME_PAGES, Keys.WIDGETS_START, Keys.SELECTOR_RAIL).forEach(config::reset)
+        listOf(Keys.WIDGETS_SHOW, Keys.HOME_PAGES, Keys.WIDGETS_START, Keys.SELECTOR_RAIL, Keys.LOG_SWIPE_RIGHT)
+            .forEach(config::reset)
+
+    @get:Rule
+    val lines = com.mtwabpin.kolahal.LogLinesSince()
 
     private fun widgetsPage() = compose.onNodeWithTag("widgets-page")
 
@@ -238,6 +244,28 @@ class HomePagesTest {
             }
         } finally {
             t.close()
+        }
+    }
+
+    /**
+     * A line's swipe set to none leaves the drag to the pager: with the widgets page left of the log, a swipe
+     * right that starts on a line turns to it, and the line stays where it is.
+     */
+    @Test
+    fun aSwipeSetToNoneOnALineTurnsThePage() {
+        instrumentation.targetContext.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("intro_shown", true).commit()
+        config.set(Keys.WIDGETS_SHOW, "on")
+        config.set(Keys.LOG_SWIPE_RIGHT, "none")
+        val logs = com.mtwabpin.kolahal.data.LogRepository.get(instrumentation.targetContext)
+        val id = logs.add(com.mtwabpin.kolahal.data.LogKind.OUTPUT, "turn the page ${System.nanoTime()}")
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { ViewModelProvider(it)[TerminalViewModel::class.java].onHomePressed() }
+            waitFor(shown = false)
+            waitForTag("line-$id")
+            compose.onNodeWithTag("line-$id").performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+            waitFor(shown = true)
+            assertTrue(logs.recent(20).any { it.id == id })
         }
     }
 

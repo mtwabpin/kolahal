@@ -646,10 +646,10 @@ class MainActivity : ComponentActivity(), HidesBars {
  * and so on outward ([com.mtwabpin.kolahal.widgets.WidgetPages]), in the order `home.pages` sets.
  * - Swipe sideways on home to reach them, a page at a time. Back or Home returns to the terminal
  *   from any page, in one step.
- * - A swipe that starts on a log line still belongs to the line (copy / delete). So the page swipe
- *   works from the header, empty space or the prompt. With the log first, the line's swipes
- *   are swapped: a swipe toward them copies, never deletes ([com.mtwabpin.kolahal.ui.home.LogLine]'s
- *   deleteRight).
+ * - A swipe that starts on a log line still belongs to the line (copy / delete, `log.swipe-left` and
+ *   `log.swipe-right`). So the page swipe works from the header, empty space or the prompt, and from a
+ *   line on a side set to none. With the log first and both swipes the defaults, the line's swipes are
+ *   swapped: a swipe toward them copies, never deletes ([com.mtwabpin.kolahal.terminal.LineSwipes]).
  * - With `widgets.start`, page 1 is home's first page instead. Home opens on it, and Back and Home
  *   return to it. A key typed on a page brings up the log and shows the key in it.
  * - `home.pages` puts the pages in an order of its own ([HomeOrder]). Every place below comes from

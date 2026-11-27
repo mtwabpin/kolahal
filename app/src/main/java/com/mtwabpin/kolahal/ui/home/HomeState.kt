@@ -85,12 +85,12 @@ internal data class TtyParts(
 /**
  * Draws home's log in place of the GUI's list: the log, or a search's [results] in its place when
  * there are any. The lists' modifiers come from home's body: [log] (the "log" tag, the selector's
- * fade, pinch to zoom, taps on empty space) and [found] (the fade). [deleteRight]: a swipe right
- * deletes a line (the log first in `home.pages`).
+ * fade, pinch to zoom, taps on empty space) and [found] (the fade). [swipes]: what a swipe each way
+ * does on a line ([com.mtwabpin.kolahal.terminal.LineSwipes]).
  */
 internal typealias LogArea = @Composable (
     results: com.mtwabpin.kolahal.terminal.TerminalViewModel.LogSearch?,
-    deleteRight: Boolean,
+    swipes: com.mtwabpin.kolahal.terminal.LineSwipes,
     log: androidx.compose.ui.Modifier,
     found: androidx.compose.ui.Modifier,
 ) -> Unit
@@ -140,11 +140,20 @@ internal class HomeState(
     /** The long-press menu that is open, if any. */
     var menu by mutableStateOf<ActionMenu?>(null)
 
-    /** Counts swipe copies. Each one shows "Copied" for [COPIED_MS]. */
-    var copies by mutableIntStateOf(0)
+    /** Counts the swipes that say what they did ([swiped]). Each one shows its [swipeNote] for [COPIED_MS]. */
+    var swipeNotes by mutableIntStateOf(0)
 
-    /** Whether "Copied" shows, where Undo shows after a delete. */
-    var copiedShown by mutableStateOf(false)
+    /** What the last of them did: "Copied", "Starred" or "Unstarred". */
+    var swipeNote by mutableStateOf("")
+
+    /** Whether [swipeNote] shows, where Undo shows after a delete. */
+    var swipeNoteShown by mutableStateOf(false)
+
+    /** A swipe [did] something that shows no other way: [swipeNote] says so. */
+    fun swiped(did: String) {
+        swipeNote = did
+        swipeNotes++
+    }
 
     /**
      * Opens a menu titled [title]. The menu's actions ask the system for an app's shortcuts, so
@@ -208,8 +217,10 @@ internal class HomeCalls(
     val onShowInLog: (LogEntry) -> Unit,
     val onAppTap: (AppEntry) -> Unit,
     val onAppLongPress: (AppEntry) -> Unit,
-    val onSwipeCopy: (LogEntry) -> Unit,
-    val onSwipeDelete: (LogEntry) -> Unit,
+    /** A swipe on a line that does what `log.swipe-left` or `log.swipe-right` sets. */
+    val onSwipe: (LogEntry, com.mtwabpin.kolahal.terminal.LineSwipe) -> Unit,
+    /** Whether that swipe does something on the line ([com.mtwabpin.kolahal.terminal.TerminalViewModel.swipeDoes]). */
+    val swipeDoes: (LogEntry, com.mtwabpin.kolahal.terminal.LineSwipe) -> Boolean,
     val onAction: (LogEntry, Int) -> Unit,
     val onOpenUrl: (String) -> Unit,
     val onLogWidth: (Int) -> Unit,

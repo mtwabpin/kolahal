@@ -121,8 +121,6 @@ class LogSearchResultsTest {
                     onLongPress = { pressed += it },
                     onAppTap = {},
                     onAppLongPress = {},
-                    onSwipeCopy = {},
-                    onSwipeDelete = {},
                     modifier = Modifier.weight(1f),
                 )
                 LogSearchSummary(search())

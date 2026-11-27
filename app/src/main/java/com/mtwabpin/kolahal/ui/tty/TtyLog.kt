@@ -5,7 +5,6 @@ package com.mtwabpin.kolahal.ui.tty
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -23,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +71,8 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.terminal.Ink
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions
+import com.mtwabpin.kolahal.terminal.LineSwipe
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.Scramble
 import com.mtwabpin.kolahal.terminal.Target
@@ -91,6 +93,7 @@ import com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource
 import com.mtwabpin.kolahal.ui.home.FoldState
 import com.mtwabpin.kolahal.ui.home.HomeCalls
 import com.mtwabpin.kolahal.ui.home.HomeState
+import com.mtwabpin.kolahal.ui.home.detectLineSwipe
 import com.mtwabpin.kolahal.ui.home.foundIn
 import com.mtwabpin.kolahal.ui.home.initials
 import com.mtwabpin.kolahal.ui.theme.Term
@@ -99,6 +102,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Date
+import kotlin.math.abs
 import kotlin.math.sign
 
 /** How near a target a tap must be to hit it (cells are small). `log.taller-taps` is the gui style's ([HomeStyles.GUI_ONLY]). */
@@ -129,7 +133,7 @@ internal fun TtyLog(
     rowsLoaded: Boolean,
     timeFormat: SimpleDateFormat,
     today: LocalDate,
-    deleteRight: Boolean,
+    swipes: LineSwipes,
     modifier: Modifier,
 ) {
     val folds = state.folds
@@ -142,8 +146,8 @@ internal fun TtyLog(
             onAppTap = calls.onAppTap,
             onAppLongPress = calls.onAppLongPress,
             onToggleFold = folds::toggle,
-            onSwipeCopy = calls.onSwipeCopy,
-            onSwipeDelete = calls.onSwipeDelete,
+            onSwipe = calls.onSwipe,
+            swipeDoes = calls.swipeDoes,
         )
     }
     TtyList(
@@ -162,7 +166,7 @@ internal fun TtyLog(
         onShowHidden = calls.onShowHidden,
         timeFormat = timeFormat,
         today = today,
-        deleteRight = deleteRight,
+        swipes = swipes,
         modifier = modifier,
     )
 }
@@ -181,7 +185,7 @@ internal fun TtySearchResults(
     configVersion: Int,
     timeFormat: SimpleDateFormat,
     today: LocalDate,
-    deleteRight: Boolean,
+    swipes: LineSwipes,
     modifier: Modifier,
 ) {
     val reversed = remember(search.rows) { search.rows.asReversed() }
@@ -198,8 +202,8 @@ internal fun TtySearchResults(
             onAppTap = calls.onAppTap,
             onAppLongPress = calls.onAppLongPress,
             onToggleFold = {},
-            onSwipeCopy = calls.onSwipeCopy,
-            onSwipeDelete = calls.onSwipeDelete,
+            onSwipe = calls.onSwipe,
+            swipeDoes = calls.swipeDoes,
         )
     }
     TtyList(
@@ -218,7 +222,7 @@ internal fun TtySearchResults(
         onShowHidden = {},
         timeFormat = timeFormat,
         today = today,
-        deleteRight = deleteRight,
+        swipes = swipes,
         modifier = modifier.testTag("log-search"),
     )
 }
@@ -246,7 +250,7 @@ private fun TtyList(
     onShowHidden: () -> Unit,
     timeFormat: SimpleDateFormat,
     today: LocalDate,
-    deleteRight: Boolean,
+    swipes: LineSwipes,
     modifier: Modifier,
 ) {
     val grid = rememberTtyGrid()
@@ -347,7 +351,7 @@ private fun TtyList(
                                 grid.palette.text(LineLayout.gutterStyle(line.model.gutter))
                             } else 0,
                             highlighted = highlight.first == id || highlight.second == id,
-                            deleteRight = deleteRight,
+                            swipes = swipes,
                             calls = calls,
                             labels = labels,
                         )
@@ -543,8 +547,10 @@ internal class TtyLineCalls(
     private val onAppTap: (AppEntry) -> Unit,
     private val onAppLongPress: (AppEntry) -> Unit,
     private val onToggleFold: (Long) -> Unit,
-    val onSwipeCopy: (LogEntry) -> Unit,
-    val onSwipeDelete: (LogEntry) -> Unit,
+    /** A swipe (or a screen reader's action of its name) that does what `log.swipe-left` or `log.swipe-right` sets. */
+    val onSwipe: (LogEntry, LineSwipe) -> Unit,
+    /** Whether that swipe does something on the line. */
+    val swipeDoes: (LogEntry, LineSwipe) -> Boolean,
 ) {
     fun tap(line: TtyLine, target: Target) {
         val entry = line.model.entry
@@ -569,10 +575,10 @@ internal class TtyLineCalls(
  * color of the gutter, drawn down through an item's gap where the `│` cells would be.
  * - A tap goes to the target under the finger, or the nearest one within reach, else the line.
  *   While pressed, the target (or the whole line) is on the surface color.
- * - A swipe slides it by whole cells and uncovers "⧉ Copy" or "✕ Delete"; past a third of the
- *   width it copies or deletes, as in the GUI ([deleteRight] swaps the sides).
+ * - A swipe slides it by whole cells and uncovers what it does ("⧉ Copy", "✕ Delete", [LineSwipe.label]);
+ *   past a third of the width it does it, as in the GUI ([swipes]: a side that is none takes no drag).
  * - TalkBack reads it as one row (what [LineModel.spoken] says), with its links, buttons, fold,
- *   Copy and Delete as actions. Buttons, apps and the fold are also nodes of their own, where
+ *   and what its swipes do (Copy, Delete) as actions. Buttons, apps and the fold are also nodes of their own, where
  *   they show, so switch access reaches them.
  */
 @Composable
@@ -583,7 +589,7 @@ private fun TtyLineRow(
     gapPx: Int,
     gapGutter: Int,
     highlighted: Boolean,
-    deleteRight: Boolean,
+    swipes: LineSwipes,
     calls: TtyLineCalls,
     labels: SwipeLabels,
 ) {
@@ -598,7 +604,11 @@ private fun TtyLineRow(
     val slop = with(density) { SLOP.toPx() }
     val current by rememberUpdatedState(line)
     val currentCalls by rememberUpdatedState(calls)
-    val copySide = if (deleteRight) -1f else 1f
+    // What the swipe this way does, when it does something on this line: nothing is drawn otherwise. It
+    // changes only when the direction does, not on every frame the line moves.
+    val swiped by remember { derivedStateOf { sign(swipe.value) } }
+    val swipeShows = swipes.toward(swiped).takeIf { swiped != 0f && calls.swipeDoes(entry, it) }
+        ?.let { labels.of(it, entry, right = swiped > 0) }
     val clip = remember { android.graphics.Rect() }
     val surface = Color(grid.palette.color(Ink.SURFACE))
 
@@ -620,39 +630,39 @@ private fun TtyLineRow(
             .padding(top = with(density) { gapPx.toDp() })
             .fillMaxWidth()
             .cellHeight(block.rows * m.cellH)
-            .pointerInput(entry.id, copySide) {
-                detectHorizontalDragGestures(
+            .then(if (!swipes.any) Modifier else Modifier.pointerInput(entry.id, swipes) {
+                detectLineSwipe(
+                    takes = { dx -> swipes.toward(dx) != LineSwipe.NONE },
                     onDragEnd = {
                         val width = size.width
                         val limit = width / 3f
                         scope.launch {
-                            // Distance toward the copy side: positive copies, negative deletes.
-                            val toCopy = swipe.value * copySide
+                            val s = swipe.value
                             val e = current.model.entry
+                            val does = swipes.toward(s)
                             when {
-                                toCopy > limit -> {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    currentCalls.onSwipeCopy(e)
-                                    swipe.animateTo(0f)
-                                }
-
-                                toCopy < -limit -> {
+                                abs(s) <= limit || !currentCalls.swipeDoes(e, does) -> swipe.animateTo(0f)
+                                does == LineSwipe.DELETE -> {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     // The line slides out of sight the way it was swiped.
-                                    swipe.animateTo(-copySide * width)
-                                    currentCalls.onSwipeDelete(e)
+                                    swipe.animateTo(sign(s) * width)
+                                    currentCalls.onSwipe(e, does)
                                 }
 
-                                else -> swipe.animateTo(0f)
+                                else -> {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    currentCalls.onSwipe(e, does)
+                                    swipe.animateTo(0f)
+                                }
                             }
                         }
                     },
                     onDragCancel = { scope.launch { swipe.animateTo(0f) } },
-                ) { change, dx ->
-                    change.consume()
-                    scope.launch { swipe.snapTo(swipe.value + dx) }
+                ) { dx ->
+                    // A side that is none keeps the line from moving that way.
+                    scope.launch { swipe.snapTo(swipes.reach(swipe.value + dx)) }
                 }
-            }
+            })
             .pointerInput(entry.id, m, originX, slop) {
                 detectTapGestures(
                     onPress = { o ->
@@ -677,12 +687,12 @@ private fun TtyLineRow(
                 text = AnnotatedString(line.model.spoken(line.time))
                 onClick { calls.tap(line, Target.Line); true }
                 onLongClick(label = "actions") { calls.longPress(line, Target.Line); true }
-                customActions = accessibilityActions(line, calls)
+                customActions = accessibilityActions(line, calls, swipes)
             }
             .drawBehind {
                 val shift = shift()
                 val s = swipe.value
-                if (s != 0f) swipeLabel(grid, labels, s, shift, copySide, block, originX)
+                if (s != 0f && swipeShows != null) swipeLabel(grid, swipeShows, s, shift, block, originX)
                 val x = (originX + shift).toFloat()
                 val p = pressed
                 if (highlighted || p == Target.Line) {
@@ -767,25 +777,26 @@ private fun foldLabel(block: CellBlock): String {
 
 /**
  * TalkBack's actions on a line ([LineLayout.actions]): open each link, each button, open or fold
- * it, Copy and Delete (a swipe's two).
+ * it, then what its two swipes do (Copy, Delete), by name. A side that is none, or does nothing on
+ * this line, offers nothing.
  */
-private fun accessibilityActions(line: TtyLine, calls: TtyLineCalls): List<CustomAccessibilityAction> =
-    LineLayout.actions(line.block).map { (target, label) ->
+private fun accessibilityActions(line: TtyLine, calls: TtyLineCalls, swipes: LineSwipes): List<CustomAccessibilityAction> {
+    val entry = line.model.entry
+    val offered = swipes.both.filter { calls.swipeDoes(entry, it) }
+    val actions = LineLayout.actions(line.block, offered.map { it.spoken(entry) })
+    // The swipes come last, in the order offered.
+    val first = actions.size - offered.size
+    return actions.mapIndexed { i, (target, label) ->
         CustomAccessibilityAction(label) {
-            when {
-                target != null -> calls.tap(line, target)
-                label == "Copy" -> calls.onSwipeCopy(line.model.entry)
-                else -> calls.onSwipeDelete(line.model.entry)
-            }
+            if (target != null) calls.tap(line, target) else calls.onSwipe(entry, offered[i - first])
             true
         }
     }
+}
 
-/** The label a swiped line uncovers, in the cells it left: the sign on the outer edge, where the line moved from. */
-private fun DrawScope.swipeLabel(grid: TtyGrid, labels: SwipeLabels, s: Float, shift: Int, copySide: Float, block: CellBlock, originX: Int) {
+/** The [label] a swiped line uncovers, in the cells it left: the sign on the outer edge, where the line moved from. */
+private fun DrawScope.swipeLabel(grid: TtyGrid, label: CellBuffer, s: Float, shift: Int, block: CellBlock, originX: Int) {
     val m = grid.metrics
-    val copies = sign(s) == copySide
-    val label = labels.of(copies, right = s > 0)
     val canvas = drawContext.canvas.nativeCanvas
     val y = ((block.rows - 1) / 2 * m.cellH).toFloat()
     canvas.save()
@@ -799,22 +810,18 @@ private fun DrawScope.swipeLabel(grid: TtyGrid, labels: SwipeLabels, s: Float, s
     canvas.restore()
 }
 
-/** "⧉ Copy" and "✕ Delete" as cells, with the sign on either side: what a swiped line uncovers. */
+/** "⧉ Copy", "✕ Delete" and the others as cells, with the sign on either side: what a swiped line uncovers. Each made once. */
 private class SwipeLabels {
-    private fun label(text: String, ink: Ink) =
-        CellBuffer(CellWidth.total(text), 1).apply { put(0, 0, text, CellStyle.of(ink)) }
+    private val made = HashMap<String, CellBuffer>()
 
-    private val copyRight = label("⧉ Copy", Ink.PROMPT)
-    private val copyLeft = label("Copy ⧉", Ink.PROMPT)
-    private val deleteRight = label("✕ Delete", Ink.ERROR)
-    private val deleteLeft = label("Delete ✕", Ink.ERROR)
-
-    /** The label for a swipe that copies (or deletes), to the [right] (or left). */
-    fun of(copies: Boolean, right: Boolean): CellBuffer = when {
-        copies && right -> copyRight
-        copies -> copyLeft
-        right -> deleteRight
-        else -> deleteLeft
+    /** The label for a swipe that does [does] on [entry], to the [right] (or left). A delete is in the error color. */
+    fun of(does: LineSwipe, entry: LogEntry, right: Boolean): CellBuffer {
+        val text = does.label(entry, right)
+        return made.getOrPut(text) {
+            CellBuffer(CellWidth.total(text), 1).apply {
+                put(0, 0, text, CellStyle.of(if (does.destructive) Ink.ERROR else Ink.PROMPT))
+            }
+        }
     }
 }
 

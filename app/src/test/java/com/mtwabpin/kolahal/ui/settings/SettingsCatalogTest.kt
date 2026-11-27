@@ -3,6 +3,7 @@ package com.mtwabpin.kolahal.ui.settings
 import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.SettingTitles
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.ui.FEATURE_TABS
 import org.junit.Assert.assertEquals
@@ -131,5 +132,29 @@ class SettingsCatalogTest {
         assertFalse(matches(Keys.FONT_SIZE, "size weather"))
         // A choice's label: a theme's name finds the theme setting.
         assertTrue(matches(Keys.THEME, "solarized"))
+    }
+
+    /**
+     * The swipes are on the Log page, under Swipes. A pick keeps the other side as it shows: with the log first
+     * the defaults traded, and picking one side mustn't flip the other back.
+     */
+    @Test
+    fun pickingASwipeKeepsTheOtherSideAsItShows() {
+        val log = allCategories().first { it.id == "log" }
+        assertEquals(listOf(Keys.LOG_SWIPE_LEFT, Keys.LOG_SWIPE_RIGHT), log.groups.toMap()["Swipes"])
+        val traded = LineSwipes.of("delete", "copy", pagesRight = true, rtl = false)
+        assertEquals(
+            listOf(Keys.LOG_SWIPE_LEFT to "star", Keys.LOG_SWIPE_RIGHT to "delete"),
+            choiceWrites(Keys.LOG_SWIPE_LEFT, "star", traded),
+        )
+        assertEquals(
+            listOf(Keys.LOG_SWIPE_LEFT to "copy", Keys.LOG_SWIPE_RIGHT to "none"),
+            choiceWrites(Keys.LOG_SWIPE_RIGHT, "none", traded),
+        )
+        assertEquals(
+            listOf(Keys.LOG_SWIPE_LEFT to "star", Keys.LOG_SWIPE_RIGHT to "copy"),
+            choiceWrites(Keys.LOG_SWIPE_LEFT, "star", LineSwipes.DEFAULT),
+        )
+        assertEquals(listOf(Keys.LOG_TABLES to "plain"), choiceWrites(Keys.LOG_TABLES, "plain", traded))
     }
 }

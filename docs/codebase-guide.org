@@ -589,7 +589,7 @@ lost when you leave. So the text editor is a second activity, with its own three
 Open [[src:ui/home/TerminalScreen.kt::fun TerminalScreen][TerminalScreen]] and look at its first lines: a column of
 =val x by vm.x.collectAsStateWithLifecycle()=. That's the "state down" half. Further down it
 builds [[src:ui/home/HomeState.kt::internal class HomeCalls(][HomeCalls]] once: every call home's body makes, such as =onTap = vm::onTap= and
-=onSwipeDelete = vm::swipeDelete=. That's the "events up" half. The body (=GuiHome= or =TtyHome=)
+=onSwipe= (to =vm.swipe=, which does what =log.swipe-left= or =log.swipe-right= sets: [[src:terminal/LineSwipes.kt::data class LineSwipes][LineSwipes]]). That's the "events up" half. The body (=GuiHome= or =TtyHome=)
 gets only what it shows and those calls, never the whole ViewModel.
 
 Things specific to this screen:
@@ -1293,6 +1293,6 @@ functions is the quickest way to learn what they promise.
 | script command          | a user script marked =@command=, runnable from the prompt by name                                         |
 | =@on=, =@uses=          | script directives: run on a device event; declare access to private data (=@uses screen=: a screen)       |
 | =:script=, =:wallpaper= | the processes where scripts and the live wallpaper run                                                    |
-| fresh screen            | =log.fresh=: home hides old output after a while away (hidden, not deleted)                               |
+| fresh screen            | =log.fresh=: home hides old output after a while away (hidden, not deleted); Fresh from here: from a line |
 | instant run             | =launch.instant=: run without Enter once the input can only mean one thing                                |
 | Play build              | the build for Google Play, without the call log, reading contacts and =update= |

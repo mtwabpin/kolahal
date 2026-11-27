@@ -414,6 +414,10 @@ class LogLineActions(
                 ctx.copy?.let(StyledText::plain) ?: entry.shownText, sensitive(entry)
             )
         }
+        // Fresh from here: the lines above this one are hidden, as `fresh` hides the screen. Not on the first line shown.
+        if (logs.shownBefore(entry.id)) {
+            actions += LogAction("Fresh from here") { host.io { logs.hideAbove(entry.id) } }
+        }
         // No Undo follows, so a notification's line dismisses its notification at once ([DismissOnDelete]).
         danger += LogAction("Delete line", destructive = true, short = "Delete", icon = icon(R.drawable.ic_delete), place = ActionPlace.DELETE) {
             host.io {

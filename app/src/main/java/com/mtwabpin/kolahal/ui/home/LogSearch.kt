@@ -41,6 +41,8 @@ import com.mtwabpin.kolahal.data.LogContext
 import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.data.shownText
+import com.mtwabpin.kolahal.terminal.LineSwipe
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.terminal.TimeMode
@@ -66,10 +68,10 @@ fun LogSearchResults(
     onLongPress: (LogEntry) -> Unit,
     onAppTap: (AppEntry) -> Unit,
     onAppLongPress: (AppEntry) -> Unit,
-    onSwipeCopy: (LogEntry) -> Unit,
-    onSwipeDelete: (LogEntry) -> Unit,
-    /** Swipes the other way round ([LogLine]'s deleteRight). */
-    deleteRight: Boolean = false,
+    /** What a swipe each way does, as in the log ([LogLine]'s swipes). */
+    swipes: LineSwipes = LineSwipes.DEFAULT,
+    onSwipe: (LogEntry, LineSwipe) -> Unit = { _, _ -> },
+    swipeDoes: (LogEntry, LineSwipe) -> Boolean = { e, does -> does.doesOn(e) },
     modifier: Modifier = Modifier,
 ) {
     val reversed = remember(search.rows) { search.rows.asReversed() }
@@ -105,9 +107,9 @@ fun LogSearchResults(
                         onLongPress = onLongPress,
                         onAppTap = onAppTap,
                         onAppLongPress = onAppLongPress,
-                        onSwipeCopy = onSwipeCopy,
-                        onSwipeDelete = onSwipeDelete,
-                        deleteRight = deleteRight,
+                        swipes = swipes,
+                        onSwipe = onSwipe,
+                        swipeDoes = swipeDoes,
                         marks = search.words,
                     )
                     FoundIn(

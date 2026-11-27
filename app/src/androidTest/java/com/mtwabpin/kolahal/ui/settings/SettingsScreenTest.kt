@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -24,11 +25,13 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTextInput
@@ -699,6 +702,34 @@ class SettingsScreenTest {
         compose.waitForIdle()
         assertTrue(config.isDefault(Keys.LOG_SPACING))
         reset.assertDoesNotExist()
+    }
+
+    /**
+     * Settings → Log has what a swipe each way does, one tap each. With the log first, the rows show the sides
+     * the defaults traded (left copies), and a pick keeps the other side as it shows: right still deletes.
+     */
+    @Test
+    fun theSwipesShowWhatEachSideDoes() {
+        config.set(Keys.HOME_PAGES, "log,widgets")
+        show("log")
+        scrollTo(Keys.LOG_SWIPE_LEFT)
+        compose.onNodeWithText("Swipe a log line left").assertExists()
+        compose.onNodeWithText("Swipe a log line right").assertExists()
+        // Scrolled to the left row: the right row is under it, and the left row's chips come first.
+        fun chip(label: String, row: Int) = compose.onAllNodesWithText(label)[row]
+        chip("Copy", 0).assertIsSelected()
+        chip("Delete", 1).assertIsSelected()
+        chip("Star", 0).performClick()
+        compose.runOnIdle {
+            assertEquals("star", config[Keys.LOG_SWIPE_LEFT])
+            assertEquals("delete", config[Keys.LOG_SWIPE_RIGHT])
+        }
+        chip("Star", 0).assertIsSelected()
+        chip("Delete", 1).assertIsSelected()
+        // Below the frame: brought into view first.
+        chip("None", 1).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals("none", config[Keys.LOG_SWIPE_RIGHT]) }
+        compose.onAllNodesWithText("None").onLast().assertIsSelected()
     }
 
     /** Reset says what it reset, with Undo, which puts the value back. */

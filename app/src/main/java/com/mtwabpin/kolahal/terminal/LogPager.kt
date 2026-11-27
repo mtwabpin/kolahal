@@ -308,6 +308,19 @@ class LogPager(
     /** The locked private spaces when [filtered] was made. */
     private var filteredLocks: Set<Long> = emptySet()
 
+    /**
+     * The log's first shown line, when the page reaches back to it ([logStart]); 0 while lines older than
+     * the page show too. Written by the reload, read on the main thread.
+     */
+    @Volatile
+    private var firstShown = 0L
+
+    /**
+     * Whether a line older than [id] may show: false only for the log's first shown line (and older ones),
+     * where a fresh from the line would hide nothing. A hidden or cleared line is the log's to tell.
+     */
+    fun shownBefore(id: Long): Boolean = id > firstShown
+
     /** The newest line loaded so far, with or without a filter. It is kept even if the page becomes empty. */
     val newest: Long? get() = newestLoaded
 
@@ -482,6 +495,7 @@ class LogPager(
         updatedSeen = updatedSeq
         logStart = page.atStart
         loaded = all
+        firstShown = if (page.atStart) all.firstOrNull()?.id ?: 0L else 0L
         // The newest line, with or without a filter. A pause records it as seen. It is kept when the
         // page is empty (`fresh`, `clear`), because those lines were seen before they were hidden.
         all.lastOrNull()?.let { newestLoaded = it.id }

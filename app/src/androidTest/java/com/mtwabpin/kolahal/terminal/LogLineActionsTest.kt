@@ -519,6 +519,7 @@ class LogLineActionsTest {
                 "Show only commands",
                 "Star line",
                 "Copy text",
+                "Fresh from here",
                 "Delete line"
             ),
             labels(output),
@@ -919,8 +920,10 @@ class LogLineActionsTest {
         val headings = HashMap<String, List<String>>()
         val fresh = LogAction(MenuLayout.FRESH) {}
         for ((kind, e) in lines) {
-            // Fresh from here, which another change adds as plain words, may be there too.
-            for (list in listOf(actions.actionsFor(e), actions.actionsFor(e) + fresh)) {
+            // Fresh from here is on every line but the first one shown: with it and without it.
+            val built = actions.actionsFor(e)
+            val has = built.any { it.label == MenuLayout.FRESH }
+            for (list in listOf(built.filterNot { it.label == MenuLayout.FRESH }, if (has) built else built + fresh)) {
                 val shown = list.map(MenuLayout::placeKnown)
                 shown.forEach { a ->
                     assertTrue("$kind: ${a.label} has a place", a.place != null)

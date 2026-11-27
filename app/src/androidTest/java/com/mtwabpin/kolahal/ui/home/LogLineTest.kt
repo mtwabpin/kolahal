@@ -54,6 +54,8 @@ import com.mtwabpin.kolahal.data.LogEntry
 import com.mtwabpin.kolahal.data.LogKind
 import com.mtwabpin.kolahal.notifications.NotifIcons
 import com.mtwabpin.kolahal.terminal.Gutter
+import com.mtwabpin.kolahal.terminal.LineSwipe
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.TimeMode
 import com.mtwabpin.kolahal.ui.theme.KolahalTheme
@@ -79,6 +81,9 @@ private val TIMES =
     SimpleDateFormat("HH:mm", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
 private val INDENTS = LineIndents(16.sp, 16.sp, 16.sp)
 
+/** The defaults as they trade with the log first: left copies, right deletes. */
+private val TRADED = LineSwipes(LineSwipe.COPY, LineSwipe.DELETE)
+
 /** One log line: its time, its swipes and taps, an apps line's chips, a picture, a notification's icon, its bar; and the divider above new lines. */
 @RunWith(AndroidJUnit4::class)
 class LogLineTest {
@@ -89,6 +94,9 @@ class LogLineTest {
     private val longPressed = CopyOnWriteArrayList<LogEntry>()
     private val copied = CopyOnWriteArrayList<LogEntry>()
     private val deleted = CopyOnWriteArrayList<LogEntry>()
+
+    /** Every swipe that did something, with what it did. */
+    private val swiped = CopyOnWriteArrayList<Pair<LogEntry, LineSwipe>>()
     private val appTaps = CopyOnWriteArrayList<AppEntry>()
     private val appLongPresses = CopyOnWriteArrayList<AppEntry>()
     private val files = ArrayList<File>()
@@ -122,7 +130,7 @@ class LogLineTest {
         gutter: Boolean = true,
         apps: List<AppEntry> = emptyList(),
         itemGap: Dp = 0.dp,
-        deleteRight: Boolean = false
+        swipes: LineSwipes = LineSwipes.DEFAULT,
     ) =
         LogLine(
             row,
@@ -139,9 +147,12 @@ class LogLineTest {
             onLongPress = { longPressed += it },
             onAppTap = { appTaps += it },
             onAppLongPress = { appLongPresses += it },
-            onSwipeCopy = { copied += it },
-            onSwipeDelete = { deleted += it },
-            deleteRight = deleteRight,
+            swipes = swipes,
+            onSwipe = { e, does ->
+                swiped += e to does
+                if (does == LineSwipe.COPY) copied += e
+                if (does == LineSwipe.DELETE) deleted += e
+            },
         )
 
     private fun show(content: @Composable () -> Unit) =
@@ -160,6 +171,7 @@ class LogLineTest {
         while (System.currentTimeMillis() < until) {
             assertTrue("copied $copied", copied.isEmpty())
             assertTrue("deleted $deleted", deleted.isEmpty())
+            assertTrue("swiped $swiped", swiped.isEmpty())
             Thread.sleep(100)
         }
     }
@@ -281,13 +293,13 @@ class LogLineTest {
     }
 
     /**
-     * With the log first and the pages right of it (deleteRight), the swipes trade places: a swipe left, toward
+     * With the log first and the pages right of it (the defaults traded), the swipes trade places: a swipe left, toward
      * the page, copies; a swipe right deletes, and the line slides out to the right.
      */
     @Test
     fun withThePageOnTheRightTheSwipesTradePlaces() {
         val e = entry("swipe me")
-        show { Line(row(e), deleteRight = true) }
+        show { Line(row(e), swipes = TRADED) }
         line(e).performTouchInput { swipeLeft(startX = right - 10f, endX = left + 10f) }
         compose.waitUntil(5_000) { copied.isNotEmpty() }
         assertEquals(listOf(e), copied.toList())
@@ -304,7 +316,7 @@ class LogLineTest {
     @Test
     fun aSwappedDragSaysWhatItWillDo() {
         val e = entry("drag me")
-        show { Line(row(e), deleteRight = true) }
+        show { Line(row(e), swipes = TRADED) }
         line(e).performTouchInput { down(center); moveBy(Offset(-width * 0.4f, 0f)) }
         compose.onNodeWithText("Copy ⧉").assertExists()
         line(e).performTouchInput { moveBy(Offset(width * 0.8f, 0f)) }
@@ -316,6 +328,90 @@ class LogLineTest {
                 .isEmpty()
         }
         staysPut()
+    }
+
+    /**
+     * Set to star and fresh, the two swipes say so while the line moves (Unstar on a starred line), do that,
+     * and the line springs back.
+     */
+    @Test
+    fun starAndFreshSwipesDoWhatTheySay() {
+        val e = entry("a line to keep")
+        val starred = entry("a starred line").copy(starred = true)
+        show {
+            Column {
+                Line(row(e), swipes = LineSwipes(LineSwipe.FRESH, LineSwipe.STAR))
+                Line(row(starred), swipes = LineSwipes(LineSwipe.FRESH, LineSwipe.STAR))
+            }
+        }
+        line(e).performTouchInput { down(center); moveBy(Offset(width * 0.4f, 0f)) }
+        compose.onNodeWithText("★ Star").assertExists()
+        line(e).performTouchInput { moveBy(Offset(-width * 0.8f, 0f)) }
+        compose.onNodeWithText("Fresh ▴").assertExists()
+        compose.onAllNodesWithText("★ Star").assertCountEquals(0)
+        line(e).performTouchInput { up() }
+        compose.waitUntil(5_000) { swiped.isNotEmpty() }
+        assertEquals(listOf(e to LineSwipe.FRESH), swiped.toList())
+        compose.waitUntil(5_000) { bounds(e).left == 0.dp }
+        line(e).performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+        compose.waitUntil(5_000) { swiped.size == 2 }
+        assertEquals(e to LineSwipe.STAR, swiped.last())
+        compose.waitUntil(5_000) { bounds(e).left == 0.dp }
+        assertTrue(copied.isEmpty() && deleted.isEmpty())
+        line(starred).performTouchInput { down(center); moveBy(Offset(width * 0.4f, 0f)) }
+        compose.onNodeWithText("☆ Unstar").assertExists()
+        line(starred).performTouchInput { moveBy(Offset(-width * 0.4f, 0f)); up() }
+    }
+
+    /** A side set to none: the line doesn't move that way and nothing shows; the other side still works. */
+    @Test
+    fun aSideSetToNoneLeavesTheLineStill() {
+        val e = entry("only right")
+        show { Line(row(e), swipes = LineSwipes(LineSwipe.NONE, LineSwipe.COPY)) }
+        line(e).performTouchInput { down(center); moveBy(Offset(-width * 0.4f, 0f)) }
+        compose.waitForIdle()
+        assertEquals(0.dp, bounds(e).left)
+        compose.onAllNodesWithText("Delete ✕").assertCountEquals(0)
+        line(e).performTouchInput { moveBy(Offset(-width * 0.3f, 0f)); up() }
+        staysPut()
+        line(e).performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+        compose.waitUntil(5_000) { copied.isNotEmpty() }
+    }
+
+    /** With both sides none, a line takes no sideways drag: it stays where it is. */
+    @Test
+    fun bothSidesNoneTakeNoDrag() {
+        val e = entry("still")
+        show { Line(row(e), swipes = LineSwipes(LineSwipe.NONE, LineSwipe.NONE)) }
+        line(e).performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+        line(e).performTouchInput { swipeLeft(startX = right - 10f, endX = left + 10f) }
+        compose.waitForIdle()
+        assertEquals(0.dp, bounds(e).left)
+        staysPut()
+    }
+
+    /** Run on a line without a command: the line moves, shows nothing, does nothing and springs back. A command's line runs. */
+    @Test
+    fun runOnlyRunsALineWithACommand() {
+        val output = entry("plain output")
+        val command = entry("battery", LogKind.COMMAND)
+        show {
+            Column {
+                Line(row(output), swipes = LineSwipes(LineSwipe.RUN, LineSwipe.RUN))
+                Line(row(command), swipes = LineSwipes(LineSwipe.RUN, LineSwipe.RUN))
+            }
+        }
+        line(output).performTouchInput { down(center); moveBy(Offset(width * 0.4f, 0f)) }
+        compose.waitUntil(5_000) { bounds(output).left > 0.dp }
+        compose.onAllNodesWithText("▸ Run").assertCountEquals(0)
+        line(output).performTouchInput { moveBy(Offset(width * 0.2f, 0f)); up() }
+        staysPut()
+        compose.waitUntil(5_000) { bounds(output).left == 0.dp }
+        line(command).performTouchInput { down(center); moveBy(Offset(width * 0.4f, 0f)) }
+        compose.onNodeWithText("▸ Run").assertExists()
+        line(command).performTouchInput { moveBy(Offset(width * 0.2f, 0f)); up() }
+        compose.waitUntil(5_000) { swiped.isNotEmpty() }
+        assertEquals(listOf(command to LineSwipe.RUN), swiped.toList())
     }
 
     /** A dimmed line swipes as a bright one does: the press it watches gives way to the swipe. */

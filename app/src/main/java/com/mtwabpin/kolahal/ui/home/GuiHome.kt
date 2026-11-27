@@ -83,13 +83,13 @@ import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
-import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.shader.ShaderCatalog
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.Status
 import com.mtwabpin.kolahal.terminal.LineModel
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.LineOptions
 import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.LogRow
@@ -278,11 +278,12 @@ internal fun GuiHome(
                 onMediaLongPress = calls.onMediaLongPress,
             )
         }
-        // With the log first and the pages right of it, a line swiped left (toward them) is copied, not deleted. In a
-        // right-to-left layout those pages are on the left, so the sides swap with them.
+        // What a swipe each way does on a line (log.swipe-left, log.swipe-right). While both are the defaults, they
+        // follow the page order: with the log first and the pages right of it, a line swiped left (as the page turns
+        // toward them) is copied, not deleted. In a right-to-left layout those pages are on the left, so the sides
+        // swap with them.
         val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-        val deleteRight =
-            remember(configVersion, rtl) { HomeOrder.pagesRight(config) != rtl }
+        val swipes = remember(configVersion, rtl) { LineSwipes.of(config, rtl) }
         // The log and the suggestions share the space the header, key bar and prompt leave. Those
         // are measured first, so a long suggestion list can't push the prompt off the screen.
         Column(
@@ -336,7 +337,7 @@ internal fun GuiHome(
                     .graphicsLayer {
                         alpha = 1f - selectorFade.floatValue
                     }
-                if (logArea != null) logArea(results, deleteRight, logModifier, resultsModifier)
+                if (logArea != null) logArea(results, swipes, logModifier, resultsModifier)
                 else CompositionLocalProvider(LocalUriHandler provides linkOpener, LocalLogDecode provides (decode ?: scrambleWaves)) {
                     if (results != null) LogSearchResults(
                         search = results,
@@ -349,9 +350,9 @@ internal fun GuiHome(
                         onLongPress = calls.onLineLongPress,
                         onAppTap = calls.onAppTap,
                         onAppLongPress = calls.onAppLongPress,
-                        onSwipeCopy = calls.onSwipeCopy,
-                        onSwipeDelete = calls.onSwipeDelete,
-                        deleteRight = deleteRight,
+                        swipes = swipes,
+                        onSwipe = calls.onSwipe,
+                        swipeDoes = calls.swipeDoes,
                         modifier = resultsModifier,
                     ) else LazyColumn(
                         state = state.scroll.list,
@@ -402,9 +403,9 @@ internal fun GuiHome(
                                         onLongPress = calls.onLineLongPress,
                                         onAppTap = calls.onAppTap,
                                         onAppLongPress = calls.onAppLongPress,
-                                        onSwipeCopy = calls.onSwipeCopy,
-                                        onSwipeDelete = calls.onSwipeDelete,
-                                        deleteRight = deleteRight,
+                                        swipes = swipes,
+                                        onSwipe = calls.onSwipe,
+                                        swipeDoes = calls.swipeDoes,
                                         onAction = calls.onAction,
                                         marks = emptyList(),
                                         foldOpen = state.folds.isOpen(row.entry.id),
@@ -494,9 +495,9 @@ internal fun GuiHome(
             // suggestions.auto: hidden on an idle home. Shown while typing, or whenever there is input
             // (so typing on a hardware keyboard still shows them).
             val suggestionsAuto = remember(configVersion) { config[Keys.SUGGESTIONS_AUTO] }
-            // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy.
+            // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy ("Starred" after a star).
             // A polite live region: TalkBack reads it when it appears, after what it is saying.
-            val notice = undoOffer?.text ?: "Copied".takeIf { state.copiedShown }
+            val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
             if (notice != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

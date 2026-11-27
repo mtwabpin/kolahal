@@ -120,8 +120,9 @@ class HomeOrder(val entries: List<HomeEntry>) {
         }
 
         /**
-         * Whether the log is the first page, with pages to its right: a log line swiped toward them
-         * copies, never deletes. The log listed first in `home.pages`, with another page after it.
+         * Whether the log is the first page, with pages to its right: while a line's swipes are the
+         * defaults, one swiped toward them copies, never deletes. The log listed first in `home.pages`,
+         * with another page after it.
          */
         fun pagesRight(c: Config): Boolean = pagesRight(c[Keys.HOME_PAGES])
 

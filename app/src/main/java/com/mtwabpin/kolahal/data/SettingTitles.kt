@@ -59,6 +59,8 @@ object SettingTitles {
         "log.wallpaper" to "Transparency (%)",
         "log.keep-days" to "Keep log for (days)",
         "log.fresh" to "Clean screen after (minutes away)",
+        "log.swipe-left" to "Swipe a log line left",
+        "log.swipe-right" to "Swipe a log line right",
         "suggestions.auto" to "Only while typing",
         "suggestions.idle" to "Favorites & most-used on empty prompt",
         "suggestions.max" to "Maximum suggestions",

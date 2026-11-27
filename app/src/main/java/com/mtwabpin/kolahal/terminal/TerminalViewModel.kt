@@ -1081,7 +1081,36 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
     }
 
     /**
-     * Swipe left on a log line (and TalkBack's Delete on it). A notification's line also dismisses its
+     * A swipe on a log line that does [does] (`log.swipe-left`, `log.swipe-right`: [LineSwipes]), and a screen
+     * reader's action of the same name. Nothing when it does nothing on the line ([swipeDoes]).
+     */
+    fun swipe(entry: LogEntry, does: LineSwipe) {
+        if (!swipeDoes(entry, does)) return
+        when (does) {
+            LineSwipe.COPY -> swipeCopy(entry)
+            LineSwipe.DELETE -> swipeDelete(entry)
+            LineSwipe.STAR -> io { logs.setStarred(entry.id, !entry.starred) }
+            // As the menu's Fresh from here: "▴ N earlier lines" then brings the lines above back.
+            LineSwipe.FRESH -> io { logs.hideAbove(entry.id) }
+            // As if typed again, so whatever is in the prompt stays there.
+            LineSwipe.RUN -> LineSwipe.commandOf(entry)?.let { cmd ->
+                _events.tryEmit(UiEvent.ScrollToBottom)
+                io { processor.run(cmd) }
+            }
+
+            LineSwipe.NONE -> Unit
+        }
+    }
+
+    /**
+     * Whether a swipe that does [does] does something on [entry]: run needs the line's command, and fresh a
+     * line shown above it (not the first line shown, nor a search's hidden one). Main thread: it reads no database.
+     */
+    fun swipeDoes(entry: LogEntry, does: LineSwipe): Boolean = does.doesOn(entry) &&
+            (does != LineSwipe.FRESH || pager.shownBefore(entry.id) && !logs.isHidden(entry.id) && !logs.isCleared(entry.id))
+
+    /**
+     * A swipe that deletes a log line (and TalkBack's Delete on it). A notification's line also dismisses its
      * notification, once Undo is no longer offered ([DismissOnDelete]).
      */
     fun swipeDelete(entry: LogEntry) {
@@ -1110,7 +1139,7 @@ class TerminalViewModel(app: Application, private val state: SavedStateHandle) :
         startActivity(Intent(Intent.ACTION_VIEW, web.toUri()))
     }
 
-    /** Swipe right on a log line. */
+    /** A swipe that copies a log line. */
     fun swipeCopy(entry: LogEntry) = lineActions.swipeCopy(entry)
 
     private fun startActivity(intent: Intent) {

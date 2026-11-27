@@ -574,6 +574,21 @@ class LogRepository private constructor(private val context: Context) {
         restructured()
     }
 
+    /**
+     * Fresh from line [id] (its menu's Fresh from here, or a swipe): the lines above it are hidden as [hideScreen]
+     * hides them, and it becomes the first line shown. Lines already hidden stay hidden, and [hiddenCount] counts
+     * them all. Nothing changes for a line that is already the first shown, or hidden itself.
+     */
+    fun hideAbove(id: Long) = hideScreen(id - 1)
+
+    /** Whether a line older than [id] shows in the log, so that [hideAbove] would hide something. */
+    fun shownBefore(id: Long): Boolean =
+        db.readableDatabase.number(
+            "SELECT COUNT(*) FROM (SELECT 1 FROM logs WHERE id > ? AND id < ? LIMIT 1)",
+            visibleAfter().toString(),
+            id.toString()
+        ) > 0
+
     fun unhide() {
         marks.set(LogMarks.HIDDEN_UP_TO to 0L)
         restructured()

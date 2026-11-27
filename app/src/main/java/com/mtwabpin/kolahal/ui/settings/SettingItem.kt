@@ -54,11 +54,13 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mtwabpin.kolahal.R
@@ -66,6 +68,7 @@ import com.mtwabpin.kolahal.data.ConfigKey
 import com.mtwabpin.kolahal.data.CustomThemes
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.SettingTitles
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
 import com.mtwabpin.kolahal.ui.ConnectedChoices
 import com.mtwabpin.kolahal.ui.HOLD_TO_TYPE
@@ -197,19 +200,24 @@ internal fun SettingItem(
                             FontChoices(value, { vm.setConfig(key, it) }, vm::requestFontImport)
                         } else {
                             // The values this home style offers, and the one in effect: a screensaver the gui style
-                            // doesn't run shows as off there. Read with the version, so a change of style redraws them.
+                            // doesn't run shows as off there, a line's swipe as its side does now (choiceWrites keeps the
+                            // other side so). Read with the version, so a change of style redraws them.
+                            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
                             val choices = run { version.value; shownChoices(key, config) }
-                            val chosen = run { version.value; shownChoice(key, value, config) }
+                            val chosen = run { version.value; shownChoice(key, value, config, rtl) }
+                            val pick = { v: String ->
+                                choiceWrites(key, v, LineSwipes.of(config, rtl)).forEach { (k, raw) -> vm.setConfig(k, raw) }
+                            }
                             if (choices.size > 4) {
                                 ChipChoices(
                                     choices,
                                     chosen,
-                                    label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
+                                    label = { ChoiceLabels.of(key, it) }, onPick = pick)
                             } else {
                                 ConnectedChoices(
                                     choices,
                                     chosen,
-                                    label = { ChoiceLabels.of(key, it) }) { vm.setConfig(key, it) }
+                                    label = { ChoiceLabels.of(key, it) }, onPick = pick)
                             }
                             // Widget corners: widgets page 1 under the choice, so a pick shows on the cards at once.
                             if (key == Keys.WIDGET_CORNERS) com.mtwabpin.kolahal.ui.widgets.WidgetsPagePreview(vm)

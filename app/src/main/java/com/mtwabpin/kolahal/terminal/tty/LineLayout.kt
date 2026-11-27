@@ -154,18 +154,17 @@ object LineLayout {
     /**
      * The actions a screen reader offers on a laid-out row besides its tap and long press, in
      * reading order: "Open …" for each link, each button by its label, "Show more" or "Fold" for
-     * the fold, then Copy and Delete (a swipe's two). Each with the target it acts on; null for
-     * the line itself. Built from [block]'s targets, so it can't offer what a finger can't hit.
+     * the fold, then what its [swipes] do by name (Copy, Delete). Each with the target it acts on;
+     * null for the line itself. Built from [block]'s targets, so it can't offer what a finger can't hit.
      */
-    fun actions(block: CellBlock): List<Pair<Target?, String>> = buildList {
+    fun actions(block: CellBlock, swipes: List<String>): List<Pair<Target?, String>> = buildList {
         for (t in block.targets) when (val target = t.target) {
             is Target.Link -> add(target to "Open ${target.text}")
             is Target.Button -> add(target to target.label)
             Target.Fold -> add(target to if (block.foldedRows > 0 || block.foldedApps > 0) "Show more" else "Fold")
             is Target.App, Target.Line -> Unit
         }
-        add(null to "Copy")
-        add(null to "Delete")
+        for (s in swipes) add(null to s)
     }
 
     /** `── Tue 17 Nov ──────`, muted, under a blank row. [label] is the day as the log names it. */

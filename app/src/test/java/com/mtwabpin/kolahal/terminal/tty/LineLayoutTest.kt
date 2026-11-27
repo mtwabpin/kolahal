@@ -464,13 +464,13 @@ class LineLayoutTest {
         assertEquals(listOf(Target.App(0), Target.App(2), Target.Fold), folded.targets.map { it.target })
         assertEquals(2, folded.foldedApps)
         assertEquals(Target.Fold, folded.hitAt(3, 1))
-        assertTrue(LineLayout.actions(folded).contains(Target.Fold to "Show more"))
+        assertTrue(LineLayout.actions(folded, emptyList()).contains(Target.Fold to "Show more"))
 
         val open = LineLayout.layout(m, LogLook(40), foldOpen = true, apps = apps)
         assertEquals("│ maps    clock   W mail  notes\n│ ▴ Show less", open.dump())
         assertEquals((0..3).map { Target.App(it) } + Target.Fold, open.targets.map { it.target })
         assertEquals(0, open.foldedApps)
-        assertTrue(LineLayout.actions(open).contains(Target.Fold to "Fold"))
+        assertTrue(LineLayout.actions(open, emptyList()).contains(Target.Fold to "Fold"))
         assertEquals(open.dump(), LineLayout.layout(m, LogLook(40), marks = listOf("mail"), apps = apps).dump())
 
         // Without a cap, no "+N more".

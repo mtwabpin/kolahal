@@ -22,13 +22,16 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -37,6 +40,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pinch
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.text.TextLayoutResult
@@ -48,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.ConfigReset
+import com.mtwabpin.kolahal.sheetAction
 import com.mtwabpin.kolahal.data.Config
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.LogContext
@@ -569,6 +574,72 @@ class HomeScreenTest {
         } finally {
             logs.delete(id)
         }
+    }
+
+    /** Three lines of this test's on a log with the rest hidden, so "▴ N earlier lines" counts from [hidden]. */
+    private class FreshLines(val ids: List<Long>, val hidden: Int)
+
+    private fun freshLines(token: String): FreshLines {
+        val logs = LogRepository.get(app)
+        logs.hideScreen(logs.maxId())
+        val hidden = logs.hiddenCount()
+        return FreshLines((0 until 3).map { logs.add(LogKind.OUTPUT, "$token $it") }, hidden)
+    }
+
+    private fun shows(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+
+    /** "▴ N earlier lines", tapped, brings the hidden lines back. */
+    private fun showEarlier(n: Int, id: Long) {
+        val row = "▴ $n earlier lines · tap to show"
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(row).fetchSemanticsNodes().isNotEmpty() }
+        assertFalse(shows("line-$id"))
+        compose.onNodeWithText(row).performClick()
+        compose.waitUntil(5_000) { shows("line-$id") }
+    }
+
+    /** Fresh from here, in a line's menu: the lines above it are hidden, and "▴ N earlier lines" brings them back. */
+    @Test
+    fun freshFromHereHidesTheLinesAbove() {
+        val lines = freshLines("fresh from here ${System.nanoTime()}")
+        show(360.dp, 700.dp)
+        compose.waitUntil(5_000) { shows("line-${lines.ids[2]}") }
+        compose.onNodeWithTag("line-${lines.ids[1]}").performTouchInput { longClick() }
+        // The sheet shows "Fresh" under its icon and says the full words.
+        compose.waitUntil(5_000) {
+            compose.onAllNodes(hasContentDescription("Fresh from here")).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.sheetAction("Fresh from here").performClick()
+        showEarlier(lines.hidden + 1, lines.ids[0])
+        assertTrue(shows("line-${lines.ids[1]}"))
+    }
+
+    /**
+     * Set to star and fresh, the swipes do that on home: a star says "Starred" (a starred line looks the same),
+     * a fresh hides the lines above. A side set to none leaves the line where it is.
+     */
+    @Test
+    fun swipesSetToStarAndFreshDoThat() {
+        config.set(Keys.LOG_SWIPE_RIGHT, "star")
+        config.set(Keys.LOG_SWIPE_LEFT, "fresh")
+        val logs = LogRepository.get(app)
+        val lines = freshLines("star and fresh ${System.nanoTime()}")
+        show(360.dp, 700.dp)
+        compose.waitUntil(5_000) { shows("line-${lines.ids[2]}") }
+        compose.onNodeWithTag("line-${lines.ids[2]}")
+            .performTouchInput { swipeRight(startX = left + 10f, endX = right - 10f) }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Starred").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { logs.recent(10).any { it.id == lines.ids[2] && it.starred } }
+        compose.onNodeWithTag("line-${lines.ids[2]}")
+            .performTouchInput { swipeLeft(startX = right - 10f, endX = left + 10f) }
+        showEarlier(lines.hidden + 2, lines.ids[0])
+        // None: the line takes no drag that way, and nothing happens to it.
+        compose.runOnIdle { config.set(Keys.LOG_SWIPE_LEFT, "none") }
+        compose.onNodeWithTag("line-${lines.ids[1]}")
+            .performTouchInput { swipeLeft(startX = right - 10f, endX = left + 10f) }
+        compose.waitForIdle()
+        assertTrue(shows("line-${lines.ids[0]}") && shows("line-${lines.ids[1]}"))
+        compose.onNodeWithText("Undo").assertDoesNotExist()
+        compose.onAllNodesWithText("earlier lines", substring = true).assertCountEquals(0)
     }
 
     /** gesture.swipe-up is none by default, which turns swiping up off; an action turns it on. */

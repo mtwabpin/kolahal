@@ -7,7 +7,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -45,7 +49,9 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
@@ -78,6 +84,8 @@ import com.mtwabpin.kolahal.notifications.NotifIcons
 import com.mtwabpin.kolahal.terminal.Gutter
 import com.mtwabpin.kolahal.terminal.LineModel
 import com.mtwabpin.kolahal.terminal.LineOptions
+import com.mtwabpin.kolahal.terminal.LineSwipe
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.LogRow
 import com.mtwabpin.kolahal.terminal.Scramble
 import com.mtwabpin.kolahal.terminal.TimeMode
@@ -147,9 +155,9 @@ fun LogLine(
     onLongPress: (LogEntry) -> Unit,
     onAppTap: (AppEntry) -> Unit,
     onAppLongPress: (AppEntry) -> Unit,
-    onSwipeCopy: (LogEntry) -> Unit = {},
-    onSwipeDelete: (LogEntry) -> Unit = {},
-    deleteRight: Boolean = false,
+    swipes: LineSwipes = LineSwipes.DEFAULT,
+    onSwipe: (LogEntry, LineSwipe) -> Unit = { _, _ -> },
+    swipeDoes: (LogEntry, LineSwipe) -> Boolean = { e, does -> does.doesOn(e) },
     onAction: (LogEntry, Int) -> Unit = { _, _ -> },
     marks: List<String> = emptyList(),
 ) {
@@ -169,14 +177,46 @@ fun LogLine(
         onLongPress = onLongPress,
         onAppTap = onAppTap,
         onAppLongPress = onAppLongPress,
-        onSwipeCopy = onSwipeCopy,
-        onSwipeDelete = onSwipeDelete,
-        deleteRight = deleteRight,
+        swipes = swipes,
+        onSwipe = onSwipe,
+        swipeDoes = swipeDoes,
         onAction = onAction,
         marks = marks,
         foldOpen = open,
         onToggleFold = { open = !open },
     )
+}
+
+/**
+ * A sideways drag on a log line, as [detectHorizontalDragGestures] has it, but only one that [takes] by
+ * the way it goes past the touch slop. A drag the other way is left to what is under the line (home's
+ * pager turns the page) for the rest of the gesture. [onDrag] gets each move, the first one past the slop
+ * included.
+ */
+internal suspend fun PointerInputScope.detectLineSwipe(
+    takes: (Float) -> Boolean,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
+    onDrag: (Float) -> Unit,
+) = awaitEachGesture {
+    val down = awaitFirstDown(requireUnconsumed = false)
+    // Once a drag went the way the line doesn't take, the line takes no part of it.
+    var refused = false
+    var over = 0f
+    val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, overSlop ->
+        if (!refused && takes(overSlop)) {
+            change.consume()
+            over = overSlop
+        } else refused = true
+    }
+    if (drag != null) {
+        onDrag(over)
+        val ended = horizontalDrag(drag.id) {
+            onDrag(it.positionChange().x)
+            it.consume()
+        }
+        if (ended) onDragEnd() else onDragCancel()
+    }
 }
 
 /**
@@ -214,13 +254,15 @@ fun LogLine(
     onLongPress: (LogEntry) -> Unit,
     onAppTap: (AppEntry) -> Unit,
     onAppLongPress: (AppEntry) -> Unit,
-    onSwipeCopy: (LogEntry) -> Unit,
-    onSwipeDelete: (LogEntry) -> Unit,
     /**
-     * A swipe right deletes and a swipe left copies, the other way round from the default. On with
-     * the log first and the pages right of it (`home.pages`): a swipe toward them copies, never deletes.
+     * What a swipe each way does ([LineSwipes]: `log.swipe-left`, `log.swipe-right`; while both are the
+     * defaults, they trade with the page order). A side that does nothing takes no drag that way.
      */
-    deleteRight: Boolean,
+    swipes: LineSwipes,
+    /** A swipe past a third of the width that does something on the line ([swipeDoes]). */
+    onSwipe: (LogEntry, LineSwipe) -> Unit,
+    /** Whether a swipe does something on a line: run needs a command, fresh a line shown above it. */
+    swipeDoes: (LogEntry, LineSwipe) -> Boolean,
     /** A tap on button `index` under a script's line (`ctx.actions`). */
     onAction: (LogEntry, Int) -> Unit,
     /** Words a log search found. They are highlighted where the line shows them. */
@@ -230,9 +272,12 @@ fun LogLine(
 ) {
     val entry = model.entry
     val body = model.body
-    // Swipe right to copy, left to delete (the terminal offers Undo), or the other way with [deleteRight].
+    // Swipe right to copy, left to delete (the terminal offers Undo), or what [swipes] says.
     // The swipe must pass a third of the width.
     val swipe = remember { androidx.compose.animation.core.Animatable(0f) }
+    val currentEntry by androidx.compose.runtime.rememberUpdatedState(entry)
+    val currentOnSwipe by androidx.compose.runtime.rememberUpdatedState(onSwipe)
+    val currentSwipeDoes by androidx.compose.runtime.rememberUpdatedState(swipeDoes)
     val swipeScope = androidx.compose.runtime.rememberCoroutineScope()
     var rowWidth by remember { androidx.compose.runtime.mutableIntStateOf(1) }
     val haptics = LocalHapticFeedback.current
@@ -328,22 +373,16 @@ fun LogLine(
     // The swipe direction (or 0). The content changes only when the direction changes, not on every
     // frame the line moves. The offset and the reveal read the swipe value during layout and draw.
     val swiped by remember { androidx.compose.runtime.derivedStateOf { kotlin.math.sign(swipe.value) } }
-    // The sign of the swipe that copies: right (1) by default, left (-1) with [deleteRight].
-    val copySide = if (deleteRight) -1f else 1f
+    // What the swipe this way does, when it does something on this line: nothing is drawn otherwise.
+    val does = swipes.toward(swiped).takeIf { swiped != 0f && swipeDoes(entry, it) }
     Box(Modifier.padding(top = topGap)) {
         // The swipe action label, revealed as the line moves. It is drawn only in the space the line has
         // left, so the line needs no background of its own and home's page (or wallpaper) shows through.
-        if (swiped != 0f) {
+        if (does != null) {
             // The sign always goes on the outer edge, where the line moved from.
-            val copies = swiped == copySide
             Text(
-                when {
-                    copies && swiped > 0 -> "⧉ Copy"
-                    copies -> "Copy ⧉"
-                    swiped > 0 -> "✕ Delete"
-                    else -> "Delete ✕"
-                },
-                style = Term.text.copy(color = if (copies) Term.prompt else Term.error),
+                does.label(entry, right = swiped > 0),
+                style = Term.text.copy(color = if (does.destructive) Term.error else Term.prompt),
                 modifier = Modifier
                     .matchParentSize()
                     .drawWithContent {
@@ -366,37 +405,38 @@ fun LogLine(
             modifier = Modifier
                 .onSizeChanged { rowWidth = it.width.coerceAtLeast(1) }
                 .offset { androidx.compose.ui.unit.IntOffset(swipe.value.toInt(), 0) }
-                .pointerInput(entry.id, copySide) {
-                    detectHorizontalDragGestures(
+                .then(if (!swipes.any) Modifier else Modifier.pointerInput(entry.id, swipes) {
+                    detectLineSwipe(
+                        takes = { dx -> swipes.toward(dx) != LineSwipe.NONE },
                         onDragEnd = {
                             val limit = rowWidth / 3f
                             swipeScope.launch {
-                                // Distance toward the copy side: positive copies, negative deletes.
-                                val toCopy = swipe.value * copySide
+                                val s = swipe.value
+                                val e = currentEntry
+                                val act = swipes.toward(s)
                                 when {
-                                    toCopy > limit -> {
-                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onSwipeCopy(entry)
-                                        swipe.animateTo(0f)
-                                    }
-
-                                    toCopy < -limit -> {
+                                    kotlin.math.abs(s) <= limit || !currentSwipeDoes(e, act) -> swipe.animateTo(0f)
+                                    act == LineSwipe.DELETE -> {
                                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         // The line slides out of sight the way it was swiped.
-                                        swipe.animateTo(-copySide * rowWidth)
-                                        onSwipeDelete(entry)
+                                        swipe.animateTo(kotlin.math.sign(s) * rowWidth)
+                                        currentOnSwipe(e, act)
                                     }
 
-                                    else -> swipe.animateTo(0f)
+                                    else -> {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        currentOnSwipe(e, act)
+                                        swipe.animateTo(0f)
+                                    }
                                 }
                             }
                         },
                         onDragCancel = { swipeScope.launch { swipe.animateTo(0f) } },
-                    ) { change, dx ->
-                        change.consume()
-                        swipeScope.launch { swipe.snapTo(swipe.value + dx) }
+                    ) { dx ->
+                        // A side that does nothing keeps the line from moving that way.
+                        swipeScope.launch { swipe.snapTo(swipes.reach(swipe.value + dx)) }
                     }
-                }
+                })
                 .fillMaxWidth()
                 .heightIn(min = minHeight + itemGap)
                 .testTag("line-${entry.id}")

@@ -63,11 +63,11 @@ import com.mtwabpin.kolahal.apps.Profile
 import com.mtwabpin.kolahal.commands.LogFilter
 import com.mtwabpin.kolahal.control.NowPlaying
 import com.mtwabpin.kolahal.data.Config
-import com.mtwabpin.kolahal.data.HomeOrder
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.StatusLine
 import com.mtwabpin.kolahal.shader.WallpaperChoice
 import com.mtwabpin.kolahal.status.Status
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.LivePreview
 import com.mtwabpin.kolahal.terminal.SetupChecks
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -216,10 +216,11 @@ internal fun TtyHome(
                     onMediaLongPress = calls.onMediaLongPress,
                 )
             }
-            // With the log first and the pages right of it, a line swiped toward them is copied, not deleted; in a
-            // right-to-left layout the sides swap with the page.
+            // What a swipe each way does on a line, as in the gui style: while both are the defaults, with the log
+            // first and the pages right of it, a line swiped as the page turns toward them is copied, not deleted;
+            // in a right-to-left layout the sides swap with the page.
             val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-            val deleteRight = remember(configVersion, rtl) { HomeOrder.pagesRight(config) != rtl }
+            val swipes = remember(configVersion, rtl) { LineSwipes.of(config, rtl) }
             Column(
                 Modifier
                     .weight(1f)
@@ -255,7 +256,7 @@ internal fun TtyHome(
                     val resultsModifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer { alpha = 1f - selectorFade.floatValue }
-                    logArea(results, deleteRight, logModifier, resultsModifier)
+                    logArea(results, swipes, logModifier, resultsModifier)
                     // Scrolled away from the newest lines: a chip over the log's bottom jumps back down.
                     androidx.compose.animation.AnimatedVisibility(
                         visible = state.scroll.awayFromBottom && results == null,
@@ -277,7 +278,7 @@ internal fun TtyHome(
                 if (BuildConfig.SELF_UPDATE && !preview) TtyUpdateProgress()
                 search?.let { TtySearchSummary(it) } ?: filter?.let { TtyFilterBar(it, filterCount, onClear = calls.onClearFilter) }
                 val suggestionsAuto = remember(configVersion) { config[Keys.SUGGESTIONS_AUTO] }
-                val notice = undoOffer?.text ?: "Copied".takeIf { state.copiedShown }
+                val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
                 if (notice != null) TtyNotice(notice, undo = undoOffer != null, onUndo = calls.onUndo)
                 suggestions(!suggestionsAuto || typing)
             }

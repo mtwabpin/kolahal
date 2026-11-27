@@ -12,6 +12,7 @@ import com.mtwabpin.kolahal.data.HomeStyles
 import com.mtwabpin.kolahal.data.Keys
 import com.mtwabpin.kolahal.data.SearchWords
 import com.mtwabpin.kolahal.data.SettingTitles
+import com.mtwabpin.kolahal.terminal.LineSwipes
 import com.mtwabpin.kolahal.terminal.Screen
 import com.mtwabpin.kolahal.terminal.ScreenSaver
 
@@ -91,11 +92,30 @@ internal fun shownChoices(key: ConfigKey.Choice, config: Config): List<String> =
     if (key == Keys.SCREEN_SAVER) ScreenSaver.choices(HomeStyles.ttyNow(config)) else key.choices
 
 /**
- * The value Settings marks as chosen for a choice: the stored one, but for a screensaver the gui
- * style doesn't run, which shows as off there ([ScreenSaver.inEffect]). The stored value stays.
+ * The value Settings marks as chosen for a choice: the stored one, but
+ * - for a screensaver the gui style doesn't run, which shows as off there ([ScreenSaver.inEffect]);
+ * - for a line's swipe, what that side does now: the defaults trade sides with the page order
+ *   ([LineSwipes]), in a layout that is right-to-left when [rtl] is.
+ * The stored value stays.
  */
-internal fun shownChoice(key: ConfigKey.Choice, value: String, config: Config): String =
-    if (key == Keys.SCREEN_SAVER) ScreenSaver.inEffect(value, HomeStyles.ttyNow(config)) else value
+internal fun shownChoice(key: ConfigKey.Choice, value: String, config: Config, rtl: Boolean = false): String = when (key) {
+    Keys.SCREEN_SAVER -> ScreenSaver.inEffect(value, HomeStyles.ttyNow(config))
+    Keys.LOG_SWIPE_LEFT -> LineSwipes.of(config, rtl).left.id
+    Keys.LOG_SWIPE_RIGHT -> LineSwipes.of(config, rtl).right.id
+    else -> value
+}
+
+/**
+ * What Settings writes when [key] is set to [value]: that value, and for a line's swipe the other side's
+ * action as it shows ([shownChoice], from the swipes in effect [now]) too. A side the defaults traded then
+ * keeps what it does, instead of going back to its own default.
+ */
+internal fun choiceWrites(key: ConfigKey.Choice, value: String, now: LineSwipes): List<Pair<ConfigKey.Choice, String>> =
+    when (key) {
+        Keys.LOG_SWIPE_LEFT -> listOf(key to value, Keys.LOG_SWIPE_RIGHT to now.right.id)
+        Keys.LOG_SWIPE_RIGHT -> listOf(Keys.LOG_SWIPE_LEFT to now.left.id, key to value)
+        else -> listOf(key to value)
+    }
 
 /** Whether Settings shows [key], given the current values of the other settings ([SHOWN_WHEN]). */
 internal fun applies(key: ConfigKey<*>, config: Config): Boolean =
@@ -231,6 +251,10 @@ private val CATEGORIES = listOf(
                 Keys.LOG_TABLES,
                 Keys.LOG_FOLD,
                 Keys.LOG_WALLPAPER,
+            ),
+            "Swipes" to listOf(
+                Keys.LOG_SWIPE_LEFT,
+                Keys.LOG_SWIPE_RIGHT,
             ),
             "History" to listOf(
                 Keys.LOG_FRESH,

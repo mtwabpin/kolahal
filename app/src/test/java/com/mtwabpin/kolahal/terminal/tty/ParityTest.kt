@@ -138,14 +138,15 @@ class ParityTest {
 
     /**
      * TalkBack offers the same actions on a row in both styles: an "Open …" for each of the model's
-     * links, each of its buttons, Copy and Delete. Each action acts on a target the grid has.
+     * links, each of its buttons, then what its swipes do (Copy and Delete by default). Each action
+     * acts on a target the grid has.
      */
     @Test
     fun theActionsAreTheModels() {
         for (line in LogCorpus.all) {
             val m = model(line)
             val block = layout(m, 40, rtl = false)
-            val actions = LineLayout.actions(block)
+            val actions = LineLayout.actions(block, listOf("Copy", "Delete"))
             val labels = actions.map { it.second }
             for (t in m.targets()) when (t) {
                 is Target.Link -> assertTrue("${line.name}: $labels", "Open ${t.text}" in labels)

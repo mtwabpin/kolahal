@@ -651,6 +651,36 @@ object Keys {
         0..240,
         "Home starts clean when you come back after this many minutes away. One tap shows the earlier lines again.\n0 turns it off"
     )
+    /** What a swipe on a log line can do: terminal/LineSwipes has one action for each. */
+    private val LINE_SWIPES = listOf("copy", "delete", "star", "fresh", "run", "none")
+    private val LINE_SWIPE_NOTES = mapOf(
+        "copy" to "Copies the line's text",
+        "delete" to "Deletes the line, with Undo for a few seconds",
+        "star" to "Stars the line, or removes its star",
+        "fresh" to "Hides the lines above it, as fresh does",
+        "run" to "Runs the line's command again",
+        "none" to "The line stays still",
+    )
+
+    /** terminal/LineSwipes: what a swipe on a log line does, in the log and in a search's results. */
+    val LOG_SWIPE_LEFT = ConfigKey.Choice(
+        "log.swipe-left",
+        "delete",
+        LINE_SWIPES,
+        "What a swipe left on a log line does: copy, delete, star, fresh (hide the lines above it), run (its command again) or none.\n" +
+                "None: the line stays still, and the swipe turns home's page if there is one.\n" +
+                "The defaults follow the page order: with the log first, copy and delete trade sides",
+        notes = LINE_SWIPE_NOTES,
+    )
+    val LOG_SWIPE_RIGHT = ConfigKey.Choice(
+        "log.swipe-right",
+        "copy",
+        LINE_SWIPES,
+        "What a swipe right on a log line does: copy, delete, star, fresh (hide the lines above it), run (its command again) or none.\n" +
+                "None: the line stays still, and the swipe turns home's page if there is one.\n" +
+                "The defaults follow the page order: with the log first, copy and delete trade sides",
+        notes = LINE_SWIPE_NOTES,
+    )
     val LOG_TIPS = ConfigKey.Bool(
         "log.tips",
         true,
@@ -897,6 +927,8 @@ object Keys {
         LOG_KEEP_DAYS,
         LOG_KEEP_LINES,
         LOG_FRESH,
+        LOG_SWIPE_LEFT,
+        LOG_SWIPE_RIGHT,
         LOG_TIPS,
         NOTIFS_DISMISS_ON_DELETE,
         SEARCH_ENGINE,
