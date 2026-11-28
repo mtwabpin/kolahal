@@ -749,7 +749,7 @@ object CommandCatalog {
                 "shader reload" to "read the .agsl files in the script folder again",
                 "shader edit <name>" to "open the editor; one that comes with Kolahal becomes yours when you save it",
                 "shader save <name>" to "save a shader's file in the script folder's shaders folder, to edit it there",
-                "shader save template-tint" to "a shader of your own to edit, from a template: template-tint, -scene, -moving, -touch, -value or -once",
+                "shader save template-tint" to "a shader of your own to edit, from a template: template-empty, -tint, -scene, -moving, -touch, -value or -once",
                 "shader rm <name>" to "remove your own shader; delete does the same",
             ),
             sensitive = true,

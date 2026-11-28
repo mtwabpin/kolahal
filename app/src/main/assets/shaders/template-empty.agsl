@@ -1,0 +1,20 @@
+// @name Empty
+// @description Just the basics: draws the screen as it is, for you to start from
+// @suits dark good, light good, wallpaper good
+
+// What is on the screen. Every shader has it.
+uniform shader content;
+// The size of the screen, in pixels.
+uniform float2 resolution;
+
+// Other inputs, declared only when the shader needs them:
+//   uniform float time;                      moves with a // @animated line
+//   layout(color) uniform half4 accent;      a theme color, as bg, fg or accent
+//   uniform float amount;                    a slider, with // @param amount 0.0..1.0 = 0.5 Amount
+//   uniform float2 touch;                    where the last touch was, in pixels
+
+// main runs once for every pixel. xy is the pixel, in pixels from the top left corner.
+half4 main(float2 xy) {
+    // Return the screen's pixel unchanged. Change this line first.
+    return content.eval(xy);
+}

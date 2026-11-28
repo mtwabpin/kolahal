@@ -390,7 +390,7 @@ class ShaderMetaTest {
             assertTrue(name, name.startsWith("template-") && name !in ShaderCatalog.BUNDLED && ShaderCatalog.valid(name))
             assertEquals(name, emptyList<String>(), ShaderMeta.problems(source))
             assertEquals(name, emptyList<String>(), ShaderMeta.warnings(source))
-            assertTrue(name, source.trimEnd().lines().size in 25..50)
+            assertTrue(name, source.trimEnd().lines().size in 15..50)
             assertTrue(name, "half4 main(float2" in source)
             val code = source.replace(Regex("//[^\n]*"), "")
             for ((open, close) in listOf("{" to "}", "(" to ")")) {

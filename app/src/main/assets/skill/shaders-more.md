@@ -6,7 +6,7 @@
 - **Over other apps**: a one-off rated `@suits apps good` (or `fair`) plays over the app in front when a notification's words start it, if the user turned that on and allowed Display over other apps, in a build that can. There `content` is clear (all 0): return only what you draw, premultiplied. `touch`, `pressed` and `tilt` stay as before a touch. `shader play` and `shader.play` play over home only.
 - Not the screensaver: it is one of Kolahal's screens, and the shader over home draws over it.
 
-`shader save template-tint` makes a shader to start from; the other templates are `template-scene`, `template-moving`, `template-touch`, `template-value` and `template-once`. `shader check <name>` says whether it compiles, the uniforms Kolahal sets, its parameters, how often it draws, and any uniform that stays 0.
+`shader save template-empty` makes a shader to start from; the other templates are `template-tint`, `template-scene`, `template-moving`, `template-touch`, `template-value` and `template-once`. `shader check <name>` says whether it compiles, the uniforms Kolahal sets, its parameters, how often it draws, and any uniform that stays 0.
 
 ### How Kolahal sets the uniforms
 

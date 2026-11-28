@@ -29,7 +29,7 @@ object ShaderCatalog {
      * never listed or used, only copied as a shader of the user's ([yourName]).
      */
     val TEMPLATES = listOf(
-        "template-tint", "template-scene", "template-moving", "template-touch", "template-value", "template-once",
+        "template-empty", "template-tint", "template-scene", "template-moving", "template-touch", "template-value", "template-once",
     )
 
     /** What the `shader` command reads as its own words: no shader has one of these names. */

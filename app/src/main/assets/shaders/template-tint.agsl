@@ -1,5 +1,5 @@
 // @name Tint
-// @description The smallest shader: a wash of the theme's accent color, strongest at the top
+// @description A wash of the theme's accent color, strongest at the top
 // @suits dark good, light good, wallpaper good
 // @param amount 0.0..0.4 = 0.12 Amount of color
 //

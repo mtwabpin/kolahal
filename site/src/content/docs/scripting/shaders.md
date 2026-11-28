@@ -325,7 +325,7 @@ in `shaders/<name>/<name>.agsl` with a full [header](#the-header).
 
 ## Writing one
 
-The quickest start is a template: a working shader of 30 to 50 lines whose comments say what each line is for.
+The quickest start is a template: a working shader of 20 to 50 lines whose comments say what each line is for.
 
 1. **Shaders → Add shader → Start from a template**, and pick one: each row shows a small picture of the
    screen with it on. A copy becomes one of your shaders: `my-tint`, or `my-tint-2` when that name is taken. With a
@@ -339,7 +339,8 @@ The quickest start is a template: a working shader of 30 to 50 lines whose comme
 
 | Template | What it shows |
 | --- | --- |
-| `template-tint` | Tint: the smallest shader. A theme color over the screen, and one parameter |
+| `template-empty` | Empty: just the basics, the screen as it is, to start from |
+| `template-tint` | Tint: a theme color over the screen, and one parameter |
 | `template-scene` | Hills: a scene behind the text only, for a dark and a light theme and as a wallpaper |
 | `template-moving` | Sea: a scene that moves with `time`, kept cheap with `@fps` |
 | `template-touch` | Ripple: a ring from each touch, with `touch`, `touchAge` and `pressed`, that costs nothing once it fades (`@settles`) |
