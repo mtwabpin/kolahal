@@ -98,8 +98,10 @@ sealed interface Suggestion {
  * - [text] says what was done.
  * - [undo] reverses it.
  * - [expire] runs when undo is no longer possible: the offer timed out, or another offer replaced it.
+ * - [oneLine]: one line went (a delete). The log fades it out, and in again on Undo
+ *   ([com.mtwabpin.kolahal.ui.home.LineMotion]); a clear goes and comes back at once.
  */
-class UndoOffer(val text: String, val expire: () -> Unit = {}, val undo: () -> Unit)
+class UndoOffer(val text: String, val expire: () -> Unit = {}, val oneLine: Boolean = false, val undo: () -> Unit)
 
 /**
  * One entry of a log line's long-press menu.

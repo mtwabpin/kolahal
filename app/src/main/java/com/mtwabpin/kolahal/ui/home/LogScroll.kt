@@ -48,6 +48,9 @@ internal class LogScroll(val list: LazyListState) {
     }
 }
 
+/** No newest row seen yet. */
+private object Unseen
+
 /**
  * The log's [LogScroll], with its effects:
  * - it follows the newest line (index 0 with reverseLayout) unless the user scrolled up;
@@ -86,9 +89,15 @@ internal fun rememberLogScroll(
             }
         }
     }
-    // Keyed on the newest *row* (rows are built after entries), so the scroll targets the new line.
-    // Skip it while a finger or a fling is still scrolling: a forced scroll would yield to those too.
-    LaunchedEffect(rows.firstOrNull()?.key) {
+    // On the newest *row* (rows are built after entries), so the scroll targets the new line. Skip it
+    // while a finger or a fling is still scrolling: a forced scroll would yield to those too. Asked while
+    // composing the new rows, so the list lays them out from the bottom in the same frame: asked after,
+    // it would first keep the line that was newest in place, push the new one below the edge, and then
+    // jump, which also stops a line's fade in on Undo ([LineMotion]).
+    val newest = rows.firstOrNull()?.key
+    val followed = remember { arrayOfNulls<Any>(1).also { it[0] = Unseen } }
+    if (newest != followed[0]) {
+        followed[0] = newest
         if (scroll.followNewest && !list.isScrollInProgress) list.requestScrollToItem(0)
     }
     LaunchedEffect(list) {

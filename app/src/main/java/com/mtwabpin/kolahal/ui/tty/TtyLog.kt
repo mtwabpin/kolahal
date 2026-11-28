@@ -93,6 +93,8 @@ import com.mtwabpin.kolahal.terminal.tty.screens.ShownLogSource
 import com.mtwabpin.kolahal.ui.home.FoldState
 import com.mtwabpin.kolahal.ui.home.HomeCalls
 import com.mtwabpin.kolahal.ui.home.HomeState
+import com.mtwabpin.kolahal.ui.home.LineMotion
+import com.mtwabpin.kolahal.ui.home.lineMotion
 import com.mtwabpin.kolahal.ui.home.detectLineSwipe
 import com.mtwabpin.kolahal.ui.home.foundIn
 import com.mtwabpin.kolahal.ui.home.initials
@@ -154,6 +156,7 @@ internal fun TtyLog(
         rows = rows,
         list = state.scroll.list,
         search = null,
+        motion = state.motion,
         folds = folds,
         shownLog = calls.shownLog,
         highlight = state.menu?.entryId to state.scroll.flash,
@@ -210,6 +213,7 @@ internal fun TtySearchResults(
         rows = reversed,
         list = list,
         search = search.words,
+        motion = null,
         folds = null,
         shownLog = calls.shownLog,
         highlight = menuEntryId to null,
@@ -231,13 +235,15 @@ internal fun TtySearchResults(
  * The list both draw: [rows] newest first, each a block of cells on one grid. [search] is a
  * search's words (then the lines show their time, never fold or dim, and say where words were
  * found), or null for the log. [highlight] is the line whose menu is open and the line a search
- * result jumped to: both get the surface color, as in the GUI.
+ * result jumped to: both get the surface color, as in the GUI. [motion] is the log's ([LineMotion]); a search's
+ * results have none.
  */
 @Composable
 private fun TtyList(
     rows: List<LogRow>,
     list: LazyListState,
     search: List<String>?,
+    motion: LineMotion?,
     folds: FoldState?,
     shownLog: ShownLogSource?,
     highlight: Pair<Long?, Long?>,
@@ -311,50 +317,54 @@ private fun TtyList(
                     .semantics { text = AnnotatedString(EMPTY_HINT.joinToString("\n") { it.first }.trim()) })
             }
             items(rows, key = { it.key }, contentType = { it.javaClass }) { row ->
-                when (row) {
-                    is LogRow.Day -> {
-                        // Built on each composition, not remembered, so the dividers follow a change of language.
-                        val label = dayLabel(row, today, LocalConfiguration.current.locales[0])
-                        val block = remember(label, cols, rtl) { LineLayout.day(label, cols, rtl) }
-                        TtyText(block, grid, originX, Modifier.semantics {
-                            heading()
-                            text = AnnotatedString(label)
-                        })
-                    }
-
-                    is LogRow.Unread -> if (search == null) {
-                        val block = remember(row.count, cols, rtl) { LineLayout.unread(row.count, cols, rtl) }
-                        TtyText(block, grid, originX, Modifier.semantics {
-                            text = AnnotatedString("${row.count} new since you left")
-                        })
-                    }
-
-                    is LogRow.Entry -> {
-                        val open = folds?.isOpen(row.entry.id) == true
-                        val appsGrid = LogContext.APPS in row.entry.ctx.values
-                        val key = LineKey(row, look, options, open, marks, Same(timeFormat), if (appsGrid) Same(installed) else null)
-                        val line = remember(key) {
-                            cache.get(key) { layoutLine(row, options, look, open, marks, timeFormat, apps, search != null, AppRepository.get(context)::gridGone) }
+                // A deleted line fades out while the rows around it close the gap, and in again on Undo; a search's
+                // results don't move.
+                Box(if (motion != null) lineMotion(motion) else Modifier) {
+                    when (row) {
+                        is LogRow.Day -> {
+                            // Built on each composition, not remembered, so the dividers follow a change of language.
+                            val label = dayLabel(row, today, LocalConfiguration.current.locales[0])
+                            val block = remember(label, cols, rtl) { LineLayout.day(label, cols, rtl) }
+                            TtyText(block, grid, originX, Modifier.semantics {
+                                heading()
+                                text = AnnotatedString(label)
+                            })
                         }
-                        val id = row.entry.id
-                        TtyLineRow(
-                            line = line,
-                            grid = grid,
-                            originX = originX,
-                            gapPx = when (line.model.gapAbove) {
-                                LineModel.Gap.GROUP -> groupGapPx
-                                LineModel.Gap.ITEM -> itemGapPx
-                                else -> 0
-                            },
-                            // The gutter runs through an item's gap, as the GUI's color bar does.
-                            gapGutter = if (gutter && line.model.gapAbove == LineModel.Gap.ITEM) {
-                                grid.palette.text(LineLayout.gutterStyle(line.model.gutter))
-                            } else 0,
-                            highlighted = highlight.first == id || highlight.second == id,
-                            swipes = swipes,
-                            calls = calls,
-                            labels = labels,
-                        )
+
+                        is LogRow.Unread -> if (search == null) {
+                            val block = remember(row.count, cols, rtl) { LineLayout.unread(row.count, cols, rtl) }
+                            TtyText(block, grid, originX, Modifier.semantics {
+                                text = AnnotatedString("${row.count} new since you left")
+                            })
+                        }
+
+                        is LogRow.Entry -> {
+                            val open = folds?.isOpen(row.entry.id) == true
+                            val appsGrid = LogContext.APPS in row.entry.ctx.values
+                            val key = LineKey(row, look, options, open, marks, Same(timeFormat), if (appsGrid) Same(installed) else null)
+                            val line = remember(key) {
+                                cache.get(key) { layoutLine(row, options, look, open, marks, timeFormat, apps, search != null, AppRepository.get(context)::gridGone) }
+                            }
+                            val id = row.entry.id
+                            TtyLineRow(
+                                line = line,
+                                grid = grid,
+                                originX = originX,
+                                gapPx = when (line.model.gapAbove) {
+                                    LineModel.Gap.GROUP -> groupGapPx
+                                    LineModel.Gap.ITEM -> itemGapPx
+                                    else -> 0
+                                },
+                                // The gutter runs through an item's gap, as the GUI's color bar does.
+                                gapGutter = if (gutter && line.model.gapAbove == LineModel.Gap.ITEM) {
+                                    grid.palette.text(LineLayout.gutterStyle(line.model.gutter))
+                                } else 0,
+                                highlighted = highlight.first == id || highlight.second == id,
+                                swipes = swipes,
+                                calls = calls,
+                                labels = labels,
+                            )
+                        }
                     }
                 }
             }

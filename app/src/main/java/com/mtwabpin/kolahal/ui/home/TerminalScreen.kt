@@ -308,6 +308,7 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
     val hiddenLines by vm.hiddenLines.collectAsStateWithLifecycle()
     val rowsLoaded by vm.rowsLoaded.collectAsStateWithLifecycle()
     val undoOffer by vm.undo.collectAsStateWithLifecycle()
+    state.motion.Follow(undoOffer)
     val isHome by vm.isHome.collectAsStateWithLifecycle()
     val todoCount by vm.todoCount.collectAsStateWithLifecycle()
     val appContext = LocalContext.current.applicationContext
@@ -348,7 +349,9 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             onAppLongPress = { app -> state.showMenu(app.label, null) { vm.appActions(app) } },
             onSwipe = { shown, does ->
                 real(shown)?.let { e ->
-                    vm.swipe(e, does)
+                    // A deleted line fades out while the lines around it close the gap ([LineMotion]).
+                    if (does == LineSwipe.DELETE && vm.swipeDoes(e, does)) state.moveLines { vm.swipe(e, does) }
+                    else vm.swipe(e, does)
                     // A starred line looks the same as any other, so the star says so as a copy does.
                     when (does) {
                         LineSwipe.COPY -> state.swiped("Copied")
@@ -364,7 +367,8 @@ fun TerminalScreen(vm: TerminalViewModel, preview: TerminalViewModel.Peek? = nul
             onSelectorArea = { vm.selectorArea = it },
             onShowHidden = { vm.showHidden() },
             onClearFilter = { vm.filterLog(null) },
-            onUndo = vm::undo,
+            // A deleted line fades in again while the lines around it open its place; a clear comes back at once.
+            onUndo = { if (vm.undo.value?.oneLine == true) state.moveLines(vm::undo) else vm.undo() },
             onRefreshIsHome = { vm.refreshIsHome() },
             onKeyBar = { vm.onKeyBar(it) },
             onInsert = { vm.insert(it) },

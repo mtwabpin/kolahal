@@ -73,6 +73,7 @@ import com.mtwabpin.kolahal.ui.home.HeldNotice
 import com.mtwabpin.kolahal.ui.home.HomeCalls
 import com.mtwabpin.kolahal.ui.home.HomeState
 import com.mtwabpin.kolahal.ui.home.LogArea
+import com.mtwabpin.kolahal.ui.home.rememberNoticeRoom
 import com.mtwabpin.kolahal.ui.home.pinchToZoomFont
 import com.mtwabpin.kolahal.ui.home.rememberFontSizeToast
 import com.mtwabpin.kolahal.ui.home.rememberLineSwipes
@@ -240,11 +241,23 @@ internal fun TtyHome(
                         ),
                 ) {
                     val results = search?.takeIf { !it.isEmpty && !preview }
+                    // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy: a band
+                    // drawn over the log's bottom rows, not a row of its own, so the grid stays where it is when it
+                    // comes and goes. While it shows, the log scrolls on into as much room as it covers, so the rows
+                    // under it can come up above it ([NoticeRoom]). The jump chip sits right above it.
+                    val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
+                    val held = remember { HeldNotice() }
+                    val noticeShown = held.update(notice, undo = undoOffer != null)
+                    // Read here, so the band is built again when they change (it would skip for the same holder).
+                    val noticeText = held.text
+                    val noticeUndo = held.undo
+                    val room = rememberNoticeRoom(noticeShown)
                     val logModifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer { alpha = 1f - selectorFade.floatValue }
                         .onSizeChanged { calls.onLogWidth(it.width) }
                         .testTag("log")
+                        .then(room.modifier)
                         .then(pinch)
                         .pointerInput(doubleTapOn) {
                             detectTapGestures(
@@ -255,15 +268,7 @@ internal fun TtyHome(
                         .fillMaxSize()
                         .graphicsLayer { alpha = 1f - selectorFade.floatValue }
                     logArea(results, swipes, logModifier, resultsModifier)
-                    // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy: a band
-                    // drawn over the log's bottom rows, not a row of its own, so the grid stays where it is when it
-                    // comes and goes. The jump chip sits right above it.
-                    val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
-                    val held = remember { HeldNotice() }
-                    val noticeShown = held.update(notice, undo = undoOffer != null)
-                    // Read here, so the band is built again when they change (it would skip for the same holder).
-                    val noticeText = held.text
-                    val noticeUndo = held.undo
+                    // The notice (made above, with the log), and the jump chip right above it.
                     Column(
                         Modifier
                             .align(Alignment.BottomStart)
@@ -287,6 +292,8 @@ internal fun TtyHome(
                             visible = noticeShown,
                             enter = fadeIn(),
                             exit = fadeOut(),
+                            // As much room as it covers, for the log to scroll on into.
+                            modifier = Modifier.onSizeChanged { room.max = it.height },
                         ) {
                             TtyNotice(noticeText, undo = noticeUndo, onUndo = calls.onUndo)
                         }

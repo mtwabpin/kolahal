@@ -15,6 +15,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
 import com.mtwabpin.kolahal.apps.AppEntry
@@ -133,6 +134,23 @@ internal class HomeState(
     private val scope: CoroutineScope,
 ) {
     val focus = FocusRequester()
+
+    /** Whether the log's lines animate now: a deleted line fades out, and in again on Undo ([LineMotion]). */
+    val motion = LineMotion()
+
+    /**
+     * Deletes a line, or brings one back ([change]), with the lines moving: their motion is on first, and the
+     * change comes two frames later, once every line on screen has it. A line's file is written fast enough
+     * to change the log in the very frame its motion would come otherwise, and the lines would jump.
+     */
+    fun moveLines(change: () -> Unit) {
+        motion.start()
+        scope.launch {
+            withFrameNanos {}
+            withFrameNanos {}
+            change()
+        }
+    }
 
     /** Whether the prompt has the focus. */
     var promptFocused by mutableStateOf(false)

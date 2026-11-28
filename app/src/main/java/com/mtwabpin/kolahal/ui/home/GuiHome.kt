@@ -311,6 +311,19 @@ internal fun GuiHome(
                     )
             ) {
                 val results = search?.takeIf { !it.isEmpty && !preview }
+                // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy ("Starred"
+                // after a star). It floats over the bottom of the log and fades in and out, so no line moves when it
+                // comes or goes; the newest line under it is covered for those seconds, unless the log is scrolled on
+                // into the room it has under the notice then ([NoticeRoom]). Only Undo takes touches: every other
+                // touch goes through to the log under it, so the covered line can still be swiped, tapped and
+                // scrolled right after a delete, a star or a copy. The jump chip sits right above it.
+                val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
+                val held = remember { HeldNotice() }
+                val noticeShown = held.update(notice, undo = undoOffer != null) && decode == null
+                // Read here, so the overlay's content is built again when they change (it would skip for the same holder).
+                val noticeText = held.text
+                val noticeUndo = held.undo
+                val room = rememberNoticeRoom(noticeShown)
                 // The log's list: it fades out while the app selector is open, and taps on its
                 // empty space bring up the keyboard. Double taps are detected only when a
                 // double-tap gesture is set, because waiting for one delays every tap.
@@ -322,6 +335,7 @@ internal fun GuiHome(
                     }
                     .onSizeChanged { calls.onLogWidth(it.width) }
                     .testTag("log")
+                    .then(room.modifier)
                     .then(pinch)
                     .pointerInput(doubleTapOn) {
                         detectTapGestures(
@@ -380,33 +394,36 @@ internal fun GuiHome(
                             rows,
                             key = { it.key },
                             contentType = { if (it is LogRow.Entry) it.entry.kind else it.javaClass }) { row ->
-                            when (row) {
-                                is LogRow.Day -> DayDivider(row, today)
-                                is LogRow.Unread -> UnreadDivider(row)
-                                is LogRow.Entry -> {
-                                    val model = rememberLineModel(row, lineOptions)
-                                    LogLine(
-                                        model = model,
-                                        timeFormat = timeFormat,
-                                        dim = dimOld,
-                                        topGap = if (model.gapAbove == LineModel.Gap.GROUP) commandGap else 0.dp,
-                                        itemGap = if (model.gapAbove == LineModel.Gap.ITEM) itemGap else 0.dp,
-                                        gutter = showGutter,
-                                        indents = indents,
-                                        highlighted = state.menu?.entryId == row.entry.id || state.scroll.flash == row.entry.id,
-                                        apps = calls.apps,
-                                        onTap = calls.onTap,
-                                        onLongPress = calls.onLineLongPress,
-                                        onAppTap = calls.onAppTap,
-                                        onAppLongPress = calls.onAppLongPress,
-                                        swipes = swipes,
-                                        onSwipe = calls.onSwipe,
-                                        swipeDoes = calls.swipeDoes,
-                                        onAction = calls.onAction,
-                                        marks = emptyList(),
-                                        foldOpen = state.folds.isOpen(row.entry.id),
-                                        onToggleFold = { state.folds.toggle(row.entry.id) },
-                                    )
+                            // A deleted line fades out while the lines around it close the gap, and in again on Undo.
+                            Box(lineMotion(state.motion)) {
+                                when (row) {
+                                    is LogRow.Day -> DayDivider(row, today)
+                                    is LogRow.Unread -> UnreadDivider(row)
+                                    is LogRow.Entry -> {
+                                        val model = rememberLineModel(row, lineOptions)
+                                        LogLine(
+                                            model = model,
+                                            timeFormat = timeFormat,
+                                            dim = dimOld,
+                                            topGap = if (model.gapAbove == LineModel.Gap.GROUP) commandGap else 0.dp,
+                                            itemGap = if (model.gapAbove == LineModel.Gap.ITEM) itemGap else 0.dp,
+                                            gutter = showGutter,
+                                            indents = indents,
+                                            highlighted = state.menu?.entryId == row.entry.id || state.scroll.flash == row.entry.id,
+                                            apps = calls.apps,
+                                            onTap = calls.onTap,
+                                            onLongPress = calls.onLineLongPress,
+                                            onAppTap = calls.onAppTap,
+                                            onAppLongPress = calls.onAppLongPress,
+                                            swipes = swipes,
+                                            onSwipe = calls.onSwipe,
+                                            swipeDoes = calls.swipeDoes,
+                                            onAction = calls.onAction,
+                                            marks = emptyList(),
+                                            foldOpen = state.folds.isOpen(row.entry.id),
+                                            onToggleFold = { state.folds.toggle(row.entry.id) },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -426,17 +443,7 @@ internal fun GuiHome(
                         }
                     }
                 }
-                // What was just done, with Undo after a delete or a clear, or "Copied" after a swipe copy ("Starred"
-                // after a star). It floats over the bottom of the log and fades in and out, so no line moves when it
-                // comes or goes; the newest line under it is covered for those seconds. Only Undo takes touches: every
-                // other touch goes through to the log under it, so the covered line can still be swiped, tapped and
-                // scrolled right after a delete, a star or a copy. The jump chip sits right above it.
-                val notice = undoOffer?.text ?: state.swipeNote.takeIf { state.swipeNoteShown }
-                val held = remember { HeldNotice() }
-                val noticeShown = held.update(notice, undo = undoOffer != null) && decode == null
-                // Read here, so the overlay's content is built again when they change (it would skip for the same holder).
-                val noticeText = held.text
-                val noticeUndo = held.undo
+                // The notice (made above, with the log), and the jump chip right above it.
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
@@ -497,6 +504,8 @@ internal fun GuiHome(
                         visible = noticeShown,
                         enter = androidx.compose.animation.fadeIn(),
                         exit = androidx.compose.animation.fadeOut(),
+                        // As much room as it covers, for the log to scroll on into.
+                        modifier = Modifier.onSizeChanged { room.max = it.height },
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,

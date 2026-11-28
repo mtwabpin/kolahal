@@ -58,5 +58,5 @@ object DismissOnDelete {
      * that it is still the line's ([about]): it runs then, not now.
      */
     fun undoOffer(text: String, key: String?, dismiss: (String) -> Unit, undo: () -> Unit): UndoOffer =
-        UndoOffer(text, expire = { key?.let(dismiss) }, undo = undo)
+        UndoOffer(text, expire = { key?.let(dismiss) }, oneLine = true, undo = undo)
 }

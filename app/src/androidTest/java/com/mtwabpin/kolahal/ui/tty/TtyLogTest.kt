@@ -220,6 +220,21 @@ class TtyLogTest {
         }
     }
 
+    /** As in the GUI: the row under the notice band scrolls up above it while the band shows, and back after. */
+    @Test
+    fun theRowUnderTheNoticeScrollsUpAboveIt() {
+        config.set(Keys.HOME_STYLE, "tty")
+        val token = "grid room ${System.nanoTime()}"
+        val ids = (0 until 3).map { logs.add(LogKind.OUTPUT, "$token $it") }
+        val vm = show()
+        try {
+            com.mtwabpin.kolahal.ui.home.assertRoomUnderNotice(compose, vm, ids)
+        } finally {
+            compose.runOnIdle { vm.undo() }
+            ids.forEach { logs.delete(it) }
+        }
+    }
+
     /** What a screen reader offers on the line [id] after its links, buttons and fold: its swipes, by name. */
     private fun actions(id: Long): List<String> =
         compose.onNodeWithTag("line-$id").fetchSemanticsNode().config

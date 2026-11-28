@@ -7,6 +7,8 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mtwabpin.kolahal.data.LogRepository
 import com.mtwabpin.kolahal.terminal.TerminalViewModel
@@ -49,4 +51,40 @@ internal fun assertNoticeFloats(compose: ComposeContentTestRule, vm: TerminalVie
     compose.waitUntil(12_000) { vm.undo.value == null && !says("Line deleted") }
     compose.waitForIdle()
     assertEquals("the offer's end moved the log", during, top())
+}
+
+/**
+ * On home in either style, with the three lines [ids] (oldest first) newest in the log: after the newest is deleted,
+ * the next one is under the notice, and a scroll up brings it above the notice ([NoticeRoom]); once the notice goes,
+ * the log is back down with that line at its bottom. Deletes the newest of [ids]; the caller deletes the rest.
+ */
+internal fun assertRoomUnderNotice(compose: ComposeContentTestRule, vm: TerminalViewModel, ids: List<Long>) {
+    fun shows(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+    fun says(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+    fun newest() = compose.onNodeWithTag("line-${ids[1]}").getUnclippedBoundsInRoot()
+
+    compose.waitUntil(5_000) { shows("line-${ids[1]}") && shows("line-${ids[2]}") }
+    compose.waitForIdle()
+    val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+    val deleted = LogRepository.get(app).recent(50).first { it.id == ids[2] }
+    compose.runOnIdle { vm.swipeDelete(deleted) }
+    // The deleted line fades out, and the one above it takes its place at the bottom, under the notice.
+    compose.waitUntil(5_000) { says("Line deleted") && !shows("line-${ids[2]}") }
+    compose.waitForIdle()
+    val atBottom = newest()
+    val notice = compose.onNodeWithTag("undo-row").getUnclippedBoundsInRoot()
+    assertTrue("the newest line is under the notice: $atBottom, $notice", atBottom.bottom > notice.top)
+
+    // Scrolled on past it, the log brings the line up above the notice.
+    compose.onNodeWithTag("log").performTouchInput {
+        swipeUp(startY = centerY, endY = centerY - 200.dp.toPx(), durationMillis = 300)
+    }
+    compose.waitForIdle()
+    val lifted = newest()
+    assertTrue("the newest line came above the notice: $lifted, $notice", lifted.bottom <= notice.top + 1.dp)
+
+    // The notice goes, and the log settles back down to its bottom.
+    compose.waitUntil(12_000) { vm.undo.value == null && !says("Line deleted") }
+    compose.waitForIdle()
+    assertEquals("the log is back at its bottom", atBottom, newest())
 }

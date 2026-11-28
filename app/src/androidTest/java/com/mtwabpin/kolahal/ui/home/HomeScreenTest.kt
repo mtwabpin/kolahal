@@ -603,6 +603,24 @@ class HomeScreenTest {
         }
     }
 
+    /**
+     * While the notice shows, the log scrolls on past its newest line, so the line under the notice comes up above
+     * it; when the notice goes, the log is back at its bottom.
+     */
+    @Test
+    fun theLineUnderTheNoticeScrollsUpAboveIt() {
+        val logs = LogRepository.get(app)
+        val token = "room ${System.nanoTime()}"
+        val ids = (0 until 3).map { logs.add(LogKind.OUTPUT, "$token $it") }
+        val vm = show(360.dp, 700.dp)
+        try {
+            assertRoomUnderNotice(compose, vm, ids)
+        } finally {
+            compose.runOnIdle { vm.undo() }
+            ids.forEach { logs.delete(it) }
+        }
+    }
+
     /** Three lines of this test's on a log with the rest hidden, so "▴ N earlier lines" counts from [hidden]. */
     private class FreshLines(val ids: List<Long>, val hidden: Int)
 
