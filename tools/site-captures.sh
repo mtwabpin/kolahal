@@ -370,11 +370,9 @@ widgets_pages() {
 # big title half faded between its two states. ✓ leaves Arrange widgets with the bar as it is, so
 # the picture with nothing chosen is taken first, on a fresh open.
 arrange_widgets() {
-  home; kbup; t "widget page" 3
-  sh_ input swipe 540 600 540 1800 300; sleep 2   # the page at its top
-  tap_ui "Edit widgets"; sleep 3   # the pencil: Arrange widgets, fresh
+  home; kbup; t "widgets" 3   # Arrange widgets, fresh
   cap arrange-widgets; site_shot arrange-widgets shots/widget-options/arrange-all.png
-  key KEYCODE_BACK; sleep 2
+  key KEYCODE_BACK; sleep 2; home; kbup; t "widget page" 3   # Back leaves to home
   sh_ input swipe 540 600 540 1800 300; sleep 2   # the page at its top again
   sh_ input swipe 275 1280 275 1280 900; sleep 3   # long-press Habit streak
   cap arrange-widgets-look; site_shot arrange-widgets-look shots/widget-options/arrange.png
@@ -386,12 +384,12 @@ arrange_widgets() {
 # page and set in a grid on its ground (they aren't side by side on the page). After
 # widget_options (Paris's card on the page). The look sheet can come up late: check each card's look.
 widget_looks() {
-  home; kbup; t "widget page" 3; tap_ui "Edit widgets"; sleep 2.5   # the pencil: Arrange widgets
+  home; kbup; t "widgets" 2.5   # Arrange widgets
   # A placed World clocks card opens its Options sheet: Back closes it. The new cards go at the
   # end of the page, Split beside Water and Shape under it.
   w_search "World clocks"; tap 540 953; sleep 4; key KEYCODE_BACK; sleep 1.5; w_look split
   w_search "World clocks"; tap 540 953; sleep 4; key KEYCODE_BACK; sleep 1.5; w_look shape
-  tap_ui Back; sleep 2.5
+  tap_ui Back; sleep 2.5; home; kbup; t "widget page" 3   # Back leaves to home
   sh_ input swipe 540 600 540 1800 300; sleep 2; cap widget-looks-top
   sh_ input swipe 540 1800 540 400 300; sleep 2; cap widget-looks-bottom
   local bg='srgb(25,23,36)' f
@@ -412,7 +410,7 @@ widget_looks() {
 # a removed card leaves a hole on the page that the others don't close.
 widget_options() {
   home; kbup; t "widget page" 3
-  tap_ui "Add a widget"; sleep 2.5   # + on the widgets page
+  t "widget add" 2.5   # the picker
   tap 975 621; sleep 0.5; tap 540 621; sleep 0.8; ty Weather; sleep 1.5; kbdown
   tap 540 953; sleep 4   # placed; its own page opens
   tap_ui city; sleep 2
@@ -437,15 +435,14 @@ widget_options() {
 # and Color; then scrolled to Shape and What shows. Reset puts its color and shape back, and it goes
 # back to Split.
 widget_settings() {
-  home; kbup; t "widget page" 3
-  sh_ input swipe 540 600 540 1800 300; sleep 1.5
-  tap_ui "Edit widgets"; sleep 3; tap_ui Weather; sleep 2
+  home; kbup; t "widgets" 3; tap_ui Weather; sleep 2
   tap_ui Shape last; sleep 1.5; tap_ui Settings; sleep 3
   tap_ui Link; sleep 1.5; tap_ui "4-leaf clover"; sleep 2.5
   sh_ input swipe 540 900 540 2000 400; sleep 2   # to the top
   cap widget-settings; site_shot widget-settings shots/widget-options/settings.png
   sh_ input swipe 540 1900 540 900 600; sleep 2
   cap widget-settings-shape; site_shot widget-settings-shape shots/widget-options/settings-shape.png
+  sh_ input swipe 540 2000 540 400 300; sleep 1; sh_ input swipe 540 2000 540 400 300; sleep 1.5   # Reset is at the page's end
   tap_ui "Reset to the card's own"; sleep 2; key KEYCODE_BACK; sleep 2
   tap_ui Split last; sleep 1.5; tap_ui Done; sleep 1; tap_ui Back; sleep 2; home
 }
@@ -458,7 +455,7 @@ widget_settings() {
 # Travel (`widget page 2`). After widget_settings and home_cards: they want the cards on page 1.
 widget_pages() {
   local c
-  home; kbup; t "widget page" 3; tap_ui "Edit widgets"; sleep 3
+  home; kbup; t "widgets" 3
   tap_ui "Add a page"; sleep 2.5
   tap_ui "Page 1"; sleep 2
   for c in "Weather 2" "World clocks 2" "World clocks 3"; do
@@ -477,7 +474,7 @@ widget_pages() {
   tap_ui "Page 1"; sleep 2; sh_ input swipe 540 600 540 1800 300; sleep 1.5
   tap_ui "Close gaps"; sleep 2.5; tap_ui "Battery and network"; sleep 2.5
   cap arrange-pages; site_shot arrange-pages shots/widget-options/arrange-pages.png
-  tap_ui Done; sleep 1; tap_ui Back; sleep 2.5
+  tap_ui Done; sleep 1; tap_ui Back; sleep 2.5; home; kbup; t "widget page" 3   # Back leaves to home
   sh_ input swipe 540 600 540 1800 300; sleep 2
   cap widgets-pages-1; site_shot widgets-pages-1 shots/widgets/pages-1.png
   home; kbup; t "widget page 2" 3; sh_ input swipe 540 600 540 1800 300; sleep 2
