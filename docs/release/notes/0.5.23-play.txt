@@ -1,0 +1,6 @@
+What's new:
+• The versus card is redrawn: one row per side, scores in line, live chess clocks and football scorers.
+• Deleting a log line fades it out, and you can scroll the newest line above the Undo notice.
+• usage counts a long session in full and shows each app's own name.
+• An Empty shader template, and scripts can wait up to 60 seconds for a web reply.
+• The website has a Shader preview and a Script check.
