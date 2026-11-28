@@ -2,6 +2,7 @@ package com.mtwabpin.kolahal.widgets
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
@@ -187,6 +188,45 @@ class WidgetRoundTripTest {
             "badge" to "LIVE",
         ),
     )
+
+    /** Kolahal 0.5.23's side fields: each side's own score, its clock and its lines; no card score then. */
+    @Test
+    fun versusWithEachSidesScoreClockAndLines() {
+        roundTrip(
+            WidgetKind.VERSUS,
+            base + mapOf(
+                "sides" to listOf(
+                    mapOf("name" to "Harbour", "score" to "187/4", "text" to "18.2 ov", "lines" to listOf("Ames 64* (38)", "Kahn 22* (11)")),
+                    mapOf("name" to "Valley", "score" to "201/6", "text" to "20 ov", "lines" to listOf("Ruiz 3/28 (4)")),
+                ),
+                "turn" to 1,
+                "moving" to true,
+            ),
+        )
+        roundTrip(
+            WidgetKind.VERSUS,
+            mapOf(
+                "sides" to listOf(
+                    mapOf("name" to "Iris Novak", "mark" to "IN", "clock" to 252, "detail" to "2214 · White"),
+                    mapOf("name" to "Tomas Brandt", "mark" to "TB", "clock" to 3864),
+                ),
+                "turn" to 2,
+                "moving" to true,
+            ),
+        )
+    }
+
+    /** A stored card without a score whose sides don't all have their own is nothing: `widget.show` refuses it. */
+    @Test
+    fun aStoredVersusWithoutAScoreNeedsEachSidesOwn() {
+        val spec = parse(
+            WidgetKind.VERSUS,
+            mapOf("sides" to listOf(mapOf("name" to "A", "score" to "3"), mapOf("name" to "B", "clock" to 60))),
+        )
+        val text = WidgetJson.encode(spec)
+        assertEquals(spec, WidgetJson.decode(text))
+        assertNull(WidgetJson.decode(text.replace(Regex("\"clock\":\\s*60"), "\"text\":\"x\"")))
+    }
 
     @Test
     fun sky() = roundTrip(

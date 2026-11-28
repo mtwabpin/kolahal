@@ -40,6 +40,7 @@ countdown.lua f82a17cd65b4d3fd
 counter.lua 96d8f64d74a4de15
 cricket.js 100d180da86f5306
 cricket.js 211cd5b39c08819e
+cricket.js 25c5258ddd649030
 cricket.js 419948ca930cee94
 cricket.js 7523d4c6acbb1abc
 cricket.js 855b72e131759099

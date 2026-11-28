@@ -174,11 +174,15 @@ object WidgetFields {
     /** A versus card's side. */
     val SIDE: List<WidgetField> = listOf(
         f("name"), f("mark"), f("color"), f("value"), f("text"), f("detail", "a small line under the name"),
+        f("score", "its own score, such as 187/4"),
+        f("clock", "seconds left, drawn 4:12; the side to move's counts down while moving"),
+        f("lines", "up to ${WidgetParser.MAX_SIDE_LINES} short texts under the name on a large card"),
     )
 
     val VERSUS: List<WidgetField> = listOf(
         f("sides", "two; the values make a bar between the sides", inner = SIDE),
-        f("score"), f("turn", "1 or 2"), f("moving"), f("caption"),
+        f("score", "such as 2–1, split between the sides; not needed when each side has its score or clock"),
+        f("turn", "1 or 2"), f("moving"), f("caption"),
     )
 
     /** One of the moon's next phases. */

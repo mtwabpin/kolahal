@@ -14,11 +14,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,539 +26,625 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mtwabpin.kolahal.data.StyledText
 import com.mtwabpin.kolahal.ui.home.colorOf
+import com.mtwabpin.kolahal.ui.widgets.VersusWords.Face
+import com.mtwabpin.kolahal.ui.widgets.VersusWords.Part
 import com.mtwabpin.kolahal.widgets.WidgetLook
 import com.mtwabpin.kolahal.widgets.WidgetSizes
 import com.mtwabpin.kolahal.widgets.WidgetSpec
 
 // ---- versus ---------------------------------------------------------------------------------
 
-/** From this width a wide versus card has its names beside the marks and the bar under them: a 4×1 card. */
-private val VERSUS_ROW_FROM = VersusWords.ROW_FROM_DP.dp
+/** The tags of a side's mark, name and score, for tests: "versus-mark-0", "versus-name-1". */
+internal fun versusTag(part: String, side: Int) = "versus-$part-$side"
 
 /**
- * `versus`: two sides and the score between them, for a match or a game of chess.
- * - Each side has its name and its mark: a letter or two on a Material shape (a cookie for the
- *   first side, a clover for the second), in the side's color. A dot after a name marks the side
- *   whose turn it is.
- * - Under them, when both sides have a value, a bar of two parts, one for each side, with each
- *   side's figure at its end ("1:12", "58:10"). With `moving`, the turn's part is a wave that
- *   moves while the card can be seen: its clock runs. The parts move to new values on the theme's
- *   spring.
- * - Small: the score over the two marks. Wide and narrow (2×1): the score between the marks, the
- *   names under them, no bar. Wide (4×1): the names beside the marks, the score and the last line
- *   between them, the bar under all. Large: the title and the badge, the marks either side of the
- *   score with the names under them, the bar and the last line.
- * - Bold has the score in Bold's type, in the card's color. Split has each side and the score on
- *   tiles of their own. There is no Shape look ([WidgetLook.offeredFor]): the marks are shapes in
- *   every look.
- * - With Last updated on, the card writes when its content was set ([LocalCardFooter], "Updated 3 min
- *   ago") itself from 4×1, in each look: after the last line, or in its place ([AgeAfter]).
- * - A side's detail ("3rd · 41 pts") is under its name, small and quiet, at 4×1 and in a large card,
- *   where there is room ([SideDetail]); a 2×1 card and a small one leave it out.
- * - The script's footer ([com.mtwabpin.kolahal.widgets.WidgetBase.footer]) is on a 4×1 Plain or
- *   Tonal card's last line, before the age ([VersusRow]); a large card has it on its foot line.
+ * `versus`: two sides, one row each, like a scoreboard: the side's mark (a letter or two on a
+ * Material shape, a cookie for the first side and a clover for the second, in the side's color),
+ * its name with a dot when it is its turn, a small figure (`text`, or its clock), and its score at
+ * the row's end ([VersusWords.figures]).
+ * - The rows share their columns ([VersusGrid]): both sides are measured once, so marks, names,
+ *   figures and scores sit on the same lines. Both scores have one size: the largest that fits the
+ *   wider ([VersusWords.scoreSize]).
+ * - A score that doesn't split ("W/O") is drawn whole ([VersusWords.whole]): in the status column
+ *   at 4×1, the header at 4×2, over the rows at 2×2.
+ * - 1×1: the marks and the scores. 2×1: the rows. 4×1: the rows and a status column at the end
+ *   with the badge, the caption, the script's footer and the card's age; gone when it is empty.
+ *   2×2 and 4×2: a header (the title, the badge), the rows with each side's detail under its name
+ *   (2×2: its small figure too; 4×2: its lines), and the caption at the foot ([VersusWords.Face]).
+ * - What has no room gives way, in [VersusWords.Part]'s order. A screen reader says it all.
+ * - With both values, a thin bar of two parts under the rows; with `moving`, the turn's part is a
+ *   wave that moves, and the turn's clock counts down ([ClockTicks]).
+ * - Bold has the scores in Bold's type, in the card's color. Split has its parts on tiles of their
+ *   own. Tonal draws the marks on the page's color: the card is the accent's container. There is
+ *   no Shape look ([WidgetLook.offeredFor]): the marks are shapes in every look.
  */
 @Composable
 internal fun VersusBody(spec: WidgetSpec.Versus, box: WidgetSizes.Box) {
     val look = LocalWidgetLook.current
     val roles = spec.sides.mapIndexed { i, side -> colorOf(VersusWords.role(side, i)) }
-    if (look == WidgetLook.SPLIT) {
-        SplitVersus(spec, roles, box)
-        return
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val v = Versus(spec, roles, look, VersusWords.face(box, maxWidth.value), maxWidth, maxHeight)
+        when (v.face) {
+            Face.SMALL, Face.NARROW -> OneTile(v)
+            Face.ROW -> RowVersus(v)
+            Face.SQUARE, Face.LARGE -> LargeVersus(v)
+        }
     }
-    val bold = look == WidgetLook.BOLD
-    val c = lookColors(look, roleColor(spec.base))
+}
+
+/** What every part of a versus card draws with: the card, its look and face, and its room. */
+private class Versus(
+    val spec: WidgetSpec.Versus,
+    val roles: List<Color>,
+    val look: WidgetLook,
+    val face: Face,
+    val width: Dp,
+    val height: Dp,
+) {
+    val split get() = look == WidgetLook.SPLIT
+    val bold get() = look == WidgetLook.BOLD
+    val whole = VersusWords.whole(spec)
+    val figures = spec.sides.indices.map { VersusWords.figures(spec, it) }
+    val bar = VersusWords.shares(spec) != null && face != Face.SMALL && face != Face.NARROW
+
+    /** A tile's room inside, in Split, in dp: across and down. */
+    val tileX = if (split) 10 else 0
+    val tileY = if (split) 8 else 0
+
+    /** The room between the zones: Split's gap between tiles, else a little air. */
+    val zoneGap: Dp get() = if (split) SplitCorners.GAP else 6.dp
+
+    val markDp = when (face) {
+        Face.SMALL -> 20
+        Face.NARROW, Face.ROW -> 24
+        Face.SQUARE -> 28
+        Face.LARGE -> 36
+    }
+    val nameGap = if (face == Face.LARGE) 10 else 8
+    val rowGap = when (face) {
+        Face.SQUARE -> 8
+        Face.LARGE -> 10
+        else -> 6
+    }
+
+    /** The scores' sizes, the largest first (sp): as a value, or in Bold's type. */
+    val sizes: List<Int> = when (face) {
+        Face.SMALL -> if (bold) listOf(24, 22, 20) else listOf(20, 18, 16)
+        Face.NARROW, Face.ROW -> if (bold) listOf(28, 26, 24) else listOf(22, 20, 18)
+        Face.SQUARE -> if (bold) listOf(32, 28, 24, 22) else listOf(24, 22, 20, 18)
+        Face.LARGE -> if (bold) listOf(40, 36, 32) else listOf(28, 26, 24)
+    }
+}
+
+/**
+ * The scores' types at every size [VersusWords.scoreSize] may pick for [v], made here: the measure
+ * that picks one is no composable.
+ */
+@Composable
+private fun scoreTypes(v: Versus): Map<Int, TextStyle> =
+    (v.sizes + (v.sizes.last() - 2 downTo 12 step 2)).associateWith { scoreStyle(v.bold, it) }
+
+/** How tall a line of [style] is, in dp: its line height, or its size where it has none. */
+private fun androidx.compose.ui.unit.Density.lineDp(style: TextStyle): Float =
+    (style.lineHeight.takeIf { it.isSp } ?: style.fontSize).toDp().value
+
+/** A score's type at [size] sp: Bold's, or a value's with a line a little taller than the type. */
+@Composable
+private fun scoreStyle(bold: Boolean, size: Int): TextStyle =
+    if (bold) boldValueStyle(size.sp)
+    else MaterialTheme.typography.headlineSmall.asValue().copy(fontSize = size.sp, lineHeight = (size * 1.15f).sp)
+
+/** A side's name: bold, a size larger in a 4×2. */
+@Composable
+private fun nameStyle(face: Face): TextStyle =
+    (if (face == Face.LARGE) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleSmall)
+        .copy(fontWeight = FontWeight.Bold)
+
+/** A side's small figure: digits of one width, so a clock that ticks does not shake. */
+@Composable
+private fun figureStyle(face: Face): TextStyle =
+    (if (face == Face.LARGE) MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium)
+    else MaterialTheme.typography.labelMedium).copy(fontFeatureSettings = "tnum")
+
+/**
+ * The plan of a card: the scores' [size] and the [kept] parts ([VersusWords.keep]), with a 4×1's
+ * status column [statusDp] wide (0 without one) and the caption's [captionLines] there.
+ */
+private data class Plan(val size: Int, val kept: Set<Part>, val statusDp: Float = 0f, val captionLines: Int = 0)
+
+/** How wide [text] is in [style], on one line, in dp. */
+private class Widths(val measure: (AnnotatedString, TextStyle) -> Float) {
+    fun of(text: String?, style: TextStyle): Float = text?.let { measure(AnnotatedString(it), style) } ?: 0f
+}
+
+@Composable
+private fun rememberWidths(): Widths {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(measurer, density) {
+        Widths { text, style ->
+            with(density) { measurer.measure(text, style, maxLines = 1, softWrap = false).size.width.toDp().value }
+        }
+    }
+}
+
+/** The widest name, with the turn's dot after it, in dp. */
+private fun Versus.nameDp(widths: Widths, style: TextStyle): Float {
+    val turn = VersusWords.turnIndex(spec)
+    return spec.sides.withIndex().maxOfOrNull { (i, s) -> widths.of(s.name, style) + if (turn == i) DOT_ROOM else 0f } ?: 0f
+}
+
+/** Room for the turn's dot after a name, with its gap, in dp. */
+private const val DOT_ROOM = 13f
+
+/** The wider score at [size], in dp. */
+private fun Versus.scoreDp(widths: Widths, style: TextStyle): Float =
+    figures.maxOfOrNull { widths.of(it.big, style) } ?: 0f
+
+// ---- 1×1 and 2×1 ------------------------------------------------------------------------------
+
+/** A 1×1 (the marks and the scores) or a 2×1 (the rows): one zone, one tile in Split. */
+@Composable
+private fun OneTile(v: Versus) {
+    val widths = rememberWidths()
+    val density = LocalDensity.current
+    val names = nameStyle(v.face)
+    val types = scoreTypes(v)
+    val wholeStyle = scoreStyle(v.bold, if (v.face == Face.SMALL) 18 else 20)
+    val plan = remember(v.spec, v.face, v.width, v.height, density, widths, types) {
+        val row = v.width.value - 2 * v.tileX
+        val high = v.height.value - 2 * v.tileY
+        val nameDp = if (v.face == Face.NARROW) minOf(60f, v.nameDp(widths, names)) else 0f
+        val status = if (v.face == Face.NARROW && v.whole != null) widths.of(v.whole, wholeStyle) + VersusWords.STATUS_EDGE else 0f
+        val size = VersusWords.scoreSize(v.sizes) { s ->
+            val type = types.getValue(s)
+            val line = with(density) { lineDp(type) }
+            v.scoreDp(widths, type) <= row - status - v.markDp - v.nameGap - nameDp - 12 && 2 * line + 2 <= high
+        }
+        Plan(size, emptySet(), status)
+    }
+    Zone(v, SplitCorners.inColumn(0, 1), Modifier.fillMaxSize()) {
+        if (v.face == Face.SMALL && v.whole != null) {
+            // A score that doesn't split, over the two marks.
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                BigText(v.whole, MaterialTheme.typography.titleLarge)
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Mark(v, 0)
+                    Mark(v, 1)
+                }
+            }
+        } else Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            VersusGrid(v, plan, Modifier.weight(1f).fillMaxHeight())
+            // A 2×1's score that doesn't split, at the end, as a 4×1's status column has it.
+            if (v.face == Face.NARROW && v.whole != null) {
+                Spacer(Modifier.width(VersusWords.STATUS_EDGE.dp))
+                Text(v.whole, style = wholeStyle, color = scoreColor(v), maxLines = 1, softWrap = false)
+            }
+        }
+    }
+}
+
+// ---- 4×1 --------------------------------------------------------------------------------------
+
+/**
+ * A 4×1: the rows, and at the end a status column with what the card says of the match: a whole
+ * score, the badge, the caption on up to two lines, the script's footer (Plain and Tonal, as on
+ * every card's foot line) and the card's age. It is as wide as what it holds, and gone when it is
+ * empty. The caption gives way where the column has no height for it, and the rows' small figures
+ * where the names would be cut ([VersusWords.keep]).
+ */
+@Composable
+private fun RowVersus(v: Versus) {
     val type = MaterialTheme.typography
-    when (box) {
-        WidgetSizes.Box.SMALL -> Column(
-            Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Score(spec, type.titleLarge, bold, 40f)
-            Marks(spec, roles, 20.dp, Modifier.padding(top = 4.dp))
+    val widths = rememberWidths()
+    val density = LocalDensity.current
+    val age = LocalCardFooter.current
+    val footer = v.spec.base.footer.takeIf { !v.bold && !v.split }
+    val names = nameStyle(v.face)
+    val figs = figureStyle(v.face)
+    val small = type.labelSmall
+    val badgeStyle = type.labelMediumEmphasized
+    val wholeStyle = scoreStyle(v.bold, 18)
+    val types = scoreTypes(v)
+    val smallDp = linesDp(small)
+    val badgeDp = linesDp(badgeStyle) + 2
+    val wholeDp = linesDp(wholeStyle)
+    val plan = remember(v.spec, v.width, v.height, age, footer, density, widths, types) {
+        val high = v.height.value - 2 * v.tileY
+        val present = VersusWords.present(v.spec, v.face)
+        val nameDp = v.nameDp(widths, names)
+        val figureDp = v.figures.maxOfOrNull { widths.of(it.small, figs) } ?: 0f
+        val ageDp = maxOf(widths.of(age?.text, small), widths.of(footer, small))
+        // What the status column holds with [kept], and the rows' room beside it.
+        fun status(kept: Set<Part>): Pair<Float, Float> {
+            val holds = v.whole != null || age != null || footer != null ||
+                    (Part.BADGE in kept && v.spec.badge != null) || (Part.CAPTION in kept && v.spec.line != null)
+            if (!holds) return 0f to v.width.value - 2 * v.tileX
+            val dp = VersusWords.statusDp(
+                if (Part.BADGE in kept) widths.of(v.spec.badge, badgeStyle) + 16 else 0f,
+                ageDp,
+                if (Part.CAPTION in kept) widths.of(v.spec.line?.let(StyledText::plain), small) else 0f,
+                widths.of(v.whole, wholeStyle),
+            ) + if (v.split) 2 * v.tileX - VersusWords.STATUS_EDGE else 0
+            return dp to v.width.value - dp - v.zoneGap.value - 2 * v.tileX
         }
-
-        WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
-            if (maxWidth >= VERSUS_ROW_FROM) VersusRow(spec, roles, bold, c, maxWidth, maxHeight)
-            else VersusNarrow(spec, roles, bold)
+        fun size(row: Float) = VersusWords.scoreSize(v.sizes) { s ->
+            val t = types.getValue(s)
+            val line = with(density) { lineDp(t) }
+            v.scoreDp(widths, t) <= minOf(90f, row * 0.34f) && 2 * line + 2 + (if (v.bar) BAR_DP else 0) <= high
         }
+        fun captionLines(kept: Set<Part>) = VersusWords.captionLines(
+            high.toInt(), smallDp, 3, if (v.whole != null) wholeDp else 0,
+            if (Part.BADGE in kept && v.spec.badge != null) badgeDp else 0,
+            if (age != null || footer != null) smallDp else 0,
+        )
+        val kept = VersusWords.keep(present) { kept ->
+            val (_, row) = status(kept)
+            val score = v.scoreDp(widths, types.getValue(size(row)))
+            (Part.CAPTION !in kept || captionLines(kept) > 0) &&
+                    (Part.TEXT !in kept || VersusWords.figureFits(row, (v.markDp + v.nameGap).toFloat(), nameDp, figureDp + 10, score + 12)) &&
+                    (Part.BADGE !in kept || badgeDp <= high)
+        }
+        val (statusDp, row) = status(kept)
+        Plan(size(row), kept, statusDp, captionLines(kept))
+    }
+    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(v.zoneGap)) {
+        val status = plan.statusDp > 0f
+        Zone(v, SplitCorners.inRow(0, if (status) 2 else 1), Modifier.weight(1f).fillMaxHeight()) {
+            VersusGrid(v, plan, Modifier.fillMaxSize())
+        }
+        if (status) Zone(v, SplitCorners.inRow(1, 2), Modifier.width(plan.statusDp.dp).fillMaxHeight()) {
+            Row(Modifier.fillMaxSize()) {
+                // A rule at the column's start, but in Split, whose tile is the column.
+                if (!v.split) {
+                    Box(Modifier.width(1.dp).fillMaxHeight().background(ruleColor(v.look)))
+                    Spacer(Modifier.width((VersusWords.STATUS_EDGE - 1).dp))
+                }
+                Column(
+                    Modifier.weight(1f).fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
+                ) {
+                    val c = lookColors(v.look, roleColor(v.spec.base))
+                    v.whole?.let { Text(it, style = wholeStyle, color = scoreColor(v), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    v.spec.badge?.takeIf { Part.BADGE in plan.kept }?.let { CardBadge(it, roleColor(v.spec.base)) }
+                    v.spec.line?.takeIf { Part.CAPTION in plan.kept && plan.captionLines > 0 }?.let {
+                        Text(cardText(it), style = small, color = c.muted, maxLines = plan.captionLines, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (footer != null) FooterRow(null, footer, age, c.muted, end = false, style = small)
+                    else age?.let { FooterLine(it, color = c.muted, style = small) }
+                }
+            }
+        }
+    }
+}
 
-        WidgetSizes.Box.LARGE -> Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                LocalUntitled.current?.let {
+/** The bar under the rows with the room over it, in dp: a wave's container and 4 dp. */
+private const val BAR_DP = 14
+
+/** The rule at a 4×1's status column's start: the outline's quiet color, or the text's on Tonal's tinted card. */
+@Composable
+private fun ruleColor(look: WidgetLook): Color =
+    if (look == WidgetLook.TONAL) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+    else MaterialTheme.colorScheme.outlineVariant
+
+// ---- 2×2 and 4×2 ------------------------------------------------------------------------------
+
+/**
+ * A 2×2 or a 4×2: a header with the title and the badge (and at 4×2 a whole score), the rows, and
+ * the caption at the foot. Under each name: at 2×2 its small figure and its detail on one line; at
+ * 4×2 its detail, then its lines on one line, joined with " · ", and the small figures have a
+ * column. A Bold or Split card writes its own age at the foot: after the caption at 4×2, under it
+ * at 2×2. What doesn't fit the height gives way ([VersusWords.largeHeight]).
+ */
+@Composable
+private fun LargeVersus(v: Versus) {
+    val type = MaterialTheme.typography
+    val widths = rememberWidths()
+    val density = LocalDensity.current
+    val age = LocalCardFooter.current
+    val title = LocalUntitled.current
+    val names = nameStyle(v.face)
+    val c = lookColors(v.look, roleColor(v.spec.base))
+    val headerStyle = if (v.bold || v.split) type.labelMedium else type.labelLargeEmphasized
+    val captionStyle = type.labelMedium
+    val wholeStyle = scoreStyle(v.bold, if (v.face == Face.LARGE) 18 else 20)
+    val types = scoreTypes(v)
+    val figs = figureStyle(v.face)
+    val heights = VersusWords.Heights(
+        header = maxOf(linesDp(headerStyle), linesDp(type.labelMediumEmphasized) + 2),
+        line = maxOf(v.markDp, linesDp(names)),
+        sub = linesDp(type.labelSmall),
+        rowGap = v.rowGap,
+        caption = linesDp(captionStyle),
+        age = if (age != null) linesDp(type.labelSmall) else 0,
+        bar = if (v.bar) BAR_DP else 0,
+        whole = linesDp(wholeStyle) + 4,
+        zonePad = 2 * v.tileY,
+        zoneGap = v.zoneGap.value.toInt(),
+    )
+    val plan = remember(v.spec, v.width, v.height, title, age, density, widths, heights, types, figs) {
+        val row = v.width.value - 2 * v.tileX
+        val nameDp = minOf(72f, v.nameDp(widths, names))
+        val room = if (v.face == Face.LARGE) 110f else row - v.markDp - v.nameGap - 12 - nameDp
+        val size = VersusWords.scoreSize(v.sizes) { v.scoreDp(widths, types.getValue(it)) <= room }
+        val t = types.getValue(size)
+        val scoreLine = with(density) { lineDp(t) }
+        val h = heights.copy(line = maxOf(heights.line, kotlin.math.ceil(scoreLine).toInt()))
+        val figureDp = v.figures.maxOfOrNull { widths.of(it.small, figs) } ?: 0f
+        val kept = VersusWords.keep(VersusWords.present(v.spec, v.face)) { kept ->
+            VersusWords.largeHeight(v.spec, v.face, kept, h, title != null) <= v.height.value &&
+                    (v.face != Face.LARGE || Part.TEXT !in kept ||
+                            VersusWords.figureFits(row, (v.markDp + v.nameGap).toFloat(), nameDp, figureDp + 10, v.scoreDp(widths, t) + 12))
+        }
+        Plan(size, kept)
+    }
+    val header = title != null || (Part.BADGE in plan.kept && v.spec.badge != null) || (v.face == Face.LARGE && v.whole != null)
+    val caption = v.spec.line?.takeIf { Part.CAPTION in plan.kept }
+    val foot = caption != null || age != null
+    val zones = listOf(header, true, foot).count { it }
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(v.zoneGap)) {
+        var at = 0
+        if (header) Zone(v, SplitCorners.inColumn(at++, zones), Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth().height(heights.header.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (title != null) {
+                    if (v.bold || v.split) SmallTitle(title, c.muted, Modifier.weight(1f, fill = false))
+                    else Text(title, style = headerStyle, color = c.content, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                }
+                Spacer(Modifier.weight(1f))
+                if (v.face == Face.LARGE) v.whole?.let {
+                    Text(it, style = wholeStyle, color = scoreColor(v), maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 8.dp))
+                }
+                v.spec.badge?.takeIf { Part.BADGE in plan.kept }?.let { CardBadge(it, roleColor(v.spec.base), Modifier.padding(start = 8.dp)) }
+            }
+        }
+        Zone(v, SplitCorners.inColumn(at++, zones), Modifier.weight(1f).fillMaxWidth()) {
+            VersusGrid(v, plan, Modifier.fillMaxSize(), top = v.whole?.takeIf { v.face == Face.SQUARE }?.let { w ->
+                { Text(w, style = wholeStyle, color = scoreColor(v), maxLines = 1, softWrap = false) }
+            })
+        }
+        if (foot) Zone(v, SplitCorners.inColumn(at, zones), Modifier.fillMaxWidth()) {
+            val line = @Composable { m: Modifier ->
+                caption?.let { Text(cardText(it), style = captionStyle, color = c.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = m) }
+            }
+            if (v.face == Face.SQUARE) Column {
+                line(Modifier)
+                age?.let { FooterLine(it, color = c.muted) }
+            } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                line(Modifier.weight(1f, fill = false))
+                Spacer(Modifier.weight(1f))
+                age?.let { FooterLine(it, Modifier.padding(start = 8.dp), c.muted) }
+            }
+        }
+    }
+}
+
+// ---- the rows ---------------------------------------------------------------------------------
+
+/** A zone of the card: in Split a tile of [shape] with its room inside, else the room as it is. */
+@Composable
+private fun Zone(v: Versus, shape: Shape, modifier: Modifier, content: @Composable () -> Unit) {
+    if (!v.split) return Box(modifier) { content() }
+    Tile(shape, lookColors(WidgetLook.SPLIT).tile, modifier) {
+        Box(Modifier.padding(horizontal = v.tileX.dp, vertical = v.tileY.dp)) { content() }
+    }
+}
+
+/** What a part of [VersusGrid] is, for its layout: [kind] of side [side], the [index]th of its kind. */
+private data class Slot(val kind: Int, val side: Int = 0, val index: Int = 0)
+
+private const val MARK = 0
+private const val NAME = 1
+private const val FIGURE = 2
+private const val SCORE = 3
+private const val SUB = 4
+private const val TOP = 5
+private const val BAR = 6
+
+/**
+ * The two rows in shared columns: the marks, the names, the small figures and the scores, at the
+ * row's end. One layout measures both sides' parts and gives each column the width of its wider
+ * part, so the columns line up; each row's parts are centered on one line. A name is cut with "…"
+ * to the width the other columns leave; marks and scores are never cut. The lines under a name
+ * start where the name does and reach the row's end. [top] is over the rows (a 2×2's whole
+ * score), the bar under them; the whole is centered in the height. A right-to-left phone mirrors it.
+ */
+@Composable
+private fun VersusGrid(v: Versus, plan: Plan, modifier: Modifier, top: (@Composable () -> Unit)? = null) {
+    val type = MaterialTheme.typography
+    val c = lookColors(v.look, roleColor(v.spec.base))
+    val style = scoreStyle(v.bold, plan.size)
+    val turn = VersusWords.turnIndex(v.spec)
+    val names = v.face != Face.SMALL
+    val figures = Part.TEXT in plan.kept && (v.face == Face.ROW || v.face == Face.LARGE)
+    Layout(
+        modifier = modifier,
+        content = {
+            top?.let { Box(Modifier.layoutId(Slot(TOP))) { it() } }
+            for (i in v.spec.sides.indices) {
+                val side = v.spec.sides[i]
+                val f = v.figures[i]
+                val runs = VersusWords.clockRuns(v.spec, i)
+                Box(Modifier.layoutId(Slot(MARK, i)).testTag(versusTag("mark", i))) { Mark(v, i) }
+                if (names) Row(Modifier.layoutId(Slot(NAME, i)).testTag(versusTag("name", i)), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        it,
-                        style = type.labelLargeEmphasized,
+                        side.name,
+                        style = nameStyle(v.face),
                         color = c.content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )
+                    if (turn == i) Box(Modifier.padding(start = 6.dp).size(7.dp).background(v.roles[i], CircleShape))
                 }
-                Spacer(Modifier.weight(1f))
-                spec.badge?.let { CardBadge(it, roleColor(spec.base), Modifier.padding(start = 8.dp)) }
-            }
-            Faces(spec, roles, bold, type.displaySmall, 56f, c.muted, Modifier.weight(1f).fillMaxWidth())
-            VersusBar(spec, roles, figures = true, Modifier.padding(top = 6.dp))
-            AgeAfter(spec.line, c.muted, LocalCardFooter.current, Modifier.padding(top = 6.dp))
-        }
-    }
-}
-
-/** The score's sizes a one-row card tries, the largest first ([VersusWords.rowPlan]): as a value, or in Bold's type (sp). */
-private val ROW_BOLD_SIZES = listOf(40, 36, 32, 28)
-
-/** A one-row card's mark, and the room between it and the name, in dp. */
-private val ROW_MARK = 28.dp
-private val ROW_GAP = 8.dp
-
-/** Room for the turn's dot after a name, with its gap, in dp. */
-private const val DOT_ROOM = 13f
-
-/** Room on each side of the score in a one-row card, in dp. */
-private const val MIDDLE_PAD = 8f
-
-/** The score keeps at least this share of a one-row card's width, however long the names are. */
-private const val MIDDLE_LEAST = 0.3f
-
-/** The score gets no narrower than this share of its own width to make room for the names. */
-private const val MIDDLE_SHRINK = 0.6f
-
-/** The room over the bar in a one-row card, in dp. */
-private const val BAR_GAP = 2
-
-/**
- * A wide card (4×1): each side's mark and name at its end, the score and the last line in the
- * middle, the bar under them. The badge is in front of the last line.
- * - One row is little height, so the bar with its figures comes first: it is measured before the
- *   rest, and never cut. The score takes the largest size that fits over it with the last line,
- *   then without it ([VersusWords.rowPlan]): the last line and the badge are what give way. A
- *   screen reader still says them.
- * - With Last updated on, the age ([LocalCardFooter]) ends the last line, which is cut first to make
- *   room for it. With no last line it is alone under the score, when the score keeps its size.
- * - The script's footer, in Plain and Tonal ([UpdatedLine.footer]), is on that line before the age,
- *   with Last updated on or off, and is cut first ([FooterRow]).
- * - The names get the width they need, and the score the rest, but never less than a share of the
- *   row ([VersusWords.middleDp]). A name is cut with "…" only when it can't fit beside that: its
- *   mark still says the side.
- * - A side's detail is under its name. It shows only whole, where the sides have the room for it
- *   beside the middle ([VersusWords.detailWhole]), and gives way before the last line does
- *   ([VersusWords.rowPlan]).
- */
-@Composable
-private fun VersusRow(
-    spec: WidgetSpec.Versus,
-    roles: List<Color>,
-    bold: Boolean,
-    c: LookColors,
-    width: Dp,
-    height: Dp
-) {
-    val type = MaterialTheme.typography
-    val turn = VersusWords.turnIndex(spec)
-    val density = LocalDensity.current
-    val measurer = rememberTextMeasurer()
-    val styles = if (bold) ROW_BOLD_SIZES.map { boldValueStyle(it.sp) }
-    else listOf(type.headlineMedium, type.headlineSmall, type.titleLarge).map { it.asValue() }
-    // Bold's line is as tall as its type: one em.
-    val scoreHeights = if (bold) ROW_BOLD_SIZES.map { linesDp(TextStyle(fontSize = it.sp, lineHeight = it.sp)) }
-    else styles.map { linesDp(it) }
-    val hasLine = spec.line != null || spec.badge != null
-    // The badge has 1 dp above and under its text.
-    val lineDp = if (hasLine) linesDp(type.labelMedium) + 2 else 0
-    val barDp = if (VersusWords.shares(spec) != null) maxOf(linesDp(rowFigureStyle()), BAR_LINE_DP) + BAR_GAP else 0
-    val footer = LocalCardFooter.current
-    // The script's footer: Plain and Tonal only, as on every card ([UpdatedLine.footer]).
-    val script = spec.base.footer.takeIf { !bold }
-    // The age's line is as tall as its type: under a score with no last line, room is short.
-    val ageStyle = type.labelSmall.copy(lineHeight = type.labelSmall.fontSize)
-    // A side's name with its detail under it, where a side has one.
-    val sideDp = if (spec.sides.any { it.detail != null }) linesDp(nameWeight(type.titleSmall), type.labelSmall) else 0
-    val plan = VersusWords.rowPlan(
-        height.value.toInt(),
-        scoreHeights,
-        lineDp,
-        barDp,
-        if (footer != null || script != null) linesDp(ageStyle) else 0,
-        sideDp
-    )
-    val scoreStyle = styles[plan.score]
-    // As a side's name is drawn ([SideName], [nameWeight]): measured in another weight, a long name would be cut.
-    val nameStyle = nameWeight(type.titleSmall)
-    val lineStyle = type.labelMedium
-    val badgeStyle = type.labelMediumEmphasized
-    val showLine = plan.line && hasLine
-    val age = footer?.takeIf { plan.age }
-    val foot = script?.takeIf { plan.age }
-    // The middle's width, and whether the sides' details show: only whole, where the sides have the room for them.
-    val (middle, details) = remember(spec, width, scoreStyle, nameStyle, lineStyle, showLine, age, foot, plan, density, measurer) {
-        fun dp(text: String, style: TextStyle): Float = with(density) {
-            measurer.measure(text, style, maxLines = 1, softWrap = false).size.width.toDp().value
-        }
-        val names = spec.sides.maxOfOrNull { dp(it.name, nameStyle) } ?: 0f
-        val fixed = ROW_MARK.value + ROW_GAP.value + if (turn != null) DOT_ROOM else 0f
-        val detailDp = if (plan.detail) spec.sides.maxOfOrNull { s -> s.detail?.let { dp(it, type.labelSmall) } ?: 0f } ?: 0f else 0f
-        val score = dp(spec.score, scoreStyle)
-        // The badge has 8 dp on each side of its text, and 6 dp after it.
-        val line = (if (!showLine) 0f else
-            (spec.badge?.let { dp(it, badgeStyle) + 22f } ?: 0f) + (spec.line?.let { dp(StyledText.plain(it), lineStyle) } ?: 0f)) +
-            // The age, 8 dp after what is before it.
-            (age?.let { dp(it.text, ageStyle) + if (showLine) 8f else 0f } ?: 0f) +
-            // The script's footer, 8 dp from what is before it: whole where the names leave the room, else cut first.
-            (foot?.let { dp(it, ageStyle) + 8f } ?: 0f)
-        val least = maxOf(width.value * MIDDLE_LEAST, score * MIDDLE_SHRINK) + 2 * MIDDLE_PAD
-        fun middleFor(sideDp: Float) = VersusWords.middleDp(width.value, maxOf(score, line) + 2 * MIDDLE_PAD, sideDp, least)
-        // With the details, the sides ask for their width too. A detail gives way where it would take
-        // the middle's room (the last line, the badge, the age) or would still be cut.
-        val without = middleFor(fixed + names)
-        val withDetails = middleFor(fixed + maxOf(names, detailDp))
-        if (detailDp > 0f && withDetails >= without && VersusWords.detailWhole(width.value, withDetails, fixed, detailDp)) {
-            withDetails to true
-        } else without to false
-    }
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                Mark(spec, 0, roles, ROW_MARK)
-                val detail = spec.sides.getOrNull(0)?.detail?.takeIf { details }
-                if (detail != null) Column(Modifier.padding(start = ROW_GAP).weight(1f, fill = false)) {
-                    SideName(spec, 0, roles, turn == 0, type.titleSmall)
-                    SideDetail(detail, c.muted)
-                } else SideName(spec, 0, roles, turn == 0, type.titleSmall, Modifier.padding(start = ROW_GAP).weight(1f, fill = false))
-            }
-            Column(
-                Modifier.width(middle.dp).padding(horizontal = MIDDLE_PAD.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Score(spec, scoreStyle, bold, ROW_BOLD_SIZES[plan.score].toFloat())
-                if (foot != null) Row(verticalAlignment = Alignment.CenterVertically) {
-                    // The badge, then the last line, the footer and the age on one line: the footer is cut first.
-                    if (showLine) spec.badge?.let { CardBadge(it, roleColor(spec.base), Modifier.padding(end = 6.dp)) }
-                    val lead = spec.line?.takeIf { showLine }?.let { FootLead(cardText(it), lineStyle, c.muted) }
-                    FooterRow(lead, foot, age, c.muted, Modifier.weight(1f, fill = false), end = false, style = ageStyle)
-                } else if (showLine || age != null) Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (showLine) {
-                        spec.badge?.let { CardBadge(it, roleColor(spec.base), Modifier.padding(end = 6.dp)) }
-                        spec.line?.let { LastLine(it, c.muted, Modifier.weight(1f, fill = false), center = true) }
-                    }
-                    age?.let { FooterLine(it, Modifier.padding(start = if (showLine) 8.dp else 0.dp), c.muted, ageStyle) }
-                }
-            }
-            Row(
-                Modifier.weight(1f),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val detail = spec.sides.getOrNull(1)?.detail?.takeIf { details }
-                if (detail != null) Column(
-                    Modifier.padding(end = ROW_GAP).weight(1f, fill = false),
-                    horizontalAlignment = Alignment.End
-                ) {
-                    SideName(spec, 1, roles, turn == 1, type.titleSmall, end = true)
-                    SideDetail(detail, c.muted, end = true)
-                } else SideName(spec, 1, roles, turn == 1, type.titleSmall, Modifier.padding(end = ROW_GAP).weight(1f, fill = false), end = true)
-                Mark(spec, 1, roles, ROW_MARK)
-            }
-        }
-        VersusBar(spec, roles, figures = true, Modifier.padding(top = BAR_GAP.dp), small = true)
-    }
-}
-
-/** A narrow wide card (2×1): the score between the marks, and the names under them. No bar. */
-@Composable
-private fun VersusNarrow(spec: WidgetSpec.Versus, roles: List<Color>, bold: Boolean) {
-    val type = MaterialTheme.typography
-    val turn = VersusWords.turnIndex(spec)
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Mark(spec, 0, roles, 28.dp)
-            Box(Modifier.weight(1f).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
-                Score(spec, type.headlineSmall, bold, 36f)
-            }
-            Mark(spec, 1, roles, 28.dp)
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp)) {
-            SideName(spec, 0, roles, turn == 0, type.labelMedium, Modifier.weight(1f))
-            SideName(spec, 1, roles, turn == 1, type.labelMedium, Modifier.weight(1f).padding(start = 8.dp), end = true)
-        }
-    }
-}
-
-/** The mark of a side in a large card, in dp. */
-private const val FACE_MARK = 40
-
-/** The parts of a large card's row of faces: a side, the score (1.3) and a side ([FacesRow]). */
-private const val FACES_PARTS = 3.3f
-
-/**
- * The marks either side of the score, each over its name: the middle of a large card. A side's
- * detail is under its name, in [muted], where the faces have the height for it and each side's
- * column holds it whole.
- */
-@Composable
-private fun Faces(
-    spec: WidgetSpec.Versus,
-    roles: List<Color>,
-    bold: Boolean,
-    scoreStyle: TextStyle,
-    boldSize: Float,
-    muted: Color,
-    modifier: Modifier,
-) {
-    val nameStyle = MaterialTheme.typography.labelLarge
-    if (spec.sides.none { it.detail != null }) {
-        FacesRow(spec, roles, bold, scoreStyle, boldSize, nameStyle, null, modifier)
-        return
-    }
-    // The mark, 4 dp, the name and the detail, one under the other.
-    val used = FACE_MARK + 4 + linesDp(nameWeight(nameStyle))
-    val detailStyle = MaterialTheme.typography.labelSmall
-    val detailDp = linesDp(detailStyle)
-    val measurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-    // The widest detail: a side's column must hold it whole, as a detail cut to a few letters says nothing.
-    val widest = remember(spec, detailStyle, density, measurer) {
-        spec.sides.maxOf { s ->
-            s.detail?.let { with(density) { measurer.measure(it, detailStyle, maxLines = 1, softWrap = false).size.width.toDp().value } } ?: 0f
-        }
-    }
-    BoxWithConstraints(modifier) {
-        // Each side's column has 1 of the row's 3.3 parts ([FacesRow]).
-        val whole = widest <= maxWidth.value / FACES_PARTS
-        val fits = whole && VersusWords.detailFits(maxHeight.value.toInt(), used, detailDp)
-        FacesRow(spec, roles, bold, scoreStyle, boldSize, nameStyle, muted.takeIf { fits }, Modifier.fillMaxSize())
-    }
-}
-
-/** [Faces] as drawn: with [detail], each side's detail in that color under its name. */
-@Composable
-private fun FacesRow(
-    spec: WidgetSpec.Versus,
-    roles: List<Color>,
-    bold: Boolean,
-    scoreStyle: TextStyle,
-    boldSize: Float,
-    nameStyle: TextStyle,
-    detail: Color?,
-    modifier: Modifier,
-) {
-    val turn = VersusWords.turnIndex(spec)
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        for (i in 0..1) {
-            if (i == 1) Box(Modifier.weight(1.3f), contentAlignment = Alignment.Center) {
-                Score(spec, scoreStyle, bold, boldSize)
-            }
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Mark(spec, i, roles, FACE_MARK.dp)
-                SideName(spec, i, roles, turn == i, nameStyle, Modifier.padding(top = 4.dp), center = true)
-                if (detail != null) spec.sides.getOrNull(i)?.detail?.let { SideDetail(it, detail, center = true) }
-            }
-        }
-    }
-}
-
-/** A side's detail ("3rd · 41 pts") under its name: small and quiet, in [muted], cut with "…" before the name is. */
-@Composable
-private fun SideDetail(
-    text: String,
-    muted: Color,
-    modifier: Modifier = Modifier,
-    end: Boolean = false,
-    center: Boolean = false,
-) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = muted,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = when {
-            center -> TextAlign.Center
-            end -> TextAlign.End
-            else -> TextAlign.Start
-        },
-        modifier = modifier
-    )
-}
-
-/** The mark of a side's tile in a wide Split card, in dp. */
-private const val SPLIT_MARK = 26
-
-/**
- * Split: each side and the score on tiles of their own. Wide (4×1): three tiles in a row, the
- * sides' figures under their names and the bar under the score (or the last line, with no bar);
- * each side's detail under its name where its tile has the height.
- * Narrower (2×1): the score between the marks over the two names ([SplitNarrow]). Large:
- * the title, the badge, the marks and the score on the top tile; the bar and the last line on the
- * bottom one. Small: one tile.
- */
-@Composable
-private fun SplitVersus(spec: WidgetSpec.Versus, roles: List<Color>, box: WidgetSizes.Box) {
-    val type = MaterialTheme.typography
-    val c = lookColors(WidgetLook.SPLIT, roleColor(spec.base))
-    val gap = SplitCorners.GAP
-    val turn = VersusWords.turnIndex(spec)
-    val bar = VersusWords.shares(spec) != null
-    when (box) {
-        WidgetSizes.Box.SMALL -> SplitWhole {
-            Column(
-                Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Score(spec, type.titleLarge, false, 0f)
-                Marks(spec, roles, 20.dp, Modifier.padding(top = 4.dp))
-            }
-        }
-
-        WidgetSizes.Box.WIDE -> BoxWithConstraints(Modifier.fillMaxSize()) {
-            if (maxWidth < VERSUS_ROW_FROM) {
-                SplitNarrow(spec, roles, c)
-                return@BoxWithConstraints
-            }
-            // Each side's detail under its name, where the side's tile has the height for it (8 dp over and under).
-            val details = spec.sides.any { it.detail != null } && VersusWords.detailFits(
-                maxHeight.value.toInt() - 16,
-                SPLIT_MARK + 2 + linesDp(nameWeight(type.labelLarge)) + if (bar) linesDp(figureStyle()) else 0,
-                linesDp(type.labelSmall)
-            )
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-                for (i in 0..1) {
-                    if (i == 1) Tile(SplitCorners.inRow(1, 3), c.tile, Modifier.weight(1.3f).fillMaxHeight()) {
-                        Column(
-                            Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Score(spec, type.headlineSmall, false, 0f)
-                            if (bar) VersusBar(spec, roles, figures = false, Modifier.padding(top = 4.dp))
-                            else spec.line?.let { LastLine(it, c.muted, center = true) }
-                            // Last updated: under the rest of the middle tile, which has room for it.
-                            LocalCardFooter.current?.let { FooterLine(it, Modifier.padding(top = 2.dp), c.muted) }
-                        }
-                    }
-                    Tile(SplitCorners.inRow(if (i == 0) 0 else 2, 3), c.tile, Modifier.weight(1f).fillMaxHeight()) {
-                        Column(
-                            Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Mark(spec, i, roles, SPLIT_MARK.dp)
-                            SideName(spec, i, roles, turn == i, type.labelLarge, Modifier.padding(top = 2.dp), center = true)
-                            if (details) spec.sides.getOrNull(i)?.detail?.let { SideDetail(it, c.muted, center = true) }
-                            if (bar) VersusWords.figure(spec.sides[i])?.let {
-                                Text(it, style = figureStyle(), color = roles[i], maxLines = 1)
-                            }
+                if (figures) f.small?.let { small ->
+                    Box(Modifier.layoutId(Slot(FIGURE, i))) {
+                        Ticking(small, side.clock.takeIf { f.smallClock }, runs) {
+                            Text(it, style = figureStyle(v.face), color = c.muted, maxLines = 1, softWrap = false)
                         }
                     }
                 }
-            }
-        }
-
-        WidgetSizes.Box.LARGE -> {
-            val age = LocalCardFooter.current
-            val foot = bar || spec.line != null || age != null
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
-                Tile(SplitCorners.inColumn(0, if (foot) 2 else 1), c.tile, Modifier.weight(1f).fillMaxWidth()) {
-                    Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp)) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            SmallTitle(LocalUntitled.current, c.content, Modifier.weight(1f, fill = false))
-                            Spacer(Modifier.weight(1f))
-                            spec.badge?.let { CardBadge(it, roleColor(spec.base), Modifier.padding(start = 8.dp)) }
+                f.big?.let { big ->
+                    Box(Modifier.layoutId(Slot(SCORE, i)).testTag(versusTag("score", i))) {
+                        Ticking(big, side.clock.takeIf { f.bigClock }, runs) {
+                            Text(it, style = style, color = scoreColor(v, i), maxLines = 1, softWrap = false)
                         }
-                        Faces(spec, roles, false, type.displaySmall, 0f, c.muted, Modifier.weight(1f).fillMaxWidth())
                     }
                 }
-                if (foot) Tile(SplitCorners.inColumn(1, 2), c.tile, Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
-                        VersusBar(spec, roles, figures = true)
-                        AgeAfter(spec.line, c.muted, age, Modifier.padding(top = if (bar) 6.dp else 0.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Split in a narrow wide card (2×1): the score between the marks on a tile across the card, and
- * each side's name on a tile of its own under it, as Plain has them there. Each name gets half the
- * card, so a usual name fits whole. No bar, as in Plain.
- */
-@Composable
-private fun SplitNarrow(spec: WidgetSpec.Versus, roles: List<Color>, c: LookColors) {
-    val type = MaterialTheme.typography
-    val gap = SplitCorners.GAP
-    val turn = VersusWords.turnIndex(spec)
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(gap)) {
-        Tile(
-            SplitCorners.tile(topStart = true, topEnd = true, bottomEnd = false, bottomStart = false),
-            c.tile,
-            Modifier.weight(1f).fillMaxWidth()
-        ) {
-            Row(
-                Modifier.fillMaxSize().padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Mark(spec, 0, roles, 26.dp)
-                Box(Modifier.weight(1f).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
-                    Score(spec, type.headlineSmall, false, 0f)
-                }
-                Mark(spec, 1, roles, 26.dp)
-            }
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            for (i in 0..1) {
-                Tile(
-                    SplitCorners.tile(topStart = false, topEnd = false, bottomEnd = i == 1, bottomStart = i == 0),
-                    c.tile,
-                    Modifier.weight(1f)
-                ) {
-                    SideName(
-                        spec, i, roles, turn == i, type.labelLarge,
-                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                        center = true
+                // The lines under the name.
+                val subs = when (v.face) {
+                    Face.SQUARE -> listOfNotNull(
+                        listOfNotNull(
+                            f.small?.takeIf { Part.TEXT in plan.kept },
+                            side.detail?.takeIf { Part.DETAIL in plan.kept }
+                        ).takeIf { it.isNotEmpty() }
                     )
+                    Face.LARGE -> listOfNotNull(
+                        side.detail?.takeIf { Part.DETAIL in plan.kept }?.let(::listOf),
+                        side.lines.takeIf { Part.LINES in plan.kept && it.isNotEmpty() },
+                    )
+                    else -> emptyList()
+                }
+                subs.forEachIndexed { k, parts ->
+                    Box(Modifier.layoutId(Slot(SUB, i, k))) {
+                        // A 2×2's small figure leads its line: a clock there counts down too.
+                        val clock = side.clock.takeIf { v.face == Face.SQUARE && k == 0 && f.smallClock && Part.TEXT in plan.kept }
+                        Ticking(parts.first(), clock, runs) { first ->
+                            Text(
+                                (listOf(first) + parts.drop(1)).joinToString(" · "),
+                                style = type.labelSmall,
+                                color = c.muted,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
+            if (v.bar) Box(Modifier.layoutId(Slot(BAR))) { VersusBar(v) }
+        }
+    ) { parts, constraints ->
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
+        val loose = Constraints(maxWidth = if (width > 0) width else Constraints.Infinity)
+        fun of(kind: Int, side: Int = 0, index: Int = 0) = parts.firstOrNull { it.layoutId == Slot(kind, side, index) }
+        val sides = v.spec.sides.indices
+        val marks = sides.map { of(MARK, it)?.measure(loose) }
+        val scores = sides.map { of(SCORE, it)?.measure(loose) }
+        val figs = sides.map { of(FIGURE, it)?.measure(loose) }
+        val markW = marks.maxOf { it?.width ?: 0 }
+        val scoreW = scores.maxOf { it?.width ?: 0 }
+        val figW = figs.maxOf { it?.width ?: 0 }
+        val nameX = markW + if (names) v.nameGap.dp.roundToPx() else 0
+        val scoreCol = if (scoreW > 0) scoreW + SCORE_GAP.dp.roundToPx() else 0
+        val figCol = if (figW > 0) figW + FIGURE_GAP.dp.roundToPx() else 0
+        val nameRoom = (width - nameX - figCol - scoreCol).coerceAtLeast(0)
+        val nameList = sides.map { of(NAME, it)?.measure(Constraints(maxWidth = nameRoom)) }
+        val subList = sides.map { i ->
+            generateSequence(0) { it + 1 }.map { of(SUB, i, it) }.takeWhile { it != null }
+                .map { it!!.measure(Constraints(maxWidth = (width - nameX).coerceAtLeast(0))) }.toList()
+        }
+        val topPlaced = of(TOP)?.measure(loose)
+        val barPlaced = of(BAR)?.measure(Constraints.fixedWidth(width.coerceAtLeast(0)))
+        val lines = sides.map { i ->
+            listOfNotNull(marks[i], nameList[i], figs[i], scores[i]).maxOfOrNull { it.height } ?: 0
+        }
+        val rowHeights = sides.map { i -> lines[i] + subList[i].sumOf { it.height } }
+        fun total(rowGap: Int, zoneGap: Int) = rowHeights.sum() + rowGap * (sides.count() - 1).coerceAtLeast(0) +
+                (topPlaced?.let { it.height + zoneGap } ?: 0) + (barPlaced?.let { it.height + zoneGap } ?: 0)
+        val high = if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE
+        // Where the height is short, the rows close up before anything is cut.
+        var rowGap = v.rowGap.dp.roundToPx()
+        var zoneGap = 4.dp.roundToPx()
+        if (total(rowGap, zoneGap) > high) {
+            rowGap = 2.dp.roundToPx()
+            zoneGap = 2.dp.roundToPx()
+        }
+        val used = total(rowGap, zoneGap)
+        val height = if (constraints.hasBoundedHeight) constraints.maxHeight else used
+        layout(width, height) {
+            var y = ((height - used) / 2).coerceAtLeast(0)
+            topPlaced?.let {
+                it.placeRelative((width - it.width) / 2, y)
+                y += it.height + zoneGap
+            }
+            for (i in sides) {
+                val line = lines[i]
+                fun Placeable.at(x: Int) = placeRelative(x, y + (line - this.height) / 2)
+                marks[i]?.at((markW - (marks[i]?.width ?: 0)) / 2)
+                nameList[i]?.at(nameX)
+                figs[i]?.let { it.at(width - scoreCol - it.width) }
+                scores[i]?.let { it.at(width - it.width) }
+                var under = y + line
+                subList[i].forEach {
+                    it.placeRelative(nameX, under)
+                    under += it.height
+                }
+                y += rowHeights[i] + rowGap
+            }
+            barPlaced?.placeRelative(0, y - rowGap + zoneGap)
         }
     }
 }
 
+/** The room before a score and before a small figure, in dp. */
+private const val SCORE_GAP = 12
+private const val FIGURE_GAP = 10
+
 /**
- * The score: as a value ([BigText]) in [style], or with [bold] in Bold's type, [boldSize] at most,
- * in the card's color moved just far enough to read on Bold's card ([valueInk]).
+ * [content] with [text], or with a [clock] of seconds left that counts down when it [runs]: from
+ * the moment the card's content was set ([LocalContentSetAt]), every second while the card can be
+ * seen ([rememberMillis]). Only this redraws on a tick, not the card.
  */
 @Composable
-private fun Score(spec: WidgetSpec.Versus, style: TextStyle, bold: Boolean, boldSize: Float) {
-    val role = roleColor(spec.base)
-    if (bold) BoldText(spec.score, boldSize.sp, valueInk(role, lookColors(WidgetLook.BOLD, role).card))
-    else BigText(spec.score, style)
+private fun Ticking(text: String, clock: Long?, runs: Boolean, content: @Composable (String) -> Unit) {
+    val setAt = LocalContentSetAt.current
+    if (clock == null || !runs || setAt <= 0L) return content(text)
+    val now by rememberMillis(seconds = true)
+    content(VersusWords.clockText(VersusWords.clockLeft(clock, true, setAt, now)))
 }
 
-/** A side's mark, [side] across: its letters in its color on a Material shape of the color's container. */
+/**
+ * A score's color: the text's, or in Bold the card's color moved just far enough to read on Bold's
+ * card ([valueInk]). A side's clock drawn as its score is in the side's color while it is its turn.
+ */
 @Composable
-private fun Mark(spec: WidgetSpec.Versus, index: Int, roles: List<Color>, side: Dp) {
-    val s = spec.sides.getOrNull(index) ?: return
-    val role = roles[index]
+private fun scoreColor(v: Versus, side: Int? = null): Color {
+    if (side != null && v.figures[side].bigClock && VersusWords.turnIndex(v.spec) == side) return v.roles[side]
+    val role = roleColor(v.spec.base)
+    return if (v.bold) valueInk(role, lookColors(WidgetLook.BOLD, role).card) else lookColors(v.look, role).content
+}
+
+/**
+ * A side's mark: its letters in its color on a Material shape of the color's container. In Tonal,
+ * whose card is the accent's container, the shape is on the page's color, so it never vanishes.
+ */
+@Composable
+private fun Mark(v: Versus, index: Int) {
+    val s = v.spec.sides.getOrNull(index) ?: return
+    val role = v.roles[index]
+    val side = v.markDp.dp
     // The letters are sized to the shape, not to the phone's font size: the shape does not grow with it.
     val size = with(LocalDensity.current) { (side * if (VersusWords.mark(s).length > 1) 0.36f else 0.46f).toSp() }
-    ShapedBox(rankPolygon(index), roleContainer(role), side) {
+    val fill = if (v.look == WidgetLook.TONAL) MaterialTheme.colorScheme.surface else roleContainer(role)
+    ShapedBox(rankPolygon(index), fill, side) {
         Text(
             VersusWords.mark(s),
             style = MaterialTheme.typography.titleMedium.copy(fontSize = size, lineHeight = size, fontWeight = FontWeight.Bold),
@@ -569,141 +655,26 @@ private fun Mark(spec: WidgetSpec.Versus, index: Int, roles: List<Color>, side: 
     }
 }
 
-/** Both marks side by side, as a small card has them. */
-@Composable
-private fun Marks(spec: WidgetSpec.Versus, roles: List<Color>, side: Dp, modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Mark(spec, 0, roles, side)
-        Mark(spec, 1, roles, side)
-    }
-}
-
-/**
- * A side's name in [style], with a dot in its color when it is that side's [turn]: after the name,
- * or before it at the card's [end]. With [center] the name is centered in its room.
- */
-@Composable
-private fun SideName(
-    spec: WidgetSpec.Versus,
-    index: Int,
-    roles: List<Color>,
-    turn: Boolean,
-    style: TextStyle,
-    modifier: Modifier = Modifier,
-    end: Boolean = false,
-    center: Boolean = false,
-) {
-    val s = spec.sides.getOrNull(index) ?: return
-    Row(
-        modifier,
-        horizontalArrangement = when {
-            center -> Arrangement.Center
-            end -> Arrangement.End
-            else -> Arrangement.Start
-        },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (turn && end) TurnDot(roles[index], Modifier.padding(end = 6.dp))
-        Text(
-            s.name,
-            style = nameWeight(style),
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = if (end) TextAlign.End else TextAlign.Start,
-            modifier = Modifier.weight(1f, fill = false)
-        )
-        if (turn && !end) TurnDot(roles[index], Modifier.padding(start = 6.dp))
-    }
-}
-
-/** A side's name in [style], in the weight it is drawn in. */
-private fun nameWeight(style: TextStyle): TextStyle = style.copy(fontWeight = FontWeight.Bold)
-
-/** The dot that marks the side whose turn it is. */
-@Composable
-private fun TurnDot(color: Color, modifier: Modifier = Modifier) {
-    Box(modifier.size(7.dp).background(color, CircleShape))
-}
-
-/** The last line ("17. b3 · Berlin"), with the styles the script gave it, in [muted] where it has none. */
-@Composable
-private fun LastLine(text: String, muted: Color, modifier: Modifier = Modifier, center: Boolean = false) {
-    Text(
-        cardText(text),
-        style = MaterialTheme.typography.labelMedium,
-        color = muted,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = if (center) TextAlign.Center else TextAlign.Start,
-        modifier = modifier
-    )
-}
-
-/**
- * A large card's last line ([LastLine], [line]), with the content's age after it ([footer], "Updated
- * 3 min ago") when the card places it itself. The last line is cut first. Nothing without either.
- */
-@Composable
-private fun AgeAfter(line: String?, muted: Color, footer: WidgetWords.Footer?, modifier: Modifier = Modifier) {
-    if (footer == null) {
-        line?.let { LastLine(it, muted, modifier) }
-        return
-    }
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        line?.let { LastLine(it, muted, Modifier.weight(1f, fill = false)) }
-        FooterLine(footer, Modifier.padding(start = if (line != null) 8.dp else 0.dp), muted)
-    }
-}
-
-/** The type of a side's figure at the bar's end: digits of one width, so a clock that ticks does not shake. */
-@Composable
-private fun figureStyle(): TextStyle =
-    MaterialTheme.typography.labelLargeEmphasized.copy(fontFeatureSettings = "tnum")
-
-/** A side's figure in a one-row card, a size smaller: the row has little height. */
-@Composable
-private fun rowFigureStyle(): TextStyle =
-    MaterialTheme.typography.labelMediumEmphasized.copy(fontFeatureSettings = "tnum")
-
-/** The height of the bar's line without its figures, in dp: a wave's container. */
-private const val BAR_LINE_DP = 10
-
 /** A part of the bar is never thinner than this share, so a side with almost nothing still shows. */
 private const val LEAST_SHARE = 0.04f
 
 /**
- * The bar between the sides ([VersusWords.shares]): one part for each, in its color, the first
- * from the start. With [figures], each side's figure is at its end. With `moving`, the part of the
- * side whose turn it is is a wave that moves ([LevelBar]). Nothing without a bar.
+ * The thin bar under the rows ([VersusWords.shares]): one part for each side, in its color, the
+ * first from the start. With `moving`, the part of the side whose turn it is is a wave that moves
+ * ([LevelBar]). The parts move to new values on the theme's spring.
  */
 @Composable
-private fun VersusBar(
-    spec: WidgetSpec.Versus,
-    roles: List<Color>,
-    figures: Boolean,
-    modifier: Modifier = Modifier,
-    small: Boolean = false
-) {
-    val style = if (small) rowFigureStyle() else figureStyle()
-    val shares = VersusWords.shares(spec) ?: return
-    val turn = VersusWords.turnIndex(spec)
+private fun VersusBar(v: Versus) {
+    val shares = VersusWords.shares(v.spec) ?: return
+    val turn = VersusWords.turnIndex(v.spec)
     val first by animateFloatAsState(
         shares.first.coerceIn(LEAST_SHARE, 1f - LEAST_SHARE),
         MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "versus"
     )
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        if (figures) VersusWords.figure(spec.sides[0])?.let {
-            Text(it, style = style, color = roles[0], maxLines = 1, modifier = Modifier.padding(end = 8.dp))
-        }
-        Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(first)) { LevelBar(1f, spec.moving && turn == 0, roles[0]) }
-            Spacer(Modifier.width(4.dp))
-            Box(Modifier.weight(1f - first)) { LevelBar(1f, spec.moving && turn == 1, roles[1]) }
-        }
-        if (figures) VersusWords.figure(spec.sides[1])?.let {
-            Text(it, style = style, color = roles[1], maxLines = 1, modifier = Modifier.padding(start = 8.dp))
-        }
+    Row(Modifier.fillMaxWidth().clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(first)) { LevelBar(1f, v.spec.moving && turn == 0, v.roles[0]) }
+        Spacer(Modifier.width(4.dp))
+        Box(Modifier.weight(1f - first)) { LevelBar(1f, v.spec.moving && turn == 1, v.roles[1]) }
     }
 }

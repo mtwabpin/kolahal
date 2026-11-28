@@ -48,7 +48,10 @@ class ValueInkTest {
     @Test
     fun boldsScoreSkyAndDaysGoThroughTheFloor() {
         val dir = sourceFile("src/main/java/com/mtwabpin/kolahal/ui/widgets")
-        for (name in listOf("WidgetVersus.kt", "WidgetSky.kt", "WidgetCountdownDays.kt")) {
+        // A versus card draws its scores in Bold's type with one color for both ([scoreColor]): on Bold's card, through the floor.
+        val versus = java.io.File(dir, "WidgetVersus.kt").readText()
+        assertTrue("WidgetVersus.kt", "if (v.bold) valueInk(role, lookColors(WidgetLook.BOLD, role).card)" in versus)
+        for (name in listOf("WidgetSky.kt", "WidgetCountdownDays.kt")) {
             val text = java.io.File(dir, name).readText()
             val calls = Regex("""\bBold(Text|Value)\(""").findAll(text).map { m ->
                 // The call up to its closing bracket, also over several lines.

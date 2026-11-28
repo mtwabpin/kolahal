@@ -1094,20 +1094,22 @@ class LibraryWidgetsTest {
         listOfNotNull("name" to name, "mark" to mark, value?.let { "value" to it }, text?.let { "text" to it }).toMap()
 
     /**
-     * Live score, cricket: the two sides with their initials and both scores between them, LIVE or
-     * RESULT, and how the match stands as the last line. While the match is on, a dot by the side
+     * Live score, cricket: a row for each side with its initials, its own score and its overs, LIVE
+     * or RESULT, and how the match stands as the last line. While the match is on, a dot by the side
      * batting, and the page asks again every `refresh` seconds. In a chase, the runs against the
-     * target are the bar: the chasing side's runs, and the runs still to get with the target.
+     * target are the bar: the chasing side's runs, and the runs still to get.
      */
     @Test
     fun cricket() {
+        // A side as cricket.js writes one: its score ("–" before it bats), its overs once it has batted.
+        fun team(name: String, mark: String, score: String, overs: String? = null, value: Any? = null): Map<String, Any> =
+            listOfNotNull("name" to name, "score" to score, "mark" to mark, overs?.let { "text" to it }, value?.let { "value" to it }).toMap()
         val chase = parse(
             "cricket.js",
             mapOf(
                 "kind" to "versus",
                 "icon" to "cricket",
-                "score" to "237/4 · 299/8",
-                "sides" to listOf(side("India", "I", 237L), side("New Zealand", "NZ", 63L, "Target 300")),
+                "sides" to listOf(team("India", "I", "237/4", "40 ov", 237L), team("New Zealand", "NZ", "299/8", "50 ov", 63L)),
                 "badge" to "LIVE",
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
@@ -1128,10 +1130,9 @@ class LibraryWidgetsTest {
                     refresh = 30
                 ),
                 sides = listOf(
-                    WidgetSpec.Side("India", "I", value = 237f),
-                    WidgetSpec.Side("New Zealand", "NZ", value = 63f, text = "Target 300"),
+                    WidgetSpec.Side("India", "I", value = 237f, text = "40 ov", score = "237/4"),
+                    WidgetSpec.Side("New Zealand", "NZ", value = 63f, text = "50 ov", score = "299/8"),
                 ),
-                score = "237/4 · 299/8",
                 turn = 1,
                 moving = true,
                 line = "India require 63 runs with 60 balls remaining",
@@ -1139,14 +1140,13 @@ class LibraryWidgetsTest {
             ),
             chase,
         )
-        // Before a chase there is no target: no bar. The fastest refresh is 10 seconds.
+        // Before a chase there is no target: no bar. A side yet to bat has "–" and no overs. The fastest refresh is 10 seconds.
         val first = parse(
             "cricket.js",
             mapOf(
                 "kind" to "versus",
                 "icon" to "cricket",
-                "score" to "– · 142/3",
-                "sides" to listOf(side("India", "I"), side("New Zealand", "NZ")),
+                "sides" to listOf(team("India", "I", "–"), team("New Zealand", "NZ", "142/3", "28.4 ov")),
                 "badge" to "LIVE",
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
@@ -1158,6 +1158,8 @@ class LibraryWidgetsTest {
             ),
         ) as WidgetSpec.Versus
         assertEquals(listOf<Float?>(null, null), first.sides.map { it.value })
+        assertEquals(listOf("–", "142/3"), first.sides.map { it.score })
+        assertEquals(null, first.score)
         assertEquals(2, first.turn)
         assertEquals(10, first.base.refresh)
         // The result: it changes no more, so nothing moves and the page asks for nothing. A chase
@@ -1167,8 +1169,7 @@ class LibraryWidgetsTest {
             mapOf(
                 "kind" to "versus",
                 "icon" to "cricket",
-                "score" to "301/6 · 299/8",
-                "sides" to listOf(side("India", "I", 301L), side("New Zealand", "NZ", 0L, "Target 300")),
+                "sides" to listOf(team("India", "I", "301/6", "48.2 ov", 301L), team("New Zealand", "NZ", "299/8", "50 ov", 0L)),
                 "badge" to "RESULT",
                 "tap" to jsLiveTap,
                 "staleAfter" to 900L,
@@ -1179,10 +1180,9 @@ class LibraryWidgetsTest {
             WidgetSpec.Versus(
                 WidgetBase(icon = "cricket", tap = liveTap, staleAfter = 900),
                 sides = listOf(
-                    WidgetSpec.Side("India", "I", value = 301f),
-                    WidgetSpec.Side("New Zealand", "NZ", value = 0f, text = "Target 300"),
+                    WidgetSpec.Side("India", "I", value = 301f, text = "48.2 ov", score = "301/6"),
+                    WidgetSpec.Side("New Zealand", "NZ", value = 0f, text = "50 ov", score = "299/8"),
                 ),
-                score = "301/6 · 299/8",
                 line = "India won by 4 wickets",
                 badge = "RESULT",
             ),

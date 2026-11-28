@@ -1,13 +1,13 @@
 // @title Live cricket
 // @desc Live cricket scores: the team option's live match as its status line, to pin at the top of home; cricket live lists them all
 // @author Kolahal
-// @version 1.9
+// @version 2.0
 // @command
 // @usage [live|<team>]
 // @widget versus 4x1
 // @every 15m
 // @tags sport, cricket, live
-// @requires 0.5.17
+// @requires 0.5.23
 // @option team any The team whose live match it follows, such as India or Mumbai; any: the first live international
 // @option refresh 30 Seconds between updates while home shows the match (10 at the fastest)
 //
@@ -26,10 +26,10 @@
 // "Fetching scores…" at once, which turns into the answer. An older Kolahal shows them as lines, as
 // before.
 //
-// Its widget, once you placed it on the widgets page, is the match: the two sides with their
-// initials, both scores large between them, a dot by the side batting, and how the match stands
-// (the runs to win and the balls left in a chase). In a chase, the runs against the target are the
-// bar between them. While the page shows it, it is fetched again every refresh seconds. A tap lists
+// Its widget, once you placed it on the widgets page, is the match: a row for each side with its
+// initials, its overs and its score, a dot by the side batting, and how the match stands (the runs
+// to win and the balls left in a chase). In a chase, the runs against the target are a thin bar
+// under the rows. While the page shows it, it is fetched again every refresh seconds. A tap lists
 // the live matches in the log. A second widget can follow another team: its own options are for
 // that widget only.
 
@@ -165,17 +165,23 @@ function batting(event) {
   return first >= 0 ? first : null;
 }
 
-// Its widget for a match: the two sides, each with its initials, and their scores large between them
-// ("258 · 115/2"); LIVE or RESULT at the top, and how the match stands as the last line ("India
-// require 64 runs with 60 balls remaining").
+// Its widget for a match: the two sides, each with its initials, its own score ("115/2", "–" before
+// it bats) and its overs ("18.2 ov"); LIVE or RESULT at the top, and how the match stands as the
+// last line ("India require 64 runs with 60 balls remaining").
 // - While it's on: a dot by the side batting, and the widgets page asks again every [every] seconds
 //   while it shows the card.
-// - In a chase: the runs against the target as the bar between the sides. The chasing side's part
-//   is its runs, moving while it bats; the other side's is the runs still to get, with the target
-//   at its end ("Target 259"). A target cut by rain (DLS) is the one the score gives.
+// - In a chase: the runs against the target as the bar under the sides. The chasing side's part is
+//   its runs, moving while it bats; the other side's is the runs still to get. A target cut by rain
+//   (DLS) is the one the score gives.
 function card(event, live, every) {
   const sides = teams(event).slice(0, 2);
-  const runs = (c) => (c.score || "").split(" (")[0].trim();
+  // A side's runs, a Test's innings joined closely so they fit a side's score ("185&42/1").
+  const runs = (c) => (c.score || "").split(" (")[0].trim().replace(/\s*&\s*/g, "&");
+  // A side's overs as the card shows them: "18.2 ov", or nothing before it bats.
+  const oversOf = (c) => {
+    const m = (c.score || "").match(/\((\d+(?:\.\d)?)(?:\/\d+)? ov/);
+    return m ? `${m[1]} ov` : "";
+  };
   const said = (event.status && event.status.summary) || "";
   // A card of two sides needs two: without them, how the match stands as one line.
   if (sides.length < 2) return { kind: "stat", icon: "cricket", value: "–", label: said || "No live match", tap: TAP, staleAfter: 900 };
@@ -185,17 +191,17 @@ function card(event, live, every) {
   const target = chasing >= 0 ? Number(sides[chasing].score.match(/target (\d+)/)[1]) : NaN;
   const got = chasing >= 0 ? Number((runs(sides[chasing]).split("&").pop().trim().match(/^\d+/) || [])[0]) : NaN;
   const bar = Number.isFinite(target) && Number.isFinite(got) && target > 0
-    ? (i) => (i === chasing ? { value: got } : { value: Math.max(0, target - got), text: `Target ${target}` })
+    ? (i) => ({ value: i === chasing ? got : Math.max(0, target - got) })
     : null;
   const d = {
     kind: "versus",
     icon: "cricket",
-    score: sides.map((c) => runs(c) || "–").join(" · ") || "–",
     sides: sides.map((c, i) => {
       const t = c.team || {};
       const name = t.displayName && t.displayName.length <= 24 ? t.displayName : t.shortDisplayName || t.abbreviation || "?";
-      const side = { name };
+      const side = { name, score: runs(c) || "–" };
       if (mark[i]) side.mark = mark[i];
+      if (oversOf(c)) side.text = oversOf(c);
       return bar ? { ...side, ...bar(i) } : side;
     }),
     badge: live ? "LIVE" : "RESULT",

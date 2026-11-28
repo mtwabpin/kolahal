@@ -110,7 +110,7 @@ internal object UpdatedLine {
         return when {
             box == WidgetSizes.Box.SMALL -> at
             k == WidgetKind.VERSUS ->
-                // A 2×1 versus card has the score between the marks and the names under them: no line free.
+                // A 2×1 versus card is its two rows: no line free.
                 if (box == WidgetSizes.Box.WIDE && widthDp < VersusWords.ROW_FROM_DP) at else null
             !framed(look) -> "Not in ${look.label}"
             box == WidgetSizes.Box.WIDE && !wideRoom(spec, k) -> at

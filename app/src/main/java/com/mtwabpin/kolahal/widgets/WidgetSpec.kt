@@ -379,9 +379,14 @@ sealed interface WidgetSpec {
      * One side of a [Versus]: a player or a team.
      * - [mark] is a letter or two that the card draws on a Material shape, in the side's [color].
      *   Without it, the first letter of [name].
-     * - [value] is the side's part of the bar between the two sides: its clock's time left, its
-     *   share of the ball. [text] is what the bar's end says for it ("58:10"); without it, the value.
+     * - [value] is the side's part of the thin bar under the two sides: its share of the ball.
+     * - [text] is a small figure beside its score ("18.2 ov", "58%").
      * - [detail] is a small line under its name: a place in a table, a record ("3rd · 41 pts").
+     * - [score] is its own score ("187/4"), in place of its part of the card's score.
+     * - [clock] is its clock, in seconds left: drawn "4:12" or "1:04:12". With no score it is the
+     *   side's big figure (chess); else it takes the place of [text]. The side to move's clock
+     *   counts down on the phone while the card's [Versus.moving] is on.
+     * - [lines] are up to 3 short texts under its name on a large card: scorers, batters.
      */
     data class Side(
         val name: String,
@@ -390,12 +395,17 @@ sealed interface WidgetSpec {
         val value: Float? = null,
         val text: String? = null,
         val detail: String? = null,
+        val score: String? = null,
+        val clock: Long? = null,
+        val lines: List<String> = emptyList(),
     )
 
     /**
      * Kind `versus`: two [sides] and the [score] between them, for a match or a game.
+     * - [score] is split between the sides where it is two parts ("2–1"); one that doesn't split
+     *   ("W/O") is drawn whole. It may be left out when every side has its own score or clock.
      * - [turn] is 1 or 2: the side to move, or the side with the ball. A dot marks it.
-     * - With [moving], the turn's part of the bar is a wave that moves: its clock runs.
+     * - With [moving], the turn's part of the bar is a wave that moves, and its clock counts down.
      * - [line] is a last line, such as the last move ("17. b3 · Berlin"): the script's `caption`.
      *   [badge] is a small text at the top ("67'", "LIVE").
      * - The bar shows only when both sides have a [Side.value], and they are not both 0.
@@ -403,7 +413,7 @@ sealed interface WidgetSpec {
     data class Versus(
         override val base: WidgetBase,
         val sides: List<Side>,
-        val score: String,
+        val score: String? = null,
         val turn: Int? = null,
         val moving: Boolean = false,
         val line: String? = null,
@@ -764,6 +774,9 @@ object WidgetJson {
                         "value" to number(it.value),
                         "text" to it.text,
                         "detail" to it.detail,
+                        "score" to it.score,
+                        "clock" to it.clock,
+                        "lines" to it.lines.takeIf { l -> l.isNotEmpty() },
                     )
                 },
                 "score" to spec.score,
@@ -1095,10 +1108,9 @@ object WidgetJson {
                 fit = m.oneOf("fit", "crop", "fit"),
             )
 
-            WidgetKind.VERSUS -> WidgetSpec.Versus(
-                base,
+            WidgetKind.VERSUS -> {
                 // `widget.show` refuses any other number of sides, so none is cut here.
-                sides = (m.list("sides") ?: odd()).takeIf { it.size == WidgetParser.SIDES }?.map {
+                val sides = (m.list("sides") ?: odd()).takeIf { it.size == WidgetParser.SIDES }?.map {
                     val s = obj(it)
                     WidgetSpec.Side(
                         name = s.needText("name"),
@@ -1107,14 +1119,27 @@ object WidgetJson {
                         value = s.number("value")?.coerceAtLeast(0f),
                         text = s.text("text"),
                         detail = s.text("detail")?.let(StyledText::capitalized),
+                        score = s.text("score"),
+                        clock = s.seconds("clock")?.coerceIn(0L, WidgetParser.MAX_CLOCK),
+                        lines = s.list("lines").orEmpty().take(WidgetParser.MAX_SIDE_LINES).map { l ->
+                            (l as? String)?.takeIf { t -> t.length <= MAX_TEXT && !StyledText.hasMarker(t) }
+                                ?.let(StyledText::capitalized) ?: odd()
+                        },
                     )
-                } ?: odd(),
-                score = m.needText("score"),
-                turn = m.number("turn")?.toInt()?.also { if (it !in 1..WidgetParser.SIDES) odd() },
-                moving = m.flag("moving"),
-                line = m.styled("caption")?.let(StyledText::capitalized),
-                badge = m.text("badge"),
-            )
+                } ?: odd()
+                val score = m.text("score")
+                // Without the card's score, every side has its own score or clock, as `widget.show` asks.
+                if (score == null && sides.any { it.score == null && it.clock == null }) odd()
+                WidgetSpec.Versus(
+                    base,
+                    sides = sides,
+                    score = score,
+                    turn = m.number("turn")?.toInt()?.also { if (it !in 1..WidgetParser.SIDES) odd() },
+                    moving = m.flag("moving"),
+                    line = m.styled("caption")?.let(StyledText::capitalized),
+                    badge = m.text("badge"),
+                )
+            }
 
             WidgetKind.SKY -> {
                 val rises = m.seconds("rises") ?: odd()

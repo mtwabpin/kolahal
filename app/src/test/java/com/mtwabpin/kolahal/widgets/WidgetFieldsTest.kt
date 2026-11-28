@@ -119,7 +119,7 @@ class WidgetFieldsTest {
                 "sides" to listOf(
                     mapOf(
                         "name" to "Nilsen", "mark" to "N", "color" to "accent", "value" to 72, "text" to "1:12",
-                        "detail" to "3rd · 41 pts",
+                        "detail" to "3rd · 41 pts", "score" to "1", "clock" to 252, "lines" to listOf("Moss 23'"),
                     ),
                     mapOf("name" to "Carter"),
                 ),

@@ -930,12 +930,12 @@ class ScriptWidgetCardTest {
             }
         }
         for ((name, look) in cards) {
-            draws(name, "2–1", "Harbor", "Ridge", "Updated 3 min ago")
+            draws(name, "2", "1", "Harbor", "Ridge", "Updated 3 min ago")
             val card = compose.onNode(hasTestTag("widget:$name")).fetchSemanticsNode().boundsInRoot
             val line = compose.onNode(inCard(name) and hasTestTag(FOOTER_TAG), useUnmergedTree = true)
                 .fetchSemanticsNode().boundsInRoot
             assertTrue("${look.id}: the line is outside the card", card.contains(line.topLeft) && card.contains(line.bottomRight))
-            for (word in listOf("2–1", "Harbor", "Ridge")) {
+            for (word in listOf("2", "1", "Harbor", "Ridge")) {
                 val b = compose.onNode(inCard(name) and hasText(word), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
                 assertTrue("${look.id}: $word is cut", card.contains(b.topLeft) && b.bottom <= card.bottom)
                 assertFalse("${look.id}: the line is over $word", b.overlaps(line))
@@ -945,7 +945,7 @@ class ScriptWidgetCardTest {
                     it.config.getOrNull(SemanticsProperties.ContentDescription)?.singleOrNull()?.endsWith(". Updated 3 minutes ago") == true
                 })
         }
-        draws(off, "2–1", "Harbor")
+        draws(off, "2", "1", "Harbor")
         assertFalse(texts(off).any { it.startsWith("Updated") })
         draws(tiny, "42")
         assertFalse(texts(tiny).any { it.startsWith("Updated") })

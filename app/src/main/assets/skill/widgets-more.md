@@ -36,7 +36,6 @@ A card draws for the space it gets: **small** (1x1), **wide** (one row: 2x1, 4x1
 - `clock`: small, or one zone: one large time. Wide: zones side by side. Large: a row a zone.
 - `image`: `caption` on large only. Cropped (`fit = "crop"`, the default) on wide and large, the picture covers the card.
 - `agenda`: as many events as fit, then "+3 more".
-- `versus`: a side's `detail` is left out at 2x1 and 1x1.
 
 ### Options of a card
 

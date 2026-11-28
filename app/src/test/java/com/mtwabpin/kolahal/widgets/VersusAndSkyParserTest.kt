@@ -73,7 +73,7 @@ class VersusAndSkyParserTest {
     @Test
     fun aVersusNeedsTwoSidesEachWithAName() {
         assertEquals(
-            "widget: sides is needed: the two sides, each { name, mark, color, value, text, detail }",
+            "widget: sides is needed: the two sides, each { name, mark, color, value, text, detail, score, clock, lines }",
             refused(mapOf("score" to "1–0"), WidgetKind.VERSUS)
         )
         assertEquals(
@@ -89,7 +89,7 @@ class VersusAndSkyParserTest {
             refused(mapOf("sides" to listOf(mapOf("name" to "A"), mapOf("mark" to "B")), "score" to "1–0"), WidgetKind.VERSUS)
         )
         assertEquals(
-            "widget: score is needed: the score between the sides, as text, such as \"2–1\"",
+            "widget: score is needed: the score between the sides, as text, such as \"2–1\", or each side's own score or clock",
             refused(mapOf("sides" to two), WidgetKind.VERSUS)
         )
         // An empty name or score, or one of blanks only, is refused as a missing one, as an image's alt is.
@@ -98,7 +98,7 @@ class VersusAndSkyParserTest {
             refused(mapOf("sides" to listOf(mapOf("name" to " "), mapOf("name" to "B")), "score" to "1–0"), WidgetKind.VERSUS)
         )
         assertEquals(
-            "widget: score is needed: the score between the sides, as text, such as \"2–1\"",
+            "widget: score is needed: the score between the sides, as text, such as \"2–1\", or each side's own score or clock",
             refused(mapOf("sides" to two, "score" to ""), WidgetKind.VERSUS)
         )
     }
@@ -152,7 +152,7 @@ class VersusAndSkyParserTest {
         assertEquals(WidgetParser.MAX_UNIT, spec.sides[0].text!!.length)
         assertEquals(WidgetParser.MAX_BADGE, spec.badge!!.length)
         assertEquals(WidgetParser.MAX_CAPTION, spec.line!!.length)
-        assertEquals(WidgetParser.MAX_SHORT, spec.score.length)
+        assertEquals(WidgetParser.MAX_SHORT, spec.score!!.length)
     }
 
     /** The last line is `caption`, as on a text or a picture card: `line` is no field. */

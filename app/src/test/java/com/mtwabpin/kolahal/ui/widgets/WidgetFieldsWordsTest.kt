@@ -59,6 +59,6 @@ class WidgetFieldsWordsTest {
             listOf(WidgetSpec.Side("North", detail = "3rd · 41 pts"), WidgetSpec.Side("South")),
             score = "2–1",
         )
-        assertEquals("Final: North 2–1 South, North 3rd · 41 pts", said("Final", match))
+        assertEquals("Final: North 2, 3rd · 41 pts, South 1", said("Final", match))
     }
 }

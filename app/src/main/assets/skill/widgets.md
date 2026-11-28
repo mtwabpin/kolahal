@@ -35,7 +35,7 @@ Each kind's own:
 - `clock`: `zones` (needed, 1 to 4 `{ zone, label }`, zone like `Asia/Kolkata`, `UTC`), `seconds` (bool). Give `staleAfter = 604800`.
 - `agenda`: `events` (needed, 20 kept, may be empty) `{ title, starts, ends, allDay, where, color, tap }` with `title` and `starts` needed; `days` (1 to 14, 3), `empty` (60). An all-day event starts at local midnight.
 - `image`: `image` (needed, an `https://` link), `alt` (needed, 200: what it shows), `caption` (60), `fit` (`crop`, `fit`).
-- `versus`: `sides` (needed, 2 `{ name, mark, color, value, text, detail }`, `name` needed, `value` ≥ 0, `detail` 24), `score` (needed), `turn` (1, 2), `moving`, `caption` (60).
+- `versus`: `sides` (needed, 2 `{ name, mark, color, value, text, detail, score, clock, lines }`, `name` needed, `value` ≥ 0, `lines` ≤ 3), `score` ("2–1" splits; optional with side scores or clocks), `turn` (1, 2), `moving`, `caption` (60). `score`, `clock`, `lines`: 0.5.23.
 - `sky`: `rises`, `sets` (needed, seconds; `sets` under a day after `rises`; the moon's next set after its rise), `phase` (0 to 1: the moon), `waxing`, `phases` (with `phase`, up to 4 `{ phase, waxing, at }`).
 
 A tap has one of: `{ args = "add 1" }` runs the script again with those words (`event.name` is `"action"`); `{ url = "https://…" }` opens a link. It may add `label` (24, for a screen reader) and, with `args`, `page = "log"` to show the log. A card without `tap` refreshes on a tap.

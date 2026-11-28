@@ -92,6 +92,18 @@ object WidgetParser {
     /** A line under a versus side's name: "3rd · 41 pts". */
     const val MAX_SIDE_DETAIL = 24
 
+    /** A versus side's own score: "187/4", "3", "½". */
+    const val MAX_SIDE_SCORE = 12
+
+    /** A versus side's clock, in seconds: under 100 hours, so it is drawn "99:59:59" at most. */
+    const val MAX_CLOCK = 359_999L
+
+    /** A versus side has up to this many lines under its name: scorers, batters. */
+    const val MAX_SIDE_LINES = 3
+
+    /** One of a versus side's lines: "Moss 23', 61'". */
+    const val MAX_SIDE_LINE = 24
+
     /** A stat's progress goes up to this with a target: past it, to twice the target. */
     const val MAX_OVER = 2.0
 
@@ -298,6 +310,9 @@ object WidgetParser {
      * Two sides and the score between them. `sides` has exactly [SIDES]: one more or one fewer is
      * an error, as a card with one side is no match. Each side needs its `name`.
      * - A side's `value` is its part of the bar between the sides. It is 0 or more.
+     * - A side's `score` is its own score, `clock` its seconds left (0 or more, under 100 hours),
+     *   and `lines` up to [MAX_SIDE_LINES] short texts under its name.
+     * - `score` is needed unless every side has its own score or clock.
      * - `turn` is 1 or 2: the side to move, or with the ball.
      */
     private fun versus(t: Table, base: WidgetBase, badge: String?): WidgetSpec.Versus {
@@ -305,6 +320,9 @@ object WidgetParser {
         val all = t.list("sides", shape) ?: t.fail("sides is needed: the two sides, each $shape")
         if (all.size != SIDES) t.fail("sides has ${all.size} ${if (all.size == 1) "side" else "sides"}: give $SIDES")
         val sides = t.items("sides", SIDES, shape, SIDE).map { s ->
+            s.list("lines", "texts")?.let {
+                if (it.size > MAX_SIDE_LINES) s.fail("lines has ${it.size} texts: give $MAX_SIDE_LINES at most")
+            }
             WidgetSpec.Side(
                 name = s.need("name", MAX_SHORT, SIDE_NAME_IS).ifEmpty { s.fail("name is needed: $SIDE_NAME_IS") },
                 mark = s.text("mark", MAX_ICON_NAME)?.takeSeen(MAX_MARK, MAX_ICON_UNITS)?.ifEmpty { null },
@@ -314,15 +332,25 @@ object WidgetParser {
                 }?.let(::float),
                 text = s.text("text", MAX_UNIT),
                 detail = s.label("detail", MAX_SIDE_DETAIL),
+                score = s.text("score", MAX_SIDE_SCORE),
+                clock = s.number("clock", "a number of seconds left, 0 or more")?.also {
+                    if (it < 0) s.fail("clock must be 0 or more seconds left, not ${shown(it)}")
+                    if (it > MAX_CLOCK) s.fail("clock must be under 100 hours ($MAX_CLOCK seconds at most), not ${shown(it)}")
+                }?.let { kotlin.math.floor(it).toLong() },
+                // A blank line is no line: the others close up.
+                lines = s.texts("lines", MAX_SIDE_LINES, MAX_SIDE_LINE).filter { it.isNotBlank() }.map(StyledText::capitalized),
             )
         }
         val turn = t.number("turn", "1 or 2, the side to move")?.also {
             if (it != 1.0 && it != 2.0) t.fail("turn must be 1 or 2, the side to move, not ${shown(it)}")
         }?.toInt()
+        val own = sides.all { it.score != null || it.clock != null }
+        val score = if (own) t.text("score", MAX_SHORT) else
+            t.need("score", MAX_SHORT, SCORE_IS).ifEmpty { t.fail("score is needed: $SCORE_IS") }
         return WidgetSpec.Versus(
             base,
             sides = sides,
-            score = t.need("score", MAX_SHORT, SCORE_IS).ifEmpty { t.fail("score is needed: $SCORE_IS") },
+            score = score,
             turn = turn,
             moving = t.flag("moving"),
             line = t.label("caption", MAX_CAPTION, styled = true),
@@ -371,7 +399,7 @@ object WidgetParser {
 
     private const val ALT_IS = "what the picture shows, in words, for a screen reader"
     private const val SIDE_NAME_IS = "the side's name, such as a player or a team"
-    private const val SCORE_IS = "the score between the sides, as text, such as \"2–1\""
+    private const val SCORE_IS = "the score between the sides, as text, such as \"2–1\", or each side's own score or clock"
 
     /**
      * A picture from the web. The script gives its link, and home fetches it.

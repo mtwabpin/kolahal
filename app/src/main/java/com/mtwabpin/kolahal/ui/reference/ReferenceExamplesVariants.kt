@@ -1967,63 +1967,128 @@ internal object ReferenceExamplesVariants {
             lua = """
             widget.show{
               kind = "versus",
-              title = "Berlin",
-              score = "1½–½",
-              turn = 1,
+              title = "Blitz",
+              badge = "3+2",
+              turn = 2,
               moving = true,
               sides = {
                 {
-                  name = "Nilsen",
-                  mark = "NO",
-                  value = 72,
-                  text = "1:12",
+                  name = "Iris Novak",
+                  mark = "IN",
+                  clock = 252,
+                  detail = "2214 · White",
                 },
                 {
-                  name = "Carter",
-                  mark = "US",
-                  value = 3490,
-                  text = "58:10",
+                  name = "Tomas Brandt",
+                  mark = "TB",
+                  clock = 238,
+                  detail = "2187 · Black",
                 },
               },
-              caption = "17. b3",
+              caption = "31. Nf3",
             }
             """,
             js = """
             widget.show({
               kind: "versus",
-              title: "Berlin",
-              score: "1½–½",
-              turn: 1,
+              title: "Blitz",
+              badge: "3+2",
+              turn: 2,
               moving: true,
               sides: [
                 {
-                  name: "Nilsen",
-                  mark: "NO",
-                  value: 72,
-                  text: "1:12",
+                  name: "Iris Novak",
+                  mark: "IN",
+                  clock: 252,
+                  detail: "2214 · White",
                 },
                 {
-                  name: "Carter",
-                  mark: "US",
-                  value: 3490,
-                  text: "58:10",
+                  name: "Tomas Brandt",
+                  mark: "TB",
+                  clock: 238,
+                  detail: "2187 · Black",
                 },
               ],
-              caption: "17. b3",
+              caption: "31. Nf3",
             });
             """,
             of = "versus", variant = "A game of chess",
         ) { _, _ ->
+            // Each side's clock in seconds left: the side to move's counts down on the phone.
             WidgetSpec.Versus(
-                WidgetBase(title = "Berlin"),
+                WidgetBase(title = "Blitz"),
                 listOf(
-                    WidgetSpec.Side("Nilsen", mark = "NO", value = 72f, text = "1:12"),
-                    WidgetSpec.Side("Carter", mark = "US", value = 3490f, text = "58:10"),
+                    WidgetSpec.Side("Iris Novak", mark = "IN", detail = "2214 · White", clock = 252),
+                    WidgetSpec.Side("Tomas Brandt", mark = "TB", detail = "2187 · Black", clock = 238),
                 ),
-                score = "1½–½",
+                turn = 2,
+                moving = true,
+                line = "31. Nf3",
+                badge = "3+2",
+            )
+        },
+        Widget(
+            "versus-scores", WidgetKind.VERSUS, WidgetSize.S2X2, "Match",
+            lua = """
+            widget.show{
+              kind = "versus",
+              title = "Cup final",
+              badge = "LIVE",
+              turn = 1,
+              moving = true,
+              sides = {
+                {
+                  name = "Harbour",
+                  score = "187/4",
+                  text = "18.2 ov",
+                  lines = { "Ames 64* (38)", "Kahn 22* (11)" },
+                },
+                {
+                  name = "Valley",
+                  score = "201/6",
+                  text = "20 ov",
+                  lines = { "Ruiz 3/28 (4)" },
+                },
+              },
+              caption = "Need 15 off 10",
+            }
+            """,
+            js = """
+            widget.show({
+              kind: "versus",
+              title: "Cup final",
+              badge: "LIVE",
+              turn: 1,
+              moving: true,
+              sides: [
+                {
+                  name: "Harbour",
+                  score: "187/4",
+                  text: "18.2 ov",
+                  lines: ["Ames 64* (38)", "Kahn 22* (11)"],
+                },
+                {
+                  name: "Valley",
+                  score: "201/6",
+                  text: "20 ov",
+                  lines: ["Ruiz 3/28 (4)"],
+                },
+              ],
+              caption: "Need 15 off 10",
+            });
+            """,
+            of = "versus", variant = "Each side's own score",
+        ) { _, _ ->
+            WidgetSpec.Versus(
+                WidgetBase(title = "Cup final"),
+                listOf(
+                    WidgetSpec.Side("Harbour", text = "18.2 ov", score = "187/4", lines = listOf("Ames 64* (38)", "Kahn 22* (11)")),
+                    WidgetSpec.Side("Valley", text = "20 ov", score = "201/6", lines = listOf("Ruiz 3/28 (4)")),
+                ),
                 turn = 1,
                 moving = true,
-                line = "17. b3",
+                line = "Need 15 off 10",
+                badge = "LIVE",
             )
         },
         Widget(

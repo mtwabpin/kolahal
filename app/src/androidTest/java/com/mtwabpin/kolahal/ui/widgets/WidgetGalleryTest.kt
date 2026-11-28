@@ -978,8 +978,8 @@ class WidgetGalleryTest {
             ),
             inView = true,
         ),
-        // A game of chess whose running clock is a wave, a match with possession as its bar, and the narrow card.
-        Shot("kind-versus", WidgetSize.S4X1, "Berlin", chess, inView = true),
+        // A game of chess whose running clock counts down, a match with possession as its bar, and the narrow card.
+        Shot("kind-versus", WidgetSize.S4X1, "Blitz", chess, inView = true),
         Shot("kind-versus", WidgetSize.S2X2, "League", match),
         Shot("kind-versus", WidgetSize.S2X1, "League", match),
         // The sun by day, the sun at night under the horizon, and the moon with its next phases.
@@ -990,17 +990,17 @@ class WidgetGalleryTest {
         Shot("kind-sky-moon", WidgetSize.S2X1, "Moon", moon),
     )
 
-    /** A game of chess: Nilsen to move, his clock running. */
+    /** A game of blitz: Black to move, its clock running. */
     private val chess = WidgetSpec.Versus(
-        base("Berlin"),
+        base("Blitz"),
         listOf(
-            WidgetSpec.Side("Nilsen", mark = "NO", value = 72f, text = "1:12"),
-            WidgetSpec.Side("Carter", mark = "US", value = 3490f, text = "58:10"),
+            WidgetSpec.Side("Iris Novak", mark = "IN", detail = "2214 · White", clock = 252),
+            WidgetSpec.Side("Tomas Brandt", mark = "TB", detail = "2187 · Black", clock = 238),
         ),
-        score = "1½–½",
-        turn = 1,
+        turn = 2,
         moving = true,
-        line = "17. b3 · Berlin",
+        line = "31. Nf3",
+        badge = "3+2",
     )
 
     /** A match in its 67th minute, with possession as the bar. */
@@ -1425,10 +1425,9 @@ class WidgetGalleryTest {
                 WidgetSpec.Versus(
                     base(icon = "cricket", color = ColorRole.GOOD),
                     listOf(
-                        WidgetSpec.Side("India", mark = "I", value = 237f),
-                        WidgetSpec.Side("New Zealand", mark = "NZ", value = 63f, text = "Target 300"),
+                        WidgetSpec.Side("India", mark = "I", value = 237f, text = "40 ov", score = "237/4"),
+                        WidgetSpec.Side("New Zealand", mark = "NZ", value = 63f, text = "50 ov", score = "299/8"),
                     ),
-                    score = "237/4 · 299/8",
                     turn = 1,
                     moving = true,
                     line = "India require 63 runs with 60 balls remaining",

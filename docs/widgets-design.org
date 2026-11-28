@@ -1296,23 +1296,37 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
 
 *** 13. =versus=: two sides and a score                                       :built:
 
-- Shows :: Two sides, each with its name and its mark (a letter or two on a Material shape, in the
-  side's color), and the score large between them. A bar of two parts, one for each side, with
-  each side's figure at its end: the clocks' time left, the possession. A dot marks the side to
-  move. A last line and a small badge at the top.
+- Shows :: A scoreboard: one row a side in columns the two rows share: the side's mark (a letter
+  or two on a Material shape, in the side's color), its name with a dot when it is its turn, a
+  small figure (its =text=, or its clock) and its score at the row's end. Both scores take one
+  size, the largest that fits the wider. A thin bar of two parts under the rows when both sides
+  have a value. A score that doesn't split ("W/O") is drawn whole, apart from the rows.
 - Fields :: =sides= (exactly 2, each =name= (needed, 24), =mark= (2 characters as seen),
-  =color=, =value= (0 or more: its part of the bar), =text= (12: its figure), =detail= (24, 0.5.22:
-  a line under the name, not at 2×1 or 1×1)). =score= (needed,
-  24). =turn= (1 or 2). =moving= (the turn's part of the bar is a wave). =caption= (60, may have
-  styles). =badge= (8).
-- When wide :: A 4×1 card: each name beside its mark, the score with the badge and the last line
-  between them, the bar under them. Narrower (2×1): the score between the marks and the names
-  under them, no bar.
-- When large :: The title and the badge, the marks either side of the score with the names under
-  them, the bar and the last line.
-- When small :: The score over the two marks.
-- Looks :: All but Shape: the marks are shapes in every look. Bold has the score in Bold's type
-  in the card's color, Split each side and the score on tiles.
+  =color=, =value= (0 or more: its part of the bar), =text= (12: its small figure), =detail= (24,
+  0.5.22: a line under the name), =score= (12, 0.5.23: its own score), =clock= (seconds left,
+  0.5.23: drawn 4:12 or 1:04:12; the big figure without a score, else in =text='s place) and
+  =lines= (up to 3 of 24, 0.5.23: under the name at 4×2)). =score= (24: split between the sides
+  where it is two parts around "–", "-", ":" or " · "; needed unless every side has its own score
+  or clock). =turn= (1 or 2). =moving= (the turn's part of the bar is a wave, and its clock counts
+  down between runs from when the content was set). =caption= (60, may have styles). =badge= (8).
+- Alignment :: One custom layout measures both sides' marks, figures and scores, gives each column
+  the wider part's width and the names what is left, and centers each row's parts on one line. So
+  marks, names and scores of the two rows share their center lines whatever the texts are. A
+  right-to-left phone mirrors it.
+- Gives way :: Where room runs out, in this order: the sides' lines, their details, the caption,
+  the small figures, the badge. Names are cut with "…" last; marks and scores never go. A screen
+  reader still says everything, in this order: the badge; each side as "name score, figure,
+  detail", with "name's turn" after the side to move, then its lines; the caption.
+- When wide :: 4×1: the two rows, and at the end a status column (84 to 124 dp, as wide as what it
+  holds) with a whole score, the badge, the caption on up to two lines, the script's footer and the
+  card's age; gone when it is empty. 2×1: the two rows, a whole score at the end.
+- When large :: A header with the title and the badge (4×2: a whole score too), the rows with each
+  side's line under its name (2×2: its small figure and detail; 4×2: its detail, then its lines
+  joined with " · ", with the small figures in a column), the bar, and the caption at the foot.
+- When small :: The marks and the scores; a whole score over the two marks.
+- Looks :: All but Shape: the marks are shapes in every look. Bold has the scores in Bold's type
+  in the card's color, Split the rows, the status column, the header and the foot on tiles. Tonal
+  draws the marks on the page's color: its card is the accent's container, the first mark's fill.
 - Data :: The library's football and cricket scripts, and chess in the shared scripts repository
   ([[src:ui/widgets/WidgetVersus.kt::internal fun VersusBody][VersusBody]]).
 - Taps :: The card.
@@ -1752,8 +1766,8 @@ them.
 
 *** 23. Live score                                               :phase3:built:
 
-- Shows :: The followed match on a versus card: the two sides with their initials, the score
-  between them, LIVE, RESULT or the minute as the badge, and a last line (how a cricket match
+- Shows :: The followed match on a versus card: a row for each side with its initials and its score
+  (cricket: its own and its overs), LIVE, RESULT or the minute as the badge, and a last line (how a cricket match
   stands, football's last goal). The bar is football's possession, or in a cricket chase the runs
   against the target; a dot marks the side batting. With no live match: a stat, "No live match".
 - Sizes :: 2×1, 4×1.
@@ -1766,7 +1780,8 @@ them.
   widget.
 - Sketch ::
   #+begin_src js
-  widget.show({ kind: "versus", icon: "cricket", score, sides, badge: "LIVE", caption: status,
+  // sides: each { name, mark, score, text: overs }
+  widget.show({ kind: "versus", icon: "cricket", sides, badge: "LIVE", caption: status,
     turn: batting + 1, moving: true, color: "good", refresh: Math.max(10, Number(options.refresh) || 30),
     staleAfter: 60, tap: { args: "live", page: "log", label: "Live matches" } });
   #+end_src

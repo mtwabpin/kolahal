@@ -196,20 +196,22 @@ class FooterValueDetailCardTest {
         badge = "67'",
     )
 
-    /** A side's detail is under its name at 4×2 and 4×1; a 2×1 card has the names under the marks and no detail. */
+    /** A side's detail is under its name at 4×2 and 2×2; the rows of a 4×1 and a 2×1 card have no room under the names. */
     @Test
     fun aVersusSideHasItsDetailWhereThereIsRoom() {
         show(match(), 403.dp, 196.dp)
         assertTrue(texts().toString(), texts().containsAll(listOf("North", "3rd · 41 pts", "South", "7th · 33 pts")))
-        show(match(), 403.dp, 94.dp)
+        show(match(), 196.dp, 196.dp)
         assertTrue(texts().toString(), texts().containsAll(listOf("3rd · 41 pts", "7th · 33 pts")))
+        show(match(), 403.dp, 94.dp)
+        assertFalse(texts().toString(), "3rd · 41 pts" in texts())
         show(match(), 196.dp, 94.dp)
         assertFalse(texts().toString(), "3rd · 41 pts" in texts())
     }
 
-    /** A 4×1 versus card writes the footer on its last line itself, with Last updated off. */
+    /** A 4×1 versus card writes the footer in its status column itself, under the caption, with Last updated off. */
     @Test
-    fun aOneRowVersusCardHasTheFooterOnItsLastLine() {
+    fun aOneRowVersusCardHasTheFooterInItsStatusColumn() {
         show(match().copy(base = WidgetBase(title = "Final", footer = "League table")), 403.dp, 94.dp)
         footers().assertCountEquals(1)
         assertTrue(texts().toString(), texts().containsAll(listOf("Second half", "League table")))
