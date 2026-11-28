@@ -44,7 +44,7 @@ android {
         minSdk = 28
         targetSdk = 37
         versionCode = 49
-        versionName = "0.5.22"
+        versionName = "0.5.23-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // The call log, READ_CONTACTS and REQUEST_INSTALL_PACKAGES (`update`) are in the manifest; the play build
         // leaves them out. The accessibility service (double-tap / `lock`) and SYSTEM_ALERT_WINDOW (a one-off shader
