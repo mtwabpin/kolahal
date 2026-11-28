@@ -144,6 +144,26 @@ ships (the release notes then say what changed).
   counted first. The second fix is a new rule for scripts.
 - Remark:
 
+** TODO [#B] Device tests use the old compose rule, which can draw a frame off the main thread  :arch:
+- What you'd see: now and then a device test crashes the whole run as a screen closes
+  ("Detected multithreaded access to SnapshotStateObserver", then "Must run
+  runDetachLifecycle() once…"), and passes when run again. Seen in =HomeScreenTest= (0.5.22's
+  checks) and =KeyBarTest= (21 November 2026). The app isn't affected: it always composes on the
+  main thread.
+- Why: the old =createComposeRule= (=androidx.compose.ui.test.junit4=) runs composition on an
+  =UnconfinedTestDispatcher=, so a StateFlow set on a worker thread (=LogPager.reload= sets its rows
+  on IO) wakes its collector there, and that frame is applied off the main thread while the main
+  thread draws.
+- Done (28 November 2026): =HomeScreenTest= and =TtyHomeTest= use
+  =androidx.compose.ui.test.junit4.v2.createComposeRule= (commit 86259abd); 100 of 100 runs passed
+  after.
+- Left: the other 77 device test files (=git grep -l createComposeRule -- app/src/androidTest=, and
+  =createAndroidComposeRule=). Move each to the v2 rule. Its =StandardTestDispatcher= runs
+  coroutines later than the old one, so a test that expected a change at once needs =waitForIdle()=
+  or the test clock. Run each changed class, then the whole suite once.
+- Planned for the week of 30 November 2026.
+- Remark:
+
 ** TODO [#C] A widget's stored form still reads and writes each field by hand  :arch:
 - Half done (27 November 2026): each kind's fields are declared once, in
   =widgets/WidgetFields.kt=. The parser's known fields and its "has no field 'x'; use …", its
