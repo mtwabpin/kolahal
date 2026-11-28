@@ -34,12 +34,6 @@ class AppSessions(
         /** The phone was unlocked (KEYGUARD_HIDDEN): not read for sessions, only for how long it was locked before ([AppUsage.read]). */
         const val UNLOCKED = 18
 
-        /**
-         * With no event of any kind for this long, the app in front was not in use: the phone was off
-         * with no "shut down" written (a flat battery), or it slept. Its session ends at the last event.
-         */
-        const val SILENT_MS = 6 * 3_600_000L
-
         /** An app that comes back within this long after it went away, with no other app between, did not close: it changed screens. */
         const val SAME_SESSION_MS = 5_000L
 
@@ -65,7 +59,11 @@ class AppSessions(
          * - An app opens when its screen comes to the front after another app's, after the screen
          *   was off, or after it was away for more than [SAME_SESSION_MS].
          * - A session ends when another app comes to the front, the screen goes off, the phone locks
-         *   or shuts down; it ends when the app went away, if that was first.
+         *   or shuts down; it ends when the app went away, if that was first. It lasts however long
+         *   that takes: only what Android records ends it.
+         * - A start-up with no shut-down before it (a flat battery) ends the session at the last event
+         *   before the start-up.
+         * - A session still open at [until] runs to [until].
          * - An app whose first event is a screen going away was in front since before [from].
          */
         fun sessions(events: List<Event>, from: Long, until: Long): Pair<List<Session>, String?> {
@@ -92,11 +90,10 @@ class AppSessions(
                 frontSince = at
                 opened = true
             }
-            // The time of the last event read: a session ends there after a long silence, or a start-up.
+            // The time of the last event read: a start-up ends a session there.
             var lastEvent = from
             for (e in events) {
                 if (e.time !in from..<until) continue
-                if (front != null && e.time - lastEvent > SILENT_MS) close(awayAt ?: lastEvent)
                 val before = lastEvent
                 lastEvent = e.time
                 when (e.type) {
@@ -140,8 +137,6 @@ class AppSessions(
                     }
                 }
             }
-            // Silent up to the window's end: not in use since its last event.
-            if (front != null && until - lastEvent > SILENT_MS) close(awayAt ?: lastEvent)
             val stillInFront = front.takeIf { awayAt == null }
             close(awayAt ?: until)
             return out to stillInFront

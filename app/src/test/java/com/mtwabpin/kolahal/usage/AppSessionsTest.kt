@@ -185,22 +185,64 @@ class AppSessionsTest {
         assertEquals(mapOf(app to 25 * min, other to 15 * min), totals)
     }
 
-    /** A flat battery writes no "shut down": the start-up after it, or 6 hours with no event, ends the session at its last event. */
+    /** Seven hours in front with nothing else happening: seven hours, still in front at the end. */
     @Test
-    fun aSilenceEndsASession() {
+    fun aLongSessionCountsInFull() {
+        val s = of(listOf(front(app, 10 * min)), until = 10 * min + 7 * 60 * min)
+        assertEquals(7 * 60 * min, s.total)
+        assertEquals(1, s.opens)
+        assertTrue(s.inFront)
+    }
+
+    /** Eight hours in front, ended by the screen going off: eight hours. */
+    @Test
+    fun theScreenGoingOffEndsALongSession() {
         val s = of(
+            front(app, 10 * min),
+            Event(AppSessions.SCREEN_OFF, "android", 10 * min + 8 * 60 * min)
+        )
+        assertEquals(8 * 60 * min, s.total)
+        assertEquals(8 * 60 * min, s.longest)
+        assertFalse(s.inFront)
+    }
+
+    /** In front from 6 hours before midnight with no event since, past midnight: cut at midnight, both days count. */
+    @Test
+    fun aSilentSessionOverMidnightCountsOnBothDays() {
+        val day = 24 * 60 * min
+        val (all, _) = AppSessions.sessions(
+            listOf(
+                front(app, day - 6 * 60 * min - 10 * min),
+                Event(AppSessions.SCREEN_OFF, "android", day + 30 * min)
+            ),
+            from, 2 * day
+        )
+        assertEquals(6 * 60 * min + 10 * min, AppSessions.totals(AppSessions.clip(all, from, day))[app])
+        val after = AppSessions.clip(all, day, 2 * day)
+        assertEquals(30 * min, AppSessions.totals(after)[app])
+        assertFalse(after.single().opened)
+    }
+
+    /** A shut-down ends the session where it is recorded; with none (a flat battery), the start-up after ends it at its last event. */
+    @Test
+    fun shutDownAndStartUpEndASession() {
+        assertEquals(UsageEvents.Event.DEVICE_STARTUP, AppSessions.STARTUP)
+        val off = of(
+            front(app, 10 * min),
+            Event(AppSessions.SHUTDOWN, "android", 40 * min),
+            Event(AppSessions.STARTUP, "android", 600 * min),
+            front(other, 601 * min)
+        )
+        assertEquals(30 * min, off.total)
+        val flat = of(
             front(app, 10 * min),
             away(app, 20 * min),
             front(app, 20 * min + 100),
             Event(AppSessions.STARTUP, "android", 600 * min),
             front(other, 601 * min)
         )
-        assertEquals(10 * min + 100, s.total)
-        assertEquals(UsageEvents.Event.DEVICE_STARTUP, AppSessions.STARTUP)
-        // In front, and nothing since for 7 hours up to the end of the window.
-        val quiet = of(listOf(front(app, 10 * min)), until = 10 * min + 7 * 60 * min)
-        assertEquals(0L, quiet.total)
-        assertFalse(quiet.inFront)
+        assertEquals(10 * min + 100, flat.total)
+        assertFalse(flat.inFront)
     }
 
     @Test

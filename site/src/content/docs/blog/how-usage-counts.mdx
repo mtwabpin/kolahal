@@ -40,7 +40,7 @@ Android keeps this record for a few days only, about 10 on many phones. The olde
 
 ## What counts as time in an app
 
-A session starts when a screen of an app comes to the front. It ends when another app comes to the front, the screen goes off, the phone locks, or the phone shuts down.
+A session starts when a screen of an app comes to the front. It ends when another app comes to the front, the screen goes off, the phone locks, or the phone shuts down. Only those end it: a session counts in full, however long it is.
 
 Counted:
 
@@ -48,13 +48,13 @@ Counted:
 - The phone's call screen, while it is in front with the screen on. On some phones that screen belongs to a part of Android that has no name Kolahal can read: its time is then in **Other apps**.
 - Hidden apps, under their names.
 - Apps you have since uninstalled: their time stays in the total, in **Other apps**.
+- A long session with nothing else happening, such as a video or a map that keeps the screen on through a 7-hour drive: 7 hours.
 
 Not counted:
 
 - The lock screen and the always-on display: the session ends when the phone locks or the screen goes off.
 - A video in picture-in-picture: Android pauses an app when it goes into that small window, so the time goes to the app in front, or to home.
 - In split screen, Kolahal counts one app at a time: the one that came to the front last.
-- A stretch of more than six hours in which nothing at all happens: no app changes, the screen doesn't go off. Kolahal takes it as a phone left on its own (for example, one that died with a flat battery), and that whole stretch counts nothing. A video or a map that keeps the screen on for more than six hours with nothing else happening counts no time for that stretch.
 - Apps in a work profile or a private space: Android gives Kolahal the usage of the personal profile only.
 
 ## Why the total differs from Digital Wellbeing
