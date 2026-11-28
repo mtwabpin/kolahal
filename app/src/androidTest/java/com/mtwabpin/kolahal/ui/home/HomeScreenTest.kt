@@ -30,7 +30,7 @@ import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -90,6 +90,12 @@ import java.util.TimeZone
 class HomeScreenTest {
     @get:Rule
     val vms = com.mtwabpin.kolahal.TestViewModels()
+    /**
+     * The v2 rule: its composition runs its coroutines on the main thread. The old rule's ran them
+     * on whatever thread resumed them, so the log's reload, setting its rows on a worker thread,
+     * could recompose there while the main thread drew, and closing the screen then crashed
+     * (aQuickActionRuns, 28 November 2026).
+     */
     @get:Rule
     val compose = createComposeRule()
     private val app =
