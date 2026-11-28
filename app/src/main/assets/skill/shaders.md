@@ -32,7 +32,6 @@ Comments at the top, all optional:
 | `// @text` | It works on text, so it can't be a live wallpaper. |
 | `// @animated` | It changes by itself: drawn up to 30 times a second, and `time` moves. Without it, it is drawn only when something changes. |
 | `// @fps 10` | Frames a second when animated, 1 to 30, for slow scenes. |
-| `// @still 41.5` | Where a picture of it starts, in seconds of `time`, 0 to 120. |
 | `// @settles 4` | Seconds a touch changes it, 0.5 to 60 (60). One whose only clock is `touchAge` stops after that until the next touch. |
 | `// @once 3` | A one-off: plays for this many seconds (1 to 10) over the shader that is on, then goes. Start and end with nothing. |
 | `// @author …` | Who made it. |
@@ -63,7 +62,6 @@ Declare only those you use; Kolahal sets them. A uniform of another name stays 0
 | `corner` | `float` | the radius of the screen's rounded corners in pixels; 0 when square or in a preview |
 | `cutout` | `float4` | the camera cutout at the top: left, top, right, bottom in pixels; all 0 without one |
 | `wallpaper` | `float` | 1 as the live wallpaper (then `content` is the theme's background alone), else 0 |
-| `seed` | `float` | 0, but in a picture after Shuffle: add it where noise is read, so 0 keeps the scene |
 | `dark` | `float` | 1 in a dark theme, 0 in a light one |
 | `date` | `float4` | year, month (1 to 12), day of the month, seconds since midnight, local time. A still shader with it is drawn again each minute |
 | `bg` `surface` `fg` `dim` `accent` `error` `warn` `good` `info` `link` | `half4` | the theme's colors; declare each as `layout(color) uniform half4 accent;` |

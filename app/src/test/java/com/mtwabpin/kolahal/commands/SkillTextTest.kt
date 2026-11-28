@@ -29,6 +29,13 @@ import org.junit.Test
  * And the command that copies them is offered to nobody, but runs when typed in full.
  */
 class SkillTextTest {
+    /**
+     * What only Lab's picture maker reads, which the guides leave out while Lab is hidden: the header's
+     * `@still` and the `seed` uniform (0 everywhere else).
+     */
+    private val labOnlyWords = setOf(ShaderMeta.STILL)
+    private val labOnlyUniforms = setOf(ShaderMeta.SEED)
+
     /** Each guide's text, as the command copies it. */
     private val guides: Map<Guide, String> =
         Guide.entries.associateWith { g -> g.assemble { sourceFile("src/main/assets/$it").readText() } }
@@ -188,7 +195,8 @@ class SkillTextTest {
         val said = Regex("said\\(([^)]*)\\)").findAll(source)
             .flatMap { call -> quoted.findAll(call.groupValues[1]).map { it.groupValues[1] } }
         val inTags = Regex("\"(\\w+)\" in tags").findAll(source).map { it.groupValues[1] }
-        (said + inTags).toSet() + ShaderMeta.FPS + ShaderMeta.SETTLES + ShaderSuits.DIRECTIVE + ShaderParam.DIRECTIVE
+        (said + inTags).toSet() + ShaderMeta.FPS + ShaderMeta.SETTLES + ShaderSuits.DIRECTIVE + ShaderParam.DIRECTIVE -
+            labOnlyWords
     }
 
     /** Every header word a shader can have is there, and the table has no other. */
@@ -211,7 +219,7 @@ class SkillTextTest {
         for (guide in having("### Uniforms")) {
             val rows = section(guide, "### Uniforms").lines().filter { it.startsWith("| `") }
             val named = rows.flatMap { spans(firstCells(it).single()) }
-            assertEquals(guide.command, (ShaderMeta.KNOWN.keys + ShaderMeta.INPUT).sorted(), named.sorted())
+            assertEquals(guide.command, (ShaderMeta.KNOWN.keys - labOnlyUniforms + ShaderMeta.INPUT).sorted(), named.sorted())
             for (row in rows) {
                 val type = spans(row.split(" | ")[1]).single()
                 for (name in spans(firstCells(row).single())) {

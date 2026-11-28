@@ -148,23 +148,6 @@ list of live wallpapers, for a phone whose wallpaper settings don't link to it.
 
 To see it behind the log, use [`log.wallpaper`](/reference/config/#log).
 
-## A picture from a shader
-
-With [Lab](/guides/themes-and-settings/#lab) on, a scene can also become a still picture: a wallpaper that costs no
-power, or a picture to keep or share. Open the scene's details and tap **Make a picture**, under **Set as wallpaper**,
-or type `wallpaper picture pond`. Shaders that change text and one-off shaders can't make one, as they can't be a
-live wallpaper. Lab's features may change or go in a later version.
-
-- The picture is at the top, in your screen's proportions, and follows every change. Tap it to see it on the whole screen.
-- Under it are the scene's parameters. What you change here stays with the picture: home and the live wallpaper keep theirs.
-- **Frame** picks the moment of a scene that moves, **Time of day** the hour of one that follows it, and **Shuffle**
-  another arrangement of a scene that declares `seed`. Each shows only where the scene has it.
-- **Dark** or **Light** picks the theme's colors, and **Size** the picture's: this screen, 2K or 4K, at your screen's
-  proportions. A larger picture is a larger copy of the screen, not a finer one. A size the phone can't draw is greyed, with why.
-- **Save to gallery** puts it in Pictures/Kolahal; **Undo** in the message deletes it again. **Share** is at the top.
-- **Set as wallpaper** opens Android's own screen to crop it and choose the home screen, the lock screen or both. On a
-  phone without that screen Kolahal asks where, and replaces your wallpaper itself: the old one can't come back.
-
 ## One-off shaders
 
 A one-off shader runs once for some seconds, over the shader that is on, and goes. It draws over everything on the
@@ -417,7 +400,6 @@ Comments at the top say what the shader is. All are optional:
 | `// @once 6` | it is a [one-off](#one-off-shaders), and runs for this many seconds |
 | `// @animated` | it changes on its own, so it is drawn up to 30 times a second. Without it a shader is only drawn when the screen changes, so it uses no power while the screen is still |
 | `// @fps 10` | an `@animated` shader is drawn this many times a second, from 1 to 30 (30 without it). Use it for a scene that moves slowly, such as drifting mist, which looks the same at 10 |
-| `// @still 41.5` | where a [picture](#a-picture-from-a-shader) of it starts, in seconds of `time`, from 0 to 120 (0 without it). Pick a moment where the scene looks its best |
 | `// @settles 4` | a touch changes the picture for this many seconds, from 0.5 to 60 (60 without it). Use it for ripples or ink that fade: a shader that reads the touch is drawn 30 times a second for that long, and one whose only clock is `touchAge` stops then until the next touch |
 | `// @author …` | who made it. A shared shader needs it, as it does `@version` and `@license` |
 | `// @version 1.0` | its version |
@@ -516,8 +498,7 @@ of another name stays 0. `shader check` lists both.
 | `charging` | `float` | 1 while the phone is plugged in, otherwise 0 |
 | `corner` | `float` | the radius of the screen's rounded corners, in pixels: the largest, where they differ. 0 when they are square, and where the surface isn't the whole screen, as in a shader's details. Use it to keep what you draw at the edges inside the screen |
 | `cutout` | `float4` | the camera's cutout at the top of the screen, in pixels: left, top, right, bottom. All 0 when there is none, in landscape (where the camera is at a side), and where the surface isn't the whole screen. Use it to keep what you draw at the top clear of the camera |
-| `wallpaper` | `float` | 1 as a [live wallpaper](#as-a-live-wallpaper) and in a [picture](#a-picture-from-a-shader), where `content` is the theme's background alone, otherwise 0 |
-| `seed` | `float` | the scene's arrangement: 0 on home and as the live wallpaper, another number after **Shuffle** in a [picture](#a-picture-from-a-shader). Declaring it is what offers Shuffle. Add it to where your noise is read (`noise(x, 17.0 + seed)`), so 0 keeps the scene as it is |
+| `wallpaper` | `float` | 1 as a [live wallpaper](#as-a-live-wallpaper), where `content` is the theme's background alone, otherwise 0 |
 | `dark` | `float` | 1 in a dark theme, 0 in a light one |
 | `date` | `float4` | the phone's date and time: the year, the month (1 to 12), the day of the month, and the seconds since midnight, in local time. A shader that isn't `@animated` is drawn again once a minute when it declares it |
 | `bg` `surface` `fg` `dim` `accent` `error` `warn` `good` `info` `link` | `half4` | the theme's colors. Declare them with `layout(color)`, so they match the screen's colors |

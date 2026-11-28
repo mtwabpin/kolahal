@@ -40,7 +40,7 @@ Before the compiler, `problems` stop a shader. The editor shows **Saved · can't
 - `the parameter 'amount' is there twice`
 - `the parameter 'amount' needs 'uniform float amount;'`
 
-These lines are left out, and the shader still works: `@fps` that isn't a whole number from 1 to 30, `@settles` that isn't 0.5 to 60, `@still` that isn't 0 to 120. A `@once` that isn't a number makes no one-off; one outside 1 to 10 is brought into that range. `@once` makes it animated by itself. Words in `@suits` it can't read are left out.
+These lines are left out, and the shader still works: `@fps` that isn't a whole number from 1 to 30, `@settles` that isn't 0.5 to 60. A `@once` that isn't a number makes no one-off; one outside 1 to 10 is brought into that range. `@once` makes it animated by itself. Words in `@suits` it can't read are left out.
 
 Kolahal turns a shader off at the next start if Kolahal stopped or hung while it was on in its first 10 seconds, and after three such times turns `screen.shader` off. Two fingers held still for a second turn a shader off.
 

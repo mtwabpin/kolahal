@@ -222,7 +222,6 @@ How home looks: its colors, its font, what is drawn over it and what is behind i
 | `wallpaper theme` | | a plain wallpaper in your theme's color, so your wallpaper doesn't flash when you swipe home. It follows the theme until you set another wallpaper. Kolahal asks you to confirm first, because the old wallpaper can't be restored. The lock screen wallpaper doesn't change. **Settings → Look & feel → Wallpaper** has it too, with a shader and Android's list beside it. See the [FAQ](/reference/faq/#what-wallpaper-theme-does) |
 | `wallpaper shader <name>` | | open Android's own preview with a shader as your [live wallpaper](/scripting/shaders/#as-a-live-wallpaper), to set it for the home screen, the lock screen or both |
 | `wallpaper live` | | open Android's own list of live wallpapers, for a phone whose wallpaper settings don't link to it |
-| `wallpaper picture <name>` | | with [Lab](/guides/themes-and-settings/#lab) on: make [a still picture](/scripting/shaders/#a-picture-from-a-shader) of a scene, to save, share or set as your wallpaper |
 
 With `shader crt` (or [another, or one of yours](/scripting/shaders/)), the phone's
 graphics chip draws an effect over home and the screens, on Android 13 and newer. `shader off` turns it off.
