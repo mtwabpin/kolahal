@@ -215,8 +215,8 @@ Twenty-four scripts have a [widget](/scripting/overview/#widgets): a card on the
 | [quote](#quote) | the last quote, and who said it | fetches a new quote |
 | [xkcd](#xkcd) | the latest comic, with its number and title under it | opens the comic on xkcd.com |
 | [countdown](#countdown) | the days to your nearest saved date | runs `countdown`, and home turns to the log |
-| [cricket](#cricket) | the followed match: the two sides and their scores, how it stands, and in a chase the runs against the target as a bar | runs `cricket live`, and home turns to the log |
-| [football](#football) | the followed match: the two teams and the score, the minute, the last goal, and possession as a bar | runs `football live`, and home turns to the log |
+| [cricket](#cricket) | the followed match: a row for each side with its score and overs, how it stands, and in a chase the runs against the target as a bar | runs `cricket live`, and home turns to the log |
+| [football](#football) | the followed match: a row for each team with its score, the minute, the last goal, the scorers at 4×2, and possession as a bar | runs `football live`, and home turns to the log |
 | [unlock-chart](#unlock-chart) | today's unlocks, over a bar for each of the last 7 days | logs the 7 days, and home turns to the log |
 | [screen-time](#screen-time) | today's screen time, over a bar for each of the last 7 days | logs today's apps, and home turns to the log |
 | [screen-time-months](#screen-time-months) | your screen time a day, over a bar for each month Android keeps | logs a row for each month, and home turns to the log |
@@ -518,12 +518,12 @@ script pin cricket           # the score at the top of home
   `India` matches India A too. Use the abbreviation (`IND`, `NZ`) to pick the senior side.
 - Its `team` option is the team its timer looks for (`any`: the first live international), and
   `refresh` is how often the pinned score updates while home shows it (30 seconds, 10 at the fastest).
-- Its widget is **Live score**: the two sides with their initials and both scores between them,
-  LIVE or RESULT at the top, and how the match stands as its last line (the runs to win and the
-  balls left in a chase).
+- Its widget is **Live score**: a row for each side with its initials, its overs and its score
+  ("–" before it bats), LIVE or RESULT at the top, and how the match stands as its last line (the
+  runs to win and the balls left in a chase).
   - While the match is on, a dot marks the side batting.
-  - In a chase, the runs against the target are a bar between the sides: the chasing side's runs,
-    and the runs still to get, with the target at the end.
+  - In a chase, the runs against the target are a thin bar under the rows: the chasing side's runs,
+    and the runs still to get.
   - While the widgets page shows the card, the score is fetched again every `refresh` seconds.
     Out of view it follows the timer.
   - With no match to follow it says "No live match". A tap runs `cricket live`, and home turns to
@@ -545,10 +545,11 @@ football live                # the league's live matches, as a table
   `esp.1`, `ger.1`, `ita.1`, `fra.1`, `uefa.champions`, `ind.1`, `usa.1` or another.
 - Its `team` option is the team its timer looks for (`any`: the league's first live match), and
   `refresh` is how often the pinned score updates while home shows it.
-- Its widget is **Live score**, as for `cricket`: the two teams with their initials and the score
-  large between them, the minute at the top (HT at half time, FT at the end), and the last goal.
-  When ESPN has possession, it is the bar between the teams. A tap runs `football live`, and home
-  turns to the log.
+- Its widget is **Live score**, as for `cricket`: a row for each team with its initials and its
+  score, the minute at the top (HT at half time, FT at the end), and the last goal. At 4×2 each
+  team's scorers are under its name, with the minutes ("Moss 23', 61' pen"). When ESPN has
+  possession, it is a thin bar under the rows. A tap runs `football live`, and home turns to the
+  log.
 
 ## charge-reminder
 

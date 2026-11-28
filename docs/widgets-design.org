@@ -1770,8 +1770,10 @@ them.
 
 - Shows :: The followed match on a versus card: a row for each side with its initials and its score
   (cricket: its own and its overs), LIVE, RESULT or the minute as the badge, and a last line (how a cricket match
-  stands, football's last goal). The bar is football's possession, or in a cricket chase the runs
-  against the target; a dot marks the side batting. With no live match: a stat, "No live match".
+  stands, football's last goal). Football's scorers are each team's lines, shown at 4×2. The bar is
+  football's possession, or in a cricket chase the runs against the target; a dot marks the side
+  batting. With no live match: a stat, "No live match". Chess (scripts repository): each player's
+  clock, the one to move counting down, the match score in a match, and the last move.
 - Sizes :: 2×1, 4×1.
 - Data :: =cricket.js= and =football.js= (each =@widget versus 4x1=), changed. Internet.
 - Refresh :: =@every 15m=, and =refresh= from its =refresh= option (30 seconds, 10 at the fastest)

@@ -998,17 +998,40 @@ class LibraryScriptsTest {
         assertTrue(e.ctx.body!!, !StyledText.plain(e.ctx.body!!).contains("require"))
     }
 
-    /** A live match: the teams' names as the title, then the score large and the minute. */
+    /**
+     * A live match: the teams' names as the title, then the score large and the minute. Its card
+     * has each team's own score and its scorers as its lines, in the order of their first goal: a
+     * scorer's goals on one line, a penalty and an own goal marked, a booking and a shootout kick
+     * left out. An own goal counts for the team ESPN gives it to.
+     */
     @Test
     fun footballLiveShowsTheScoreBig() {
         val board =
             """{"events":[{"id":"9","name":"Chelsea at Arsenal","date":"2026-11-08T15:00Z","status":{"displayClock":"67'","type":{"state":"in","shortDetail":"67'"}},
-            "competitions":[{"competitors":[{"homeAway":"home","team":{"abbreviation":"ARS","displayName":"Arsenal"},"score":"2"},
-            {"homeAway":"away","team":{"abbreviation":"CHE","displayName":"Chelsea"},"score":"1"}]}]}]}"""
-        run("football.js", "Arsenal", before = standIns(board.replace("\n", "")))
+            "competitions":[{"competitors":[{"id":"359","homeAway":"home","team":{"id":"359","abbreviation":"ARS","displayName":"Arsenal"},"score":"2"},
+            {"id":"363","homeAway":"away","team":{"id":"363","abbreviation":"CHE","displayName":"Chelsea"},"score":"1"}],
+            "details":[
+            {"clock":{"value":3660,"displayValue":"61'"},"team":{"id":"359"},"scoringPlay":true,"penaltyKick":true,"athletesInvolved":[{"shortName":"T. Moss","displayName":"Tom Moss"}]},
+            {"clock":{"value":600,"displayValue":"10'"},"team":{"id":"363"},"scoringPlay":false,"yellowCard":true,"athletesInvolved":[{"shortName":"R. Hale"}]},
+            {"clock":{"value":1380,"displayValue":"23'"},"team":{"id":"359"},"scoringPlay":true,"athletesInvolved":[{"shortName":"T. Moss","displayName":"Tom Moss"}]},
+            {"clock":{"value":3480,"displayValue":"58'"},"team":{"id":"363"},"scoringPlay":true,"ownGoal":true,"athletesInvolved":[{"shortName":"K. Okafor"}]},
+            {"clock":{"value":7200,"displayValue":"120'"},"team":{"id":"363"},"scoringPlay":true,"shootout":true,"athletesInvolved":[{"shortName":"R. Hale"}]}
+            ]}]}]}"""
+        run("football.js", "Arsenal", before = standIns(board.replace("\n", "")) + jsKeepsShown)
         val e = lines().single()
         assertEquals("LIVE Arsenal v Chelsea", StyledText.plain(e.text))
         assertEquals(listOf("2–1" to "ARS v CHE", "67'" to "Minute"), bigNumbers(e.ctx.body!!))
+        val card = shown() as Map<*, *>
+        assertEquals(
+            listOf(
+                mapOf("name" to "Arsenal", "score" to "2", "mark" to "A", "lines" to listOf("Moss 23', 61' pen")),
+                mapOf("name" to "Chelsea", "score" to "1", "mark" to "C", "lines" to listOf("Okafor 58' og")),
+            ),
+            card["sides"],
+        )
+        // Each side has its own score, so the card has none.
+        assertNull(card["score"])
+        assertEquals("61' Penalty, T. Moss", card["caption"])
     }
 
     /**
@@ -1030,6 +1053,9 @@ class LibraryScriptsTest {
         run("football.js", event = forWidget + ("instance" to "2"), options = mapOf("team" to "Hull"), before = before)
         val sides = (shown() as Map<*, *>)["sides"] as List<*>
         assertEquals("Hull City", (sides[0] as Map<*, *>)["name"])
+        // Each side's own score; no goals, so no lines.
+        assertEquals(listOf("0", "0"), sides.map { (it as Map<*, *>)["score"] })
+        assertEquals(listOf(null, null), sides.map { (it as Map<*, *>)["lines"] })
         assertEquals("ARS 2–1 CHE · 67'", status.get(name))
         assertEquals(true, store.get("match")?.contains("\"9\""))
         assertEquals(true, store.get("match.2")?.contains("\"10\""))

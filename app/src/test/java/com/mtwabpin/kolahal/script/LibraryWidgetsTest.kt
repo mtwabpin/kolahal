@@ -1210,22 +1210,28 @@ class LibraryWidgetsTest {
     }
 
     /**
-     * Live score, football: the two teams with their initials, home first, and the score between
-     * them; the minute at the top and the last goal under it. When ESPN has possession, it is the bar.
+     * Live score, football: a row for each team with its initials and its own score, home first,
+     * and its scorers as its lines; the minute at the top and the last goal under it. When ESPN has
+     * possession, it is the bar.
      */
     @Test
     fun football() {
+        // A side as football.js writes one: its score, and its scorers once it has scored.
+        fun team(name: String, mark: String, score: String, lines: List<String>? = null, value: Any? = null, text: String? = null) =
+            side(name, mark, value, text) + listOfNotNull("score" to score, lines?.let { "lines" to it }).toMap()
         val live = parse(
             "football.js",
             mapOf(
                 "kind" to "versus",
                 "icon" to "ball",
-                "score" to "2–1",
-                "sides" to listOf(side("Arsenal", "A", 58.3, "58%"), side("Chelsea", "C", 41.7, "42%")),
+                "sides" to listOf(
+                    team("Arsenal", "A", "2", listOf("Moss 23', 61' pen"), 58.3, "58%"),
+                    team("Chelsea", "C", "1", listOf("Okafor 58' og"), 41.7, "42%"),
+                ),
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
                 "badge" to "67'",
-                "caption" to "64' Goal, B. Saka",
+                "caption" to "61' Penalty, T. Moss",
                 "color" to "good",
                 "refresh" to 30L,
             ),
@@ -1240,23 +1246,21 @@ class LibraryWidgetsTest {
                     refresh = 30
                 ),
                 sides = listOf(
-                    WidgetSpec.Side("Arsenal", "A", value = 58.3f, text = "58%"),
-                    WidgetSpec.Side("Chelsea", "C", value = 41.7f, text = "42%"),
+                    WidgetSpec.Side("Arsenal", "A", value = 58.3f, text = "58%", score = "2", lines = listOf("Moss 23', 61' pen")),
+                    WidgetSpec.Side("Chelsea", "C", value = 41.7f, text = "42%", score = "1", lines = listOf("Okafor 58' og")),
                 ),
-                score = "2–1",
-                line = "64' Goal, B. Saka",
+                line = "61' Penalty, T. Moss",
                 badge = "67'",
             ),
             live,
         )
-        // No possession and no goal yet: no bar and no line.
+        // No possession and no goal yet: no bar, no lines and no caption.
         val start = parse(
             "football.js",
             mapOf(
                 "kind" to "versus",
                 "icon" to "ball",
-                "score" to "0–0",
-                "sides" to listOf(side("Arsenal", "A"), side("Chelsea", "C")),
+                "sides" to listOf(team("Arsenal", "A", "0"), team("Chelsea", "C", "0")),
                 "tap" to jsLiveTap,
                 "staleAfter" to 60L,
                 "badge" to "1'",
@@ -1265,18 +1269,23 @@ class LibraryWidgetsTest {
             ),
         ) as WidgetSpec.Versus
         assertEquals(listOf<Float?>(null, null), start.sides.map { it.value })
+        assertEquals(listOf("0", "0"), start.sides.map { it.score })
+        assertEquals(listOf(emptyList<String>(), emptyList()), start.sides.map { it.lines })
+        assertEquals(null, start.score)
         assertEquals(null, start.line)
         val ended = parse(
             "football.js",
             mapOf(
                 "kind" to "versus",
                 "icon" to "ball",
-                "score" to "2–1",
-                "sides" to listOf(side("Arsenal", "A", 58.3, "58%"), side("Chelsea", "C", 41.7, "42%")),
+                "sides" to listOf(
+                    team("Arsenal", "A", "2", listOf("Moss 23', 61' pen"), 58.3, "58%"),
+                    team("Chelsea", "C", "1", listOf("Okafor 58' og"), 41.7, "42%"),
+                ),
                 "tap" to jsLiveTap,
                 "staleAfter" to 900L,
                 "badge" to "FT",
-                "caption" to "64' Goal, B. Saka",
+                "caption" to "61' Penalty, T. Moss",
             ),
         ) as WidgetSpec.Versus
         assertEquals(WidgetBase(icon = "ball", tap = liveTap, staleAfter = 900), ended.base)
