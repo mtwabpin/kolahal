@@ -550,7 +550,7 @@ widget needs an Activity.
 | Feeds, Widgets, setup, …  | =FeedsScreen.kt=, =WidgetsScreen.kt=, =WidgetPickerScreen.kt=, =SetupScreen.kt=, =OnboardingScreen.kt= |                                                                          |
 | A card's settings page    | =ui/widgets/WidgetSettingsScreen.kt= | =Screen.WIDGET_SETTINGS=, from Settings in Arrange widgets; a card's color, shape, hidden parts, scene and Last updated, and Now playing's album art as background, are kept in its stored line (=PlacedWidget.color=, =shape=, =hidden=, =scene=, =shown=, =artBackground=); the Agenda's days (=widgets.agenda-days=) |
 | Widget corners            | =widgets/CardCorners.kt=, =ui/widgets/WidgetsPagePreview.kt= | =widgets.corners=, one setting for every card ([[src:ui/widgets/ScriptWidgets.kt::internal fun rememberCardCorners][rememberCardCorners]]), Split's tiles too (=SplitCorners=, through =LocalCardCorners=); a card that is one shape in Shape keeps it (=CardCorners.ONE_SHAPE=); Settings → Widgets shows widgets page 1 under it |
-| Assistant                 | [[src:ui/assistant/AssistantPage.kt::fun AssistantPage(][ui/assistant/AssistantPage.kt]] | beside home after the widgets pages (=HomePager=), full build only; see [[*The Assistant][The Assistant]] |
+| Assistant                 | [[src:ui/assistant/AssistantPage.kt::fun AssistantPage(][ui/assistant/AssistantPage.kt]] | beside home, placed by =home.pages= (=HomePager=), full build only; see [[*The Assistant][The Assistant]] |
 
 *** The text editor: a second window
 
@@ -783,7 +783,7 @@ the page and the picker adds to it. The design record is [[file:widgets-design.o
 
 ** The Assistant
 
-A page beside home, after the widgets pages (=assistant.page=, full build only: =BuildConfig.ASSISTANT=), where the
+A page beside home, placed by =home.pages=, outermost by default (=assistant.page=, full build only: =BuildConfig.ASSISTANT=), where the
 user chats with Claude, Gemini or ChatGPT with their own API key. It is split as the layers are:
 
 - =assistant/= (Model, no Compose): [[src:assistant/Services.kt::object Services][Services.ALL]], the one list of services, each a [[src:assistant/Service.kt::abstract class Service(][Service]]
