@@ -21,6 +21,8 @@ site/
 ├── astro.config.mjs        site URL, base path, sidebar, theme settings
 ├── CAPTURES.md             the captures of the app the site needs, and how to take each one
 ├── scripts/check-links.mjs post-build link, anchor and new-tab checker (part of pnpm build)
+├── scripts/check-shaders.mjs compiles every shader of the app with the Shader preview's CanvasKit (part of pnpm build)
+├── scripts/copy-rules.mjs  copies kolahal-scripts' tools/rules.mjs for the Script check, or checks the copy
 ├── public/favicon.svg
 └── src/
     ├── assets/             logo, screenshots and scenes (optimized by astro:assets)
@@ -28,9 +30,12 @@ site/
     ├── components/         Starlight overrides, the home page's sections, the tour's and gallery's parts
     ├── content/docs/       the pages (.md / .mdx); the folder structure is the URL structure
     ├── data/themes.json    the app's built-in themes, exported from the app (tools/export-themes.mjs)
+    ├── data/api-names.json the API's names, for the Script check (kept current by SiteScriptCheckTest)
+    ├── lib/rules.mjs       kolahal-scripts' rules, copied (scripts/copy-rules.mjs), with rules.source.json
     ├── gallery.ts          the gallery's pictures, one line each
     ├── links.ts            links that leave the site open in a new tab
     ├── shots.ts            pictures by name, with a stand-in until the capture is there
+    ├── tools/              the Shader preview's parts: shader-meta.js (the app's ShaderMeta in JavaScript), canvaskit.mjs
     └── styles/
         ├── tokens.css      the site's colors and type, light and dark (--s-*)
         └── site.css        the look: Starlight mapped to the tokens, and the app's palette (--k-*)

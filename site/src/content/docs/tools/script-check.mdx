@@ -1,0 +1,27 @@
+---
+title: Script check
+description: Check a Lua or JavaScript script, or a shader, in your browser and see what Kolahal will say about it.
+tableOfContents: false
+---
+
+import ScriptCheck from '../../../components/ScriptCheck.astro';
+
+Drop or paste a Lua or JavaScript script, or a shader, to see what Kolahal will say about it. It is
+checked in your browser: nothing runs and nothing is uploaded.
+
+<ScriptCheck />
+
+## What it checks
+
+- **The phone** is what the [editor](/scripting/editor/) points out when you save the script: `@`
+  lines it doesn't know or can't read, calls that need a `@uses` line, and names that aren't in the
+  [API](/scripting/api/). It adds the syntax, checked by Lua 5.4 itself for a Lua script, and for
+  JavaScript as Kolahal runs it: the body of an async function, so `return` and `await` work at the
+  top. For a shader, it is what keeps Kolahal from using it, and the header lines it leaves out.
+- **Sharing on kolahal-scripts** adds what the [library](/scripting/library/) asks of a script it
+  shares: a full header, the `@requires` that newer features need, and a size that can be read.
+  These are the rules its pull requests are checked by, from
+  [kolahal-scripts](https://github.com/mtwabpin/kolahal-scripts).
+
+Each line says what Kolahal would say, with **Go to line** to mark its line in the code. A shader
+isn't compiled here: the phone compiles it.

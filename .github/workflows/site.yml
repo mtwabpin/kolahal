@@ -49,6 +49,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The Script check page's copy of kolahal-scripts' rules is the file on its branch now (see
+      # site/scripts/copy-rules.mjs): a change there fails here until it is copied again.
+      - run: node scripts/copy-rules.mjs --check
+
       # Builds the site and checks every internal link (see site/scripts/check-links.mjs).
       - run: pnpm build
 

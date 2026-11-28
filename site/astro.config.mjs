@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { satteri } from '@astrojs/markdown-satteri';
+import { canvaskit } from './src/tools/canvaskit.mjs';
 
 // Where the site is published. For a fork, change these two values (or set the env vars):
 //   SITE  https://<github-user>.github.io
@@ -52,6 +53,7 @@ export default defineConfig({
 	base: BASE,
 	markdown: { processor: satteri({ hastPlugins: [baseLinks] }) },
 	integrations: [
+		canvaskit(),
 		starlight({
 			title: 'Kolahal',
 			description: 'A touch and type optimized launcher for Android, with scripts and widgets in Lua 5.4 or JavaScript, and work profile support.',
@@ -171,6 +173,10 @@ export default defineConfig({
 						{ slug: 'scripting/editor' },
 						{ slug: 'scripting/shaders' },
 					],
+				},
+				{
+					label: 'Tools',
+					items: [{ slug: 'tools/shader-preview' }, { slug: 'tools/script-check' }],
 				},
 				{
 					label: 'Reference',

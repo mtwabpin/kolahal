@@ -1,0 +1,776 @@
+---
+/**
+ * The Script check (tools/script-check.mdx): a Lua or JavaScript script, or a shader, checked in the browser
+ * as Kolahal would check it. Nothing runs and nothing is uploaded.
+ * - The rules are kolahal-scripts' tools/rules.mjs, copied to src/lib/rules.mjs (scripts/copy-rules.mjs), in the
+ *   words of Kolahal's editor; calls are checked against the API's names, src/data/api-names.json, which the
+ *   app's SiteScriptCheckTest keeps current.
+ * - Lua's syntax is checked by Lua 5.4 itself (wasmoon, in WebAssembly): `load(code, "=name")` compiles without
+ *   running and gives the message the phone logs. JavaScript's by acorn, for ES2023 with `return` and `await`
+ *   at the top, as Kolahal runs a script as the body of an async function in QuickJS. Each is loaded only when a
+ *   script of its language is checked, from this site.
+ * - The results are drawn as the log draws them, in the app's colors (--k-*): a short first line, hints under it.
+ */
+---
+
+<div class="sc not-content" data-script-check>
+	<div class="sc-bar">
+		<div class="sc-actions">
+			<button type="button" class="sc-button" data-open>Open file</button>
+			<input type="file" accept=".lua,.js,.agsl,text/plain" hidden data-file />
+			<button type="button" class="sc-button" data-paste>Paste</button>
+			<button type="button" class="sc-button quiet" data-example>Example</button>
+		</div>
+		<fieldset class="sc-mode">
+			<legend>Check for</legend>
+			<label><input type="radio" name="sc-mode" value="phone" checked /> the phone</label>
+			<label><input type="radio" name="sc-mode" value="library" /> sharing on kolahal-scripts</label>
+		</fieldset>
+	</div>
+
+	<div class="sc-body">
+		<section class="sc-code" aria-label="The code">
+			<div class="sc-file">
+				<label class="sc-name">
+					<span class="sc-label">Name</span>
+					<input type="text" data-name placeholder="script" spellcheck="false" autocomplete="off" />
+				</label>
+				<label class="sc-lang">
+					<span class="sc-label">Language</span>
+					<select data-lang>
+						<option value="lua">Lua 5.4</option>
+						<option value="js">JavaScript</option>
+						<option value="agsl">Shader (AGSL)</option>
+					</select>
+				</label>
+				<span class="sc-lines" data-lines></span>
+			</div>
+			<div class="sc-editor" data-drop>
+				<div class="sc-gutter" aria-hidden="true"><pre data-gutter>1</pre></div>
+				<div class="sc-area">
+					<div class="sc-mark" hidden data-mark></div>
+					<textarea
+						data-code
+						wrap="off"
+						spellcheck="false"
+						autocomplete="off"
+						autocapitalize="off"
+						aria-label="Code to check"
+						placeholder="Drop a .lua, .js or .agsl file here, or paste a script"></textarea>
+				</div>
+				<p class="sc-drop-hint" aria-hidden="true">Drop the file to check it</p>
+			</div>
+		</section>
+
+		<section class="sc-results" aria-label="What Kolahal says">
+			<p class="sc-count" role="status" data-count>Nothing to check yet</p>
+			<ol class="sc-log" data-log></ol>
+			<h2 class="sc-heading">What Kolahal reads</h2>
+			<ul class="sc-reads" data-reads><li class="dim">The header's lines, once there is a script</li></ul>
+			<h2 class="sc-heading">Not checked here</h2>
+			<ul class="sc-not" data-not></ul>
+		</section>
+	</div>
+</div>
+
+<style is:global>
+	/* This page drops "On this page", so the check takes the width it leaves. */
+	main:has([data-script-check]) .sl-container {
+		max-width: 76rem;
+	}
+	main:has([data-script-check]) .sl-markdown-content > :not(.sc) {
+		max-width: 45rem;
+	}
+</style>
+
+<style>
+	.sc {
+		container-type: inline-size;
+		margin-block: 1.5rem 2rem;
+		font-family: var(--s-font-text);
+	}
+	.sc-bar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 1.5rem;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0.875rem;
+	}
+	.sc-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+	.sc-button {
+		min-height: 2.5rem;
+		padding: 0.375rem 1rem;
+		border: 1.5px solid var(--s-button);
+		border-radius: var(--s-radius-m);
+		background: var(--s-button);
+		color: var(--s-on-button);
+		font: 600 0.9375rem var(--s-font-text);
+		cursor: pointer;
+	}
+	.sc-button.quiet {
+		border-color: var(--s-ink);
+		background: transparent;
+		color: var(--s-ink);
+	}
+	.sc-button:hover {
+		background: color-mix(in srgb, var(--s-button) 88%, var(--s-ground));
+	}
+	.sc-button.quiet:hover {
+		background: color-mix(in srgb, var(--s-ink) 8%, transparent);
+	}
+	.sc-button:focus-visible,
+	.sc-mode input:focus-visible,
+	.sc-file input:focus-visible,
+	.sc-file select:focus-visible,
+	.sc-go:focus-visible {
+		outline: 2px solid var(--s-link);
+		outline-offset: 2px;
+	}
+	.sc-mode {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+		align-items: center;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		color: var(--s-ink-soft);
+		font-size: 0.9375rem;
+	}
+	.sc-mode legend {
+		float: left;
+		margin-right: 0.25rem;
+		padding: 0;
+		color: var(--s-muted);
+		font-weight: 600;
+	}
+	.sc-mode label {
+		display: inline-flex;
+		gap: 0.375rem;
+		align-items: center;
+		cursor: pointer;
+	}
+	.sc-mode input {
+		accent-color: var(--s-link);
+	}
+
+	.sc-body {
+		display: grid;
+		gap: 1rem;
+	}
+	@container (min-width: 60rem) {
+		.sc-body {
+			grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+			align-items: start;
+		}
+	}
+
+	/* The code: dark in both themes, as the site's code blocks are. */
+	.sc-code {
+		overflow: hidden;
+		border-radius: var(--s-radius-m);
+		background: var(--s-code);
+		color: var(--s-on-code);
+	}
+	.sc-file {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		align-items: center;
+		padding: 0.625rem 0.875rem;
+		border-bottom: 1px solid var(--s-code-rule);
+		color: var(--s-code-label);
+		font-size: 0.8125rem;
+	}
+	.sc-file label {
+		display: inline-flex;
+		gap: 0.375rem;
+		align-items: center;
+	}
+	.sc-label {
+		font-weight: 600;
+	}
+	.sc-file input,
+	.sc-file select {
+		min-height: 2rem;
+		padding: 0.125rem 0.5rem;
+		border: 1px solid var(--s-code-rule);
+		border-radius: var(--s-radius-s);
+		background: transparent;
+		color: var(--s-on-code);
+		font: 0.875rem var(--s-font-mono);
+	}
+	.sc-file input {
+		width: 11rem;
+	}
+	.sc-file select option {
+		background: var(--s-code);
+	}
+	.sc-lines {
+		margin-left: auto;
+	}
+	.sc-editor {
+		position: relative;
+		display: flex;
+		--line: 1.6;
+	}
+	.sc-gutter,
+	.sc-area textarea {
+		margin: 0;
+		padding: 0.875rem 0;
+		font: 0.875rem/var(--line) var(--s-font-mono);
+		tab-size: 4;
+	}
+	.sc-gutter {
+		flex: none;
+		min-width: 3.25rem;
+		overflow: hidden;
+		padding-inline: 0.5rem 0.625rem;
+		color: color-mix(in srgb, var(--s-code-label) 70%, transparent);
+		text-align: right;
+		user-select: none;
+	}
+	/* The numbers move with the code's scroll (a transform), however few lines there are. */
+	.sc-gutter pre {
+		margin: 0;
+		padding: 0;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+		overflow: visible;
+	}
+	.sc-gutter :global(.bad) {
+		color: var(--k-error-on-code);
+		font-weight: 700;
+	}
+	.sc-area {
+		position: relative;
+		flex: 1;
+		min-width: 0;
+	}
+	.sc-area textarea {
+		display: block;
+		position: relative;
+		width: 100%;
+		height: clamp(18rem, 62vh, 40rem);
+		padding-inline: 0.5rem 1rem;
+		border: 0;
+		background: transparent;
+		color: var(--s-on-code);
+		caret-color: var(--s-link);
+		white-space: pre;
+		overflow: auto;
+		resize: vertical;
+	}
+	.sc-area textarea:focus {
+		outline: none;
+	}
+	.sc-area textarea::placeholder {
+		color: var(--s-code-label);
+	}
+	.sc-editor:focus-within {
+		box-shadow: inset 0 0 0 2px var(--s-link);
+	}
+	.sc-mark {
+		position: absolute;
+		left: 0;
+		right: 0;
+		border-left: 3px solid var(--k-error-on-code);
+		background: color-mix(in srgb, var(--k-error-on-code) 18%, transparent);
+		pointer-events: none;
+	}
+	.sc-drop-hint {
+		display: none;
+		position: absolute;
+		inset: 0;
+		margin: 0;
+		place-items: center;
+		background: color-mix(in srgb, var(--s-code) 85%, transparent);
+		color: var(--s-on-code);
+		font-weight: 600;
+	}
+	.sc-editor.dropping .sc-drop-hint {
+		display: grid;
+	}
+
+	/* The results: as the log draws them, in the app's colors. */
+	.sc-results {
+		padding: 0.875rem 1rem 1rem;
+		border-radius: var(--s-radius-m);
+		background: var(--k-bg);
+		color: var(--k-fg);
+		font: 0.875rem/1.55 var(--s-font-mono);
+	}
+	.sc-count {
+		margin: 0 0 0.5rem;
+		font-weight: 700;
+	}
+	.sc-count.ok {
+		color: var(--k-good-text);
+	}
+	.sc-count.bad {
+		color: var(--k-error);
+	}
+	.sc-log {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.sc-log :global(li) {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.125rem 0.75rem;
+		align-items: baseline;
+		justify-content: space-between;
+		margin: 0;
+		padding: 0.375rem 0 0.375rem 0.625rem;
+		border-left: 2px solid var(--k-error);
+	}
+	.sc-log :global(li + li) {
+		margin-top: 0.375rem;
+	}
+	.sc-log :global(li.warning) {
+		border-left-color: var(--k-warn);
+	}
+	.sc-log :global(.sc-text) {
+		flex: 1 1 16rem;
+		min-width: 0;
+		overflow-wrap: anywhere;
+	}
+	.sc-log :global(.sc-first) {
+		display: block;
+		color: var(--k-error);
+		font-weight: 600;
+	}
+	.sc-log :global(li.warning .sc-first) {
+		color: var(--k-warn);
+	}
+	.sc-log :global(.sc-hint) {
+		display: block;
+		color: var(--k-dim);
+	}
+	.sc-log :global(.sc-from) {
+		display: block;
+		color: var(--k-dim);
+		font: 0.75rem var(--s-font-text);
+	}
+	.sc-log :global(.sc-go) {
+		flex: none;
+		padding: 0.125rem 0;
+		border: 0;
+		background: none;
+		color: var(--k-link);
+		font: 600 0.8125rem var(--s-font-text);
+		text-decoration: underline;
+		text-underline-offset: 2px;
+		cursor: pointer;
+	}
+	.sc-heading {
+		margin: 1.25rem 0 0.375rem;
+		color: var(--k-prompt);
+		font: 700 0.8125rem var(--s-font-mono);
+	}
+	.sc-reads,
+	.sc-not {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.sc-reads :global(li),
+	.sc-not :global(li) {
+		margin: 0;
+		overflow-wrap: anywhere;
+	}
+	.sc-reads :global(li:first-child) {
+		font-weight: 700;
+	}
+	.sc-reads :global(.dim),
+	.sc-not :global(li) {
+		color: var(--k-dim);
+		font-weight: 400;
+	}
+	.sc-not :global(li) {
+		font-family: var(--s-font-text);
+	}
+	.sc {
+		/* The app's error red on the code's dark ground, in both site themes. */
+		--k-error-on-code: #eb6f92;
+		/* Rosé Pine's pine is dark for text on the dark log: the light version's foam is used for "No problems". */
+		--k-good-text: var(--k-info);
+	}
+</style>
+
+<script>
+	import { ACCESS_LABELS, checkScript, checkShader, languageOf, paramRange } from '../lib/rules.mjs';
+	import apiNames from '../data/api-names.json';
+	import wasmUrl from 'wasmoon/dist/glue.wasm?url';
+
+	type Issue = { line: number; text: string; level: 'error' | 'warning'; rules: 'kolahal' | 'library' | 'syntax' };
+
+	const root = document.querySelector<HTMLElement>('[data-script-check]');
+	if (root) setUp(root);
+
+	function setUp(root: HTMLElement) {
+		const $ = <T extends Element>(sel: string) => root.querySelector<T>(sel)!;
+		const code = $<HTMLTextAreaElement>('[data-code]');
+		const gutter = $<HTMLPreElement>('[data-gutter]');
+		const mark = $<HTMLDivElement>('[data-mark]');
+		const nameInput = $<HTMLInputElement>('[data-name]');
+		const langSelect = $<HTMLSelectElement>('[data-lang]');
+		const linesOut = $<HTMLElement>('[data-lines]');
+		const countOut = $<HTMLElement>('[data-count]');
+		const log = $<HTMLOListElement>('[data-log]');
+		const reads = $<HTMLUListElement>('[data-reads]');
+		const not = $<HTMLUListElement>('[data-not]');
+		const fileInput = $<HTMLInputElement>('[data-file]');
+		const editor = $<HTMLElement>('[data-drop]');
+		// The language follows the code until someone picks one.
+		let langPicked = false;
+		let marked: number | null = null;
+		let run = 0;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+
+		const mode = () => root.querySelector<HTMLInputElement>('input[name="sc-mode"]:checked')?.value ?? 'phone';
+		const lineHeight = () => parseFloat(getComputedStyle(code).lineHeight) || 22;
+		const padTop = () => parseFloat(getComputedStyle(code).paddingTop) || 14;
+
+		function placeMark() {
+			if (marked === null) return void (mark.hidden = true);
+			mark.hidden = false;
+			mark.style.top = `${padTop() + (marked - 1) * lineHeight() - code.scrollTop}px`;
+			mark.style.height = `${lineHeight()}px`;
+		}
+
+		function goTo(line: number) {
+			const lines = code.value.split('\n');
+			const start = lines.slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0);
+			code.focus({ preventScroll: true });
+			code.setSelectionRange(start, start + (lines[line - 1]?.length ?? 0));
+			code.scrollTop = Math.max(0, (line - 1) * lineHeight() - code.clientHeight / 3);
+			code.scrollLeft = 0;
+			marked = line;
+			placeMark();
+			code.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+		}
+
+		function drawGutter(bad: Set<number>) {
+			const n = code.value.split('\n').length;
+			gutter.replaceChildren(
+				...Array.from({ length: n }, (_, i) => {
+					const span = document.createElement('span');
+					span.textContent = `${i + 1}\n`;
+					if (bad.has(i + 1)) span.className = 'bad';
+					return span;
+				}),
+			);
+			gutter.style.transform = `translateY(${-code.scrollTop}px)`;
+			linesOut.textContent = n === 1 && !code.value ? '' : `${n} line${n === 1 ? '' : 's'}`;
+		}
+
+		// Lua 5.4 and acorn, each loaded the first time a script of its language is checked.
+		let lua: Promise<any> | null = null;
+		let acorn: Promise<typeof import('acorn')> | null = null;
+
+		async function syntax(lang: string, name: string, text: string): Promise<Issue | null> {
+			if (lang === 'lua') {
+				lua ??= import('wasmoon').then(({ LuaFactory }) => new LuaFactory(wasmUrl).createEngine());
+				const engine = await lua;
+				engine.global.set('__src', text);
+				engine.global.set('__name', `=${name}`);
+				// load compiles the chunk and doesn't run it: an error is Lua's own message, as the phone logs it.
+				const message: string | null = await engine.doString('local f, e = load(__src, __name, "t") return e');
+				if (!message) return null;
+				const m = /^(?:[^:\n]*):(\d+):\s*(.*)$/s.exec(message);
+				return { line: m ? Number(m[1]) : 1, text: `${name}: ${m ? m[2] : message}`, level: 'error', rules: 'syntax' };
+			}
+			if (lang === 'js') {
+				acorn ??= import('acorn');
+				const { parse } = await acorn;
+				try {
+					parse(text, {
+						ecmaVersion: 2023,
+						sourceType: 'script',
+						allowReturnOutsideFunction: true,
+						allowAwaitOutsideFunction: true,
+					});
+					return null;
+				} catch (e: any) {
+					const message = String(e.message ?? e).replace(/\s*\(\d+:\d+\)$/, '');
+					return { line: e.loc?.line ?? 1, text: `${name}: SyntaxError: ${message}`, level: 'error', rules: 'syntax' };
+				}
+			}
+			return null;
+		}
+
+		const capital = (s: string) => s.replace(/^./, (c) => c.toUpperCase());
+		const every = (min: number) => (min % 1440 === 0 ? `${min / 1440}d` : min % 60 === 0 ? `${min / 60}h` : `${min}m`);
+
+		function item(text: string, cls?: string) {
+			const li = document.createElement('li');
+			li.textContent = text;
+			if (cls) li.className = cls;
+			return li;
+		}
+
+		function drawIssue(x: Issue, shader: string | null) {
+			const li = document.createElement('li');
+			li.className = x.level;
+			const box = document.createElement('div');
+			box.className = 'sc-text';
+			// A shader's problem reads as the log's line for it: that it can't be used, then the problem.
+			const words = shader !== null && x.rules === 'kolahal' && x.level === 'error'
+				? [`Shader ${shader} can't be used`, capital(x.text)]
+				: x.text.split('\n');
+			words.forEach((w, i) => {
+				const span = document.createElement('span');
+				span.className = i ? 'sc-hint' : 'sc-first';
+				span.textContent = w;
+				box.append(span);
+			});
+			if (x.rules === 'library') {
+				const from = document.createElement('span');
+				from.className = 'sc-from';
+				from.textContent = 'For sharing on kolahal-scripts';
+				box.append(from);
+			}
+			const go = document.createElement('button');
+			go.type = 'button';
+			go.className = 'sc-go';
+			go.textContent = `Go to line ${x.line}`;
+			go.addEventListener('click', () => goTo(x.line));
+			li.append(box, go);
+			return li;
+		}
+
+		function drawReads(lang: string, name: string, result: any) {
+			const h = result.header;
+			const out: HTMLLIElement[] = [];
+			const who = `${h.title ?? name}${h.version ? ` ${h.version}` : ''}${h.author ? `, by ${h.author}` : ''}`;
+			out.push(item(who));
+			if (h.desc) out.push(item(h.desc));
+			if (lang === 'agsl') {
+				if (h.once !== null) out.push(item(`A one-off: it plays for ${h.once} s`));
+				if (h.sets.length) out.push(item(`Kolahal sets: ${h.sets.join(', ')}`));
+				if (h.unset.length) out.push(item(`Not set by Kolahal, so 0: ${h.unset.join(', ')}`));
+				if (h.params.length) out.push(item(`Parameters: ${h.params.map((p: any) => `${p.name} ${paramRange(p)}`).join(', ')}`));
+				if (h.redrawn) out.push(item(`Animated: ${h.redrawn}`));
+				else out.push(item('Still: drawn again only when the page changes'));
+			} else {
+				if (h.screen) out.push(item(`A full screen of its own: it runs only when you start it (${name})`));
+				else if (h.command) out.push(item(`A command: ${name}`));
+				if (h.widget) out.push(item(`A widget: ${h.widget.kind} ${h.widget.size}`));
+				if (h.events.length) {
+					const events = h.events.map((e: string) => (e === 'notification' && h.apps ? `notification (${h.apps.join(', ')})` : e));
+					out.push(item(`Runs on ${events.join(', ')}`));
+				}
+				if (h.every) out.push(item(`Runs every ${every(h.every)}`));
+				if (h.at.length) out.push(item(`Runs at ${h.at.join(', ')}`));
+				if (!h.command && !h.widget && !h.events.length && !h.every && !h.at.length) out.push(item('Runs when you start it from Scripts'));
+				for (const o of h.options) out.push(item(`Option: ${o.name}, ${o.choices.length ? o.choices.join(' or ') : o.default || '""'}`));
+				for (const s of h.secrets) out.push(item(`Key: ${s.name}, sent only to ${s.hosts.join(', ')}`));
+				if (h.gives.length) out.push(item(`Gives shaders: ${h.gives.join(', ')}`));
+				if (h.notify) out.push(item('Suggests allowing notifications'));
+				const asks = [...(h.internet ? ['internet'] : []), ...h.uses].map((a) => (ACCESS_LABELS as Record<string, string>)[a] ?? a);
+				out.push(item(asks.length ? `Asks for: ${asks.join(', ')}` : 'Asks for no access'));
+			}
+			if (h.requires) out.push(item(`Needs Kolahal ${h.requires} or newer`));
+			reads.replaceChildren(...out);
+		}
+
+		function drawNot(lang: string) {
+			const lines =
+				lang === 'agsl'
+					? [
+							'Whether it compiles: Android compiles a shader on the phone (Android 13 or newer)',
+							'How it looks, and how fast it draws on a phone',
+						]
+					: [
+							'What it does when it runs: what web calls return, values that are nil, what widget.show is given',
+							'The access the phone grants, the network and the keys you set',
+							lang === 'js'
+								? 'JavaScript is read as ES2023 by acorn: QuickJS on the phone words its errors another way'
+								: 'Lua is read by Lua 5.4 itself, as on the phone',
+						];
+			if (mode() === 'phone') lines.push('What sharing on kolahal-scripts asks for: switch Check for to see it');
+			not.replaceChildren(...lines.map((l) => item(l)));
+		}
+
+		async function check() {
+			const mine = ++run;
+			const text = code.value;
+			const lang = langSelect.value;
+			const typed = nameInput.value.trim();
+			const name = typed || 'script';
+			if (!text.trim()) {
+				countOut.textContent = 'Nothing to check yet';
+				countOut.classList.remove('ok', 'bad');
+				log.replaceChildren();
+				reads.replaceChildren(item('The header\'s lines, once there is a script', 'dim'));
+				drawNot(lang);
+				drawGutter(new Set());
+				return;
+			}
+			const result: any = lang === 'agsl'
+				? checkShader({ name: typed || undefined, code: text })
+				: checkScript({ name: typed || undefined, code: text, lang, api: (apiNames as any)[lang] });
+			let stx: Issue | null = null;
+			try {
+				stx = await syntax(lang, name, text);
+			} catch (e) {
+				console.warn('The syntax check failed', e);
+			}
+			if (mine !== run) return;
+			const issues: Issue[] = [...(stx ? [stx] : []), ...result.kolahal, ...(mode() === 'library' ? result.library : [])]
+				.sort((a, b) => a.line - b.line);
+			const errors = issues.filter((x) => x.level === 'error').length;
+			const warnings = issues.length - errors;
+			const parts = [
+				...(errors ? [`${errors} problem${errors === 1 ? '' : 's'}`] : []),
+				...(warnings ? [`${warnings} warning${warnings === 1 ? '' : 's'}`] : []),
+			];
+			countOut.textContent = parts.length ? parts.join(', ') : 'No problems';
+			countOut.classList.toggle('bad', errors > 0);
+			countOut.classList.toggle('ok', errors === 0);
+			log.replaceChildren(...issues.map((x) => drawIssue(x, lang === 'agsl' ? name : null)));
+			drawReads(lang, name, result);
+			drawNot(lang);
+			drawGutter(new Set(issues.map((x) => x.line)));
+		}
+
+		const soon = () => {
+			clearTimeout(timer);
+			timer = setTimeout(check, 250);
+		};
+
+		function load(text: string, fileName: string | null) {
+			code.value = text.replace(/\r\n?/g, '\n');
+			if (fileName) {
+				nameInput.value = fileName.replace(/\.[^.]*$/, '').toLowerCase();
+				langPicked = false;
+			}
+			if (!langPicked) langSelect.value = languageOf(fileName, code.value);
+			marked = null;
+			placeMark();
+			code.scrollTop = 0;
+			check();
+		}
+
+		async function readFile(file: File) {
+			if (file.size > 1024 * 1024) {
+				countOut.textContent = `${file.name} is larger than 1 MB: Kolahal takes at most 64 KB`;
+				countOut.classList.remove('ok');
+				countOut.classList.add('bad');
+				return;
+			}
+			load(await file.text(), file.name);
+		}
+
+		code.addEventListener('input', () => {
+			if (!langPicked) {
+				const guess = languageOf(null, code.value);
+				if (code.value.trim() && guess !== langSelect.value) langSelect.value = guess;
+			}
+			marked = null;
+			placeMark();
+			drawGutter(new Set());
+			soon();
+		});
+		code.addEventListener('scroll', () => {
+			gutter.style.transform = `translateY(${-code.scrollTop}px)`;
+			placeMark();
+		});
+		nameInput.addEventListener('input', soon);
+		langSelect.addEventListener('change', () => {
+			langPicked = true;
+			check();
+		});
+		root.querySelectorAll('input[name="sc-mode"]').forEach((r) => r.addEventListener('change', check));
+
+		$<HTMLButtonElement>('[data-open]').addEventListener('click', () => fileInput.click());
+		fileInput.addEventListener('change', () => {
+			const file = fileInput.files?.[0];
+			if (file) readFile(file);
+			fileInput.value = '';
+		});
+		$<HTMLButtonElement>('[data-paste]').addEventListener('click', async () => {
+			try {
+				load(await navigator.clipboard.readText(), null);
+				code.focus();
+			} catch {
+				// Without the clipboard's permission: Ctrl+V or a long press in the box pastes.
+				code.focus();
+				code.select();
+				countOut.textContent = 'Paste into the code with Ctrl+V, or a long press';
+				countOut.classList.remove('ok', 'bad');
+			}
+		});
+		$<HTMLButtonElement>('[data-example]').addEventListener('click', () => {
+			langPicked = false;
+			nameInput.value = 'world-clocks';
+			load(EXAMPLE, 'world-clocks.lua');
+		});
+
+		// A file dropped on the code, or anywhere on the check.
+		let depth = 0;
+		root.addEventListener('dragenter', (e) => {
+			if (!e.dataTransfer?.types.includes('Files')) return;
+			e.preventDefault();
+			depth++;
+			editor.classList.add('dropping');
+		});
+		root.addEventListener('dragover', (e) => {
+			if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+		});
+		root.addEventListener('dragleave', () => {
+			if (--depth <= 0) {
+				depth = 0;
+				editor.classList.remove('dropping');
+			}
+		});
+		root.addEventListener('drop', (e) => {
+			const file = e.dataTransfer?.files?.[0];
+			depth = 0;
+			editor.classList.remove('dropping');
+			if (!file) return;
+			e.preventDefault();
+			readFile(file);
+		});
+
+		drawNot(langSelect.value);
+		drawGutter(new Set());
+	}
+
+	// A widget script with two mistakes: a size there is none of, and an `if` without its `then` (scripts/world-clocks).
+	const EXAMPLE = `-- @title World clocks
+-- @desc The time in up to 4 places you list: a widget
+-- @author Kolahal
+-- @version 1.3
+-- @widget clock 3x2
+-- @requires 0.5.8
+-- @option zones "Asia/Tokyo Europe/London America/New_York" Up to 4 time zones, by name
+
+-- The zones option, read into places: each has a zone and a label.
+local function places(text)
+  local list = {}
+  for word in (text or ""):gmatch("[^%s,]+") do
+    local label = word:match("([^/]+)$")
+    list[#list + 1] = { zone = word, label = (label:gsub("_", " ")) }
+  end
+  return list
+end
+
+local zones = places(options.zones)
+if #zones == 0
+  zones = places("Asia/Tokyo Europe/London America/New_York")
+end
+
+widget.show{ icon = "globe", zones = zones, staleAfter = 7 * 86400 }
+`;
+</script>

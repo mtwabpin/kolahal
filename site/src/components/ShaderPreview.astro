@@ -1,0 +1,1560 @@
+---
+/**
+ * The Shader preview (tools/shader-preview.mdx): an .agsl file compiled with Skia's own compiler (CanvasKit, in
+ * WebAssembly, from the site itself: src/tools/canvaskit.mjs) and drawn over a drawing of home, as Kolahal draws it.
+ *
+ * - The code: Open file, Paste, a file dropped on the editor, an example (some of the app's shaders and its
+ *   templates, read from app/src/main/assets/shaders when the site is built), Reset. It compiles as it is typed;
+ *   while the text doesn't, the last version that did stays on the screen.
+ * - What it says: the lines of `shader check`, in the app's words (src/tools/shader-meta.js), or "Shader <name>
+ *   can't be used" and the problem, with the compiler's line as a link that selects it.
+ * - The screen: home drawn on a 2D canvas in the site's terminal font, the page a step under opaque and the text
+ *   opaque (ShaderMeta.PAGE_ALPHA), handed to the shader as `content`. It sets the uniforms ShaderUniforms.set does,
+ *   only those the shader declares, and draws at its @fps (ShaderClock): a still one only when something changes.
+ * - Controls: its parameters, the theme (every theme in data/themes.json, dark and light), home or the live
+ *   wallpaper, the phone's wallpaper behind the log (log.wallpaper), the clock, touches (a click, a tap, Enter),
+ *   and more inputs (battery, charging, tilt, the hour and the day).
+ *
+ * Wide, the code, the phone and the controls are side by side; narrow, the screen stays at the top while the
+ * controls under it are used, then the code.
+ */
+import data from '../data/themes.json';
+import { CANVASKIT_VERSION, SKIA_MILESTONE } from '../tools/canvaskit.mjs';
+
+/** The examples, in the menu's order: shaders that show the inputs, then the templates. */
+const SHADERS = ['fireflies', 'snowfall', 'rain', 'night', 'pond', 'mountains', 'ink', 'crt', 'foil', 'hearts-fireworks'];
+const FILES = import.meta.glob<string>('../../../app/src/main/assets/shaders/*.agsl', { query: '?raw', import: 'default', eager: true });
+const sources = Object.fromEntries(Object.entries(FILES).map(([path, code]) => [path.replace(/^.*\/|\.agsl$/g, ''), code]));
+const TEMPLATES = Object.keys(sources).filter((n) => n.startsWith('template-')).sort();
+for (const n of SHADERS) if (!(n in sources)) throw new Error(`ShaderPreview: no shader ${n} in app/src/main/assets/shaders`);
+
+/** A built-in theme's name as the app shows it (ChoiceLabels.theme). */
+const label = (name: string) =>
+	name === 'rose-pine' ? 'Rosé Pine' : name.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+const themes = data.themes as Record<string, { dark: Record<string, string>; light: Record<string, string> }>;
+const ORDER = [data.default, ...Object.keys(themes).filter((t) => t !== data.default)];
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const ck = `${base}canvaskit/${CANVASKIT_VERSION}/`;
+const payload = {
+	examples: Object.fromEntries([...SHADERS, ...TEMPLATES].map((n) => [n, sources[n]])),
+	themes: Object.fromEntries(ORDER.map((t) => [t, themes[t]])),
+	canvaskit: ck,
+};
+// In a script element: no "</script>" can end it early.
+const json = JSON.stringify(payload).replace(/</g, '\\u003c');
+---
+
+<div class="sp not-content" data-sp>
+	<p class="sp-intro">
+		Drop or paste an <code>.agsl</code> file to see it as Kolahal draws it on home. It is compiled and drawn in your
+		browser; nothing is uploaded.
+	</p>
+
+	<div class="sp-tools">
+		<button type="button" class="sp-btn fill" data-open>Open file</button>
+		<input type="file" accept=".agsl,text/plain" hidden data-file />
+		<button type="button" class="sp-btn" data-paste>Paste</button>
+		<label class="sp-pick">
+			<span>Example</span>
+			<select data-example>
+				<optgroup label="Shaders">
+					{SHADERS.map((n) => <option value={n}>{n}</option>)}
+				</optgroup>
+				<optgroup label="Templates">
+					{TEMPLATES.map((n) => <option value={n}>{n}</option>)}
+				</optgroup>
+			</select>
+		</label>
+		<button type="button" class="sp-btn plain" data-reset>Reset</button>
+		<span class="sp-say" role="status" data-say></span>
+	</div>
+
+	<p class="sp-msg" hidden data-msg></p>
+
+	<div class="sp-grid">
+		<div class="sp-code">
+			<div class="sp-ed" data-drop>
+				<div class="sp-tab">
+					<span data-file-name>fireflies.agsl</span>
+					<span data-lines></span>
+				</div>
+				<div class="sp-body">
+					<div class="sp-gutter" aria-hidden="true"><div data-gutter></div></div>
+					<div class="sp-area">
+						<div class="sp-mark" hidden data-mark></div>
+						<textarea
+							data-text
+							spellcheck="false"
+							autocapitalize="off"
+							autocomplete="off"
+							wrap="off"
+							aria-label="Shader code"></textarea>
+					</div>
+				</div>
+				<div class="sp-drop">Drop a file here</div>
+			</div>
+			<div class="sp-log" data-log aria-live="polite"></div>
+		</div>
+
+		<div class="sp-view">
+			<div class="sp-phone">
+				<div class="sp-screen" data-screen tabindex="0" role="button" aria-describedby="sp-touch-hint" aria-label="Touch the screen">
+					<canvas data-canvas></canvas>
+					<div class="sp-status" aria-hidden="true"><span data-clock>21:14</span><span data-level>64%</span></div>
+					<span class="sp-cut" aria-hidden="true" data-cut></span>
+					<span class="sp-ring" aria-hidden="true" hidden data-ring></span>
+				</div>
+			</div>
+			<p class="sp-cap"><span data-cap>Loading</span><span>Tap to touch</span></p>
+		</div>
+
+		<div class="sp-ctl">
+			<div class="sp-params" data-params></div>
+
+			<div class="sp-row">
+				<label class="sp-lab" for="sp-theme">Theme</label>
+				<select id="sp-theme" data-theme-pick>
+					{ORDER.map((t) => <option value={t}>{label(t)}</option>)}
+				</select>
+				<fieldset class="sp-seg">
+					<legend class="sr-only">Theme version</legend>
+					<label><input type="radio" name="sp-mode" value="dark" checked data-mode />Dark</label>
+					<label><input type="radio" name="sp-mode" value="light" data-mode />Light</label>
+				</fieldset>
+			</div>
+
+			<fieldset class="sp-row">
+				<legend class="sp-lab">Shown on</legend>
+				<div class="sp-seg">
+					<label><input type="radio" name="sp-on" value="home" checked data-on />Home</label>
+					<label><input type="radio" name="sp-on" value="wallpaper" data-on />Wallpaper</label>
+				</div>
+				<p class="sp-hint" data-on-hint>Wallpaper: the live wallpaper, with no text</p>
+			</fieldset>
+
+			<div class="sp-row">
+				<label class="sp-sw">
+					<span>Wallpaper behind the log</span>
+					<input type="checkbox" role="switch" data-behind />
+				</label>
+				<p class="sp-hint" data-behind-hint></p>
+			</div>
+
+			<fieldset class="sp-row">
+				<legend class="sp-lab">Time <span data-time>0.0 s</span></legend>
+				<div class="sp-seg">
+					<label><input type="radio" name="sp-play" value="on" checked data-play />Playing</label>
+					<label><input type="radio" name="sp-play" value="off" data-play />Paused</label>
+				</div>
+				<button type="button" class="sp-btn small" hidden data-once>Play from the start</button>
+			</fieldset>
+
+			<p class="sp-hint" id="sp-touch-hint">
+				Click or tap the screen to touch it; hold for <code>pressed</code>. With the screen focused, Enter touches
+				its middle.
+			</p>
+
+			<details class="sp-more">
+				<summary>More inputs</summary>
+				<div class="sp-row">
+					<label class="sp-lab" for="sp-battery">Battery <span data-battery-text>64%</span></label>
+					<input id="sp-battery" type="range" min="0" max="100" step="1" value="64" data-battery />
+				</div>
+				<div class="sp-row">
+					<label class="sp-sw"><span>Charging</span><input type="checkbox" role="switch" data-charging /></label>
+				</div>
+				<fieldset class="sp-row">
+					<legend class="sp-lab">Tilt <span data-tilt-text>0, 0</span></legend>
+					<div class="sp-pad" data-pad aria-hidden="true"><span data-knob></span></div>
+					<label class="sp-sub">To the right <input type="range" min="-1" max="1" step="0.05" value="0" data-tilt="0" /></label>
+					<label class="sp-sub">Toward the bottom <input type="range" min="-1" max="1" step="0.05" value="0" data-tilt="1" /></label>
+				</fieldset>
+				<fieldset class="sp-row">
+					<legend class="sp-lab">The hour <span data-hour-text></span></legend>
+					<label class="sp-sw"><span>Now</span><input type="checkbox" role="switch" checked data-now /></label>
+					<input type="range" min="0" max="23.75" step="0.25" value="21" disabled aria-label="Hour" data-hour />
+				</fieldset>
+				<div class="sp-row">
+					<label class="sp-lab" for="sp-day">The day</label>
+					<input id="sp-day" type="date" data-day />
+				</div>
+				<p class="sp-hint">
+					<code>battery</code>, <code>charging</code>, <code>tilt</code> and <code>date</code> (the year, month, day and
+					seconds since midnight) as the phone gives them.
+				</p>
+			</details>
+		</div>
+	</div>
+
+	<p class="sp-note">
+		Compiled with Skia's own compiler: CanvasKit {CANVASKIT_VERSION}, Skia m{SKIA_MILESTONE}. Phones run older Skia, from
+		m100 on Android 13 to m136 on Android 16, so in rare cases a shader that compiles here fails on a phone. A phone's
+		graphics chip may also work with less precision in <code>half</code>, and a computer doesn't show what a frame costs
+		on a phone. CanvasKit is Google's, under the <a href={`${ck}LICENSE.txt`}>BSD 3-Clause license</a>.
+	</p>
+	<noscript><p class="sp-msg">The preview needs JavaScript.</p></noscript>
+	<script type="application/json" data-sp-data set:html={json} />
+</div>
+
+<style is:global>
+	:root:has([data-sp]) {
+		--sl-content-width: 82rem;
+	}
+	.sp {
+		container-type: inline-size;
+		--sp-mono: var(--s-font-mono);
+		color: var(--s-ink-soft);
+	}
+	.sp code {
+		font-family: var(--sp-mono);
+		font-size: 0.88em;
+		background: var(--s-wash);
+		color: var(--s-ink);
+		border-radius: 0.375rem;
+		padding: 0.05em 0.35em;
+	}
+	.sp [hidden] {
+		display: none !important;
+	}
+	.sp .sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+	.sp-intro,
+	.sp-note {
+		max-width: 72ch;
+	}
+	.sp-intro {
+		margin: 0 0 1.25rem;
+		font-size: 1.0625rem;
+	}
+	.sp-note {
+		margin: 1.75rem 0 0;
+		font-size: 0.875rem;
+		color: var(--s-muted);
+	}
+	.sp-note a {
+		color: var(--s-link);
+	}
+	.sp-msg {
+		margin: 0 0 1rem;
+		padding: 0.75rem 1rem;
+		border-radius: var(--s-radius-m);
+		background: var(--s-caution);
+		color: var(--s-on-caution);
+		max-width: 72ch;
+	}
+
+	/* ---- The buttons along the top ---- */
+	.sp-tools {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+	.sp-btn {
+		display: inline-flex;
+		align-items: center;
+		min-height: 2.75rem;
+		padding: 0 1rem;
+		border-radius: var(--s-radius-m);
+		border: 1.5px solid var(--s-ink);
+		background: transparent;
+		color: var(--s-ink);
+		font: 600 0.9375rem var(--s-font-text);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.sp-btn:hover {
+		background: color-mix(in srgb, var(--s-ink) 8%, transparent);
+	}
+	.sp-btn.fill {
+		background: var(--s-button);
+		border-color: var(--s-button);
+		color: var(--s-on-button);
+	}
+	.sp-btn.fill:hover {
+		background: color-mix(in srgb, var(--s-button) 88%, var(--s-ground));
+	}
+	.sp-btn.plain {
+		border-color: transparent;
+		color: var(--s-link);
+		padding: 0 0.5rem;
+	}
+	.sp-btn.small {
+		min-height: 2.25rem;
+		font-size: 0.875rem;
+		justify-self: start;
+	}
+	.sp-btn:focus-visible,
+	.sp select:focus-visible,
+	.sp textarea:focus-visible,
+	.sp-screen:focus-visible,
+	.sp-more summary:focus-visible,
+	.sp-log button:focus-visible {
+		outline: 2px solid var(--s-link);
+		outline-offset: 2px;
+	}
+	.sp select,
+	.sp input[type='date'] {
+		min-height: 2.75rem;
+		padding: 0 0.75rem;
+		border: 1px solid var(--s-rule);
+		border-radius: var(--s-radius-m);
+		background: var(--s-sheet);
+		color: var(--s-ink);
+		font: 500 0.9375rem var(--s-font-text);
+	}
+	.sp-pick {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-weight: 600;
+		color: var(--s-ink);
+		font-size: 0.9375rem;
+	}
+	.sp-say {
+		font-size: 0.875rem;
+		color: var(--s-muted);
+	}
+
+	/* ---- Layout: wide, the code, the phone and the controls; then the phone and controls over the code; narrow,
+	   the screen, the controls, the code. ---- */
+	.sp-grid {
+		display: grid;
+		gap: 1.25rem;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas: 'view' 'ctl' 'code';
+		align-items: start;
+	}
+	.sp-code {
+		grid-area: code;
+		min-width: 0;
+	}
+	.sp-view {
+		grid-area: view;
+	}
+	.sp-ctl {
+		grid-area: ctl;
+	}
+	@container (min-width: 36rem) {
+		.sp-grid {
+			grid-template-columns: 18.75rem minmax(0, 1fr);
+			grid-template-areas: 'view ctl' 'code code';
+		}
+	}
+	@container (min-width: 56rem) {
+		.sp-grid {
+			grid-template-columns: minmax(0, 1fr) 18.75rem 14.5rem;
+			grid-template-areas: 'code view ctl';
+		}
+	}
+
+	/* ---- The editor: dark in both site themes, as the code blocks ---- */
+	.sp-ed {
+		position: relative;
+		background: var(--s-code);
+		color: #adbac7;
+		border-radius: var(--s-radius-m);
+		overflow: hidden;
+		--sp-line: 1.6;
+		--sp-size: 0.78125rem;
+	}
+	.sp-ed.over {
+		outline: 2px dashed var(--s-link);
+		outline-offset: -2px;
+	}
+	.sp-tab {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.5rem 0.875rem;
+		border-bottom: 1px solid var(--s-code-rule);
+		color: var(--s-code-label);
+		font: 600 0.75rem var(--s-font-text);
+	}
+	.sp-tab span:first-child {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.sp-body {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		height: 34rem;
+	}
+	@container (max-width: 36rem) {
+		.sp-body {
+			height: 60vh;
+		}
+	}
+	.sp-gutter {
+		overflow: hidden;
+		padding: 0.5rem 0;
+		font: var(--sp-size) / var(--sp-line) var(--sp-mono);
+		color: #545d68;
+		text-align: right;
+		user-select: none;
+		min-width: 3.25em;
+	}
+	.sp-gutter div {
+		padding: 0 0.75em 0 0.5em;
+		white-space: pre;
+	}
+	.sp-gutter .err {
+		color: #eb6f92;
+		font-weight: 700;
+	}
+	.sp-area {
+		position: relative;
+		min-width: 0;
+	}
+	.sp-area textarea {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		margin: 0;
+		padding: 0.5rem 0.75rem 2rem 0.25rem;
+		border: 0;
+		resize: none;
+		background: transparent;
+		color: #adbac7;
+		caret-color: #ece9f2;
+		font: var(--sp-size) / var(--sp-line) var(--sp-mono);
+		tab-size: 4;
+		white-space: pre;
+		overflow: auto;
+	}
+	.sp-area textarea::selection {
+		background: #3b4a6b;
+	}
+	.sp-mark {
+		position: absolute;
+		left: 0;
+		right: 0;
+		background: rgba(235, 111, 146, 0.16);
+		pointer-events: none;
+	}
+	.sp-drop {
+		position: absolute;
+		right: 0.75rem;
+		bottom: 0.5rem;
+		font: 0.75rem var(--s-font-text);
+		color: var(--s-code-label);
+		pointer-events: none;
+	}
+
+	/* ---- What it says: log lines in the theme of the screen ---- */
+	.sp-log {
+		margin-top: 0.75rem;
+		padding: 0.5rem 0;
+		border-radius: var(--s-radius-m);
+		background: var(--t-bg, #191724);
+		color: var(--t-fg, #e0def4);
+		font: 0.78125rem / 1.6 var(--sp-mono);
+		min-height: 3rem;
+	}
+	.sp-ent {
+		display: grid;
+		grid-template-columns: 2px minmax(0, 1fr);
+		gap: 0.625rem;
+		padding: 0.25rem 0.875rem;
+	}
+	.sp-ent > b {
+		border-radius: 1px;
+		background: color-mix(in srgb, var(--t-accent) 45%, transparent);
+	}
+	.sp-ent.info .t1 {
+		color: var(--t-info);
+	}
+	.sp-ent.error > b {
+		background: color-mix(in srgb, var(--t-error) 45%, transparent);
+	}
+	.sp-ent.error .t1 {
+		color: var(--t-error);
+	}
+	.sp-ent .t1,
+	.sp-ent .t2 {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.sp-ent .t2 {
+		color: var(--t-fg);
+	}
+	.sp-ent .t2.dim {
+		color: var(--t-dim);
+	}
+	.sp-log button {
+		all: unset;
+		cursor: pointer;
+		color: var(--t-error);
+		text-decoration: underline;
+		text-underline-offset: 0.2em;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	/* ---- The phone ---- */
+	.sp-phone {
+		background: var(--s-phone);
+		border: 1px solid var(--s-phone-edge);
+		border-radius: 2.375rem;
+		padding: 0.5625rem;
+	}
+	.sp-screen {
+		position: relative;
+		height: 37.5rem;
+		border-radius: 1.875rem;
+		overflow: hidden;
+		background: var(--t-bg, #191724);
+		cursor: crosshair;
+		touch-action: none;
+		user-select: none;
+		-webkit-user-select: none;
+	}
+	.sp-screen.paper {
+		background: linear-gradient(180deg, #3a3350 0%, #6a4f6e 38%, #f0a868 58%, #231d2c 59%, #1a1624 100%);
+	}
+	.sp-screen canvas {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+	}
+	.sp-status {
+		position: absolute;
+		top: 0.5rem;
+		left: 1.375rem;
+		right: 1.375rem;
+		display: flex;
+		justify-content: space-between;
+		font: 600 0.6875rem var(--s-font-text);
+		color: var(--t-fg, #e0def4);
+		pointer-events: none;
+	}
+	.sp-cut {
+		position: absolute;
+		top: 0.625rem;
+		left: 50%;
+		width: 0.75rem;
+		height: 0.75rem;
+		margin-left: -0.375rem;
+		border-radius: 50%;
+		background: #000;
+		pointer-events: none;
+	}
+	.sp-ring {
+		position: absolute;
+		width: 2.125rem;
+		height: 2.125rem;
+		margin: -1.0625rem 0 0 -1.0625rem;
+		border-radius: 50%;
+		border: 1.5px solid color-mix(in srgb, var(--t-fg, #fff) 55%, transparent);
+		pointer-events: none;
+		transition: opacity 0.6s;
+	}
+	.sp-ring.gone {
+		opacity: 0;
+	}
+	.sp-cap span:last-child {
+		flex: none;
+	}
+	.sp-cap {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin: 0.5rem 0.25rem 0;
+		font-size: 0.8125rem;
+		color: var(--s-muted);
+	}
+	@container (max-width: 36rem) {
+		/* The screen stays in view while the controls under it are used. */
+		.sp-view {
+			position: sticky;
+			top: calc(var(--sl-nav-height, 3.5rem) + 0.25rem);
+			z-index: 3;
+			background: var(--s-sheet);
+			padding: 0.25rem 0 0.5rem;
+			margin: -0.25rem 0 0;
+		}
+		.sp-phone {
+			padding: 0.375rem;
+			border-radius: 1.25rem;
+		}
+		.sp-screen {
+			height: min(20.625rem, 42vh);
+			border-radius: 0.875rem;
+		}
+	}
+
+	/* ---- Controls ---- */
+	.sp-ctl {
+		display: grid;
+		gap: 1rem;
+		font-size: 0.9375rem;
+	}
+	.sp-params {
+		display: grid;
+		gap: 1rem;
+	}
+	.sp-params:empty {
+		display: none;
+	}
+	.sp-row {
+		display: grid;
+		gap: 0.375rem;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		min-width: 0;
+	}
+	.sp-lab {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.5rem;
+		padding: 0;
+		width: 100%;
+		color: var(--s-ink);
+		font-weight: 600;
+		font-size: 0.9375rem;
+	}
+	.sp-lab span,
+	.sp-lab output {
+		color: var(--s-muted);
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+	}
+	.sp-hint {
+		margin: 0;
+		color: var(--s-muted);
+		font-size: 0.84375rem;
+	}
+	.sp-hint:empty {
+		display: none;
+	}
+	.sp input[type='range'] {
+		width: 100%;
+		accent-color: var(--s-link);
+		margin: 0.25rem 0;
+	}
+	.sp-seg {
+		display: grid;
+		grid-auto-flow: column;
+		grid-auto-columns: 1fr;
+		gap: 3px;
+		padding: 3px;
+		margin: 0;
+		border: 0;
+		border-radius: 0.75rem;
+		background: var(--s-ground);
+		min-width: 0;
+	}
+	.sp-seg label {
+		position: relative;
+		text-align: center;
+		padding: 0.4375rem 0.5rem;
+		border-radius: 0.5625rem;
+		color: var(--s-muted);
+		font-weight: 600;
+		font-size: 0.875rem;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.sp-seg input {
+		position: absolute;
+		opacity: 0;
+		inset: 0;
+		margin: 0;
+		cursor: pointer;
+	}
+	.sp-seg label:has(input:checked) {
+		background: var(--s-wash);
+		color: var(--s-ink);
+	}
+	.sp-seg label:has(input:focus-visible) {
+		outline: 2px solid var(--s-link);
+		outline-offset: 1px;
+	}
+	.sp-seg label:has(input:disabled) {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+	.sp-sw {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 0.75rem;
+		color: var(--s-ink);
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.sp-sw input {
+		appearance: none;
+		flex: none;
+		position: relative;
+		width: 2.5rem;
+		height: 1.5rem;
+		margin: 0;
+		border-radius: 0.75rem;
+		background: var(--s-wash);
+		cursor: pointer;
+	}
+	.sp-sw input::after {
+		content: '';
+		position: absolute;
+		top: 3px;
+		left: 3px;
+		width: 1.125rem;
+		height: 1.125rem;
+		border-radius: 50%;
+		background: var(--s-muted);
+		transition: left 0.15s;
+	}
+	.sp-sw input:checked {
+		background: var(--s-link);
+	}
+	.sp-sw input:checked::after {
+		left: calc(100% - 1.125rem - 3px);
+		background: var(--s-sheet);
+	}
+	.sp-sw input:focus-visible {
+		outline: 2px solid var(--s-link);
+		outline-offset: 2px;
+	}
+	.sp-sw input:disabled {
+		opacity: 0.45;
+	}
+	.sp-sub {
+		display: grid;
+		font-size: 0.84375rem;
+		color: var(--s-muted);
+	}
+	.sp-more {
+		border-top: 1px solid var(--s-rule);
+		padding-top: 0.75rem;
+	}
+	.sp-more summary {
+		cursor: pointer;
+		color: var(--s-ink);
+		font-weight: 600;
+		margin-bottom: 0.5rem;
+	}
+	.sp-more[open] > .sp-row,
+	.sp-more[open] > .sp-hint {
+		margin-top: 0.875rem;
+	}
+	.sp-pad {
+		position: relative;
+		width: 6.5rem;
+		height: 6.5rem;
+		border-radius: 0.75rem;
+		background: var(--s-ground);
+		border: 1px solid var(--s-rule);
+		touch-action: none;
+		cursor: grab;
+	}
+	.sp-pad::before,
+	.sp-pad::after {
+		content: '';
+		position: absolute;
+		background: var(--s-rule);
+	}
+	.sp-pad::before {
+		left: 50%;
+		top: 0.5rem;
+		bottom: 0.5rem;
+		width: 1px;
+	}
+	.sp-pad::after {
+		top: 50%;
+		left: 0.5rem;
+		right: 0.5rem;
+		height: 1px;
+	}
+	.sp-pad span {
+		position: absolute;
+		z-index: 1;
+		width: 1.125rem;
+		height: 1.125rem;
+		margin: -0.5625rem 0 0 -0.5625rem;
+		border-radius: 50%;
+		background: var(--s-link);
+		left: 50%;
+		top: 50%;
+	}
+</style>
+
+<script>
+	import * as M from '../tools/shader-meta.js';
+
+	type Palette = Record<string, string>;
+	type Param = ReturnType<typeof M.readParam> & {};
+	type Meta = ReturnType<typeof M.parse>;
+
+	const root = document.querySelector<HTMLElement>('[data-sp]');
+	if (root) start(root);
+
+	function start(root: HTMLElement) {
+		const data = JSON.parse(root.querySelector('[data-sp-data]')!.textContent!) as {
+			examples: Record<string, string>;
+			themes: Record<string, { dark: Palette; light: Palette }>;
+			canvaskit: string;
+		};
+		const $ = <T extends Element = HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
+		const $$ = <T extends Element = HTMLInputElement>(sel: string) => [...root.querySelectorAll<T>(sel)];
+
+		const text = $<HTMLTextAreaElement>('[data-text]');
+		const gutter = $('[data-gutter]');
+		const mark = $('[data-mark]');
+		const log = $('[data-log]');
+		const screen = $('[data-screen]');
+		const canvas = $<HTMLCanvasElement>('[data-canvas]');
+		const ring = $('[data-ring]');
+		const cap = $('[data-cap]');
+		const say = $('[data-say]');
+		const msg = $('[data-msg]');
+		const exampleSel = $<HTMLSelectElement>('[data-example]');
+		const themeSel = $<HTMLSelectElement>('[data-theme-pick]');
+
+		// ---- What is shown, and how ------------------------------------------------------------
+		const state = {
+			name: 'fireflies',
+			original: data.examples.fireflies,
+			theme: themeSel.value,
+			mode: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+			on: 'home' as 'home' | 'wallpaper',
+			behind: false,
+			playing: true,
+			seconds: 0,
+			battery: 0.64,
+			charging: false,
+			tilt: [0, 0],
+			now: true,
+			hour: 21,
+			day: '',
+		};
+		/** The last touch: where, in px of the canvas, and when, on the shader's clock and the page's. */
+		let touch: { x: number; y: number; at: number; atMs: number } | null = null;
+		let pressed = false;
+		/** Values of the parameters, by name, while the shader keeps them. */
+		const values = new Map<string, number>();
+
+		// What is drawn with, and whether it must be drawn again.
+		let surface: any = null;
+		let gl: any = null;
+		let software = false;
+		let image: any = null;
+		let content: any = null;
+		let dirty = true;
+		let contentDirty = true;
+		let lastDraw = 0;
+		let lastTick: number | null = null;
+		let lastMinute = -1;
+		let noCompiler = '';
+		const paint = { p: null as any };
+
+		// ---- The editor --------------------------------------------------------------------------
+		let lineCount = 0;
+		/** The parameters' controls are made again at the next compile: a file was loaded. */
+		let forceParams = true;
+		let errorLine: number | null = null;
+		const lineHeight = () => parseFloat(getComputedStyle(text).lineHeight) || 20;
+		const padTop = () => parseFloat(getComputedStyle(text).paddingTop) || 8;
+		function drawGutter() {
+			const n = text.value.split('\n').length;
+			if (n !== lineCount || gutter.dataset.err !== String(errorLine)) {
+				lineCount = n;
+				gutter.dataset.err = String(errorLine);
+				let html = '';
+				for (let i = 1; i <= n; i++) html += i === errorLine ? `<span class="err">${i}</span>\n` : `${i}\n`;
+				gutter.innerHTML = html;
+				$('[data-lines]').textContent = `${n} ${n === 1 ? 'line' : 'lines'}`;
+			}
+			syncScroll();
+		}
+		function syncScroll() {
+			gutter.style.transform = `translateY(${-text.scrollTop}px)`;
+			if (errorLine === null) mark.hidden = true;
+			else {
+				mark.hidden = false;
+				mark.style.top = `${padTop() + (errorLine - 1) * lineHeight() - text.scrollTop}px`;
+				mark.style.height = `${lineHeight()}px`;
+			}
+		}
+		text.addEventListener('scroll', syncScroll);
+		/** Selects line [n] and brings it into view. */
+		function selectLine(n: number) {
+			const lines = text.value.split('\n');
+			const i = Math.min(Math.max(n, 1), lines.length) - 1;
+			let at = 0;
+			for (let k = 0; k < i; k++) at += lines[k].length + 1;
+			text.focus();
+			text.setSelectionRange(at, at + lines[i].length);
+			text.scrollTop = Math.max(0, i * lineHeight() - text.clientHeight / 3);
+			syncScroll();
+		}
+
+		function load(name: string, source: string) {
+			state.name = name;
+			state.original = source;
+			text.value = source;
+			$('[data-file-name]').textContent = `${name}.agsl`;
+			text.scrollTop = 0;
+			values.clear();
+			forceParams = true;
+			state.seconds = 0;
+			touch = null;
+			check();
+		}
+		let timer = 0;
+		text.addEventListener('input', () => {
+			drawGutter();
+			clearTimeout(timer);
+			timer = window.setTimeout(check, 300);
+		});
+
+		exampleSel.addEventListener('change', () => load(exampleSel.value, data.examples[exampleSel.value]));
+		$('[data-reset]').addEventListener('click', () => {
+			load(state.name, state.original);
+			say.textContent = '';
+		});
+		const fileInput = $<HTMLInputElement>('[data-file]');
+		$('[data-open]').addEventListener('click', () => fileInput.click());
+		fileInput.addEventListener('change', () => {
+			if (fileInput.files?.[0]) openFile(fileInput.files[0]);
+			fileInput.value = '';
+		});
+		async function openFile(file: File) {
+			if (file.size > 1024 * 1024) {
+				say.textContent = `${file.name} is larger than 1 MB, and a shader can have ${M.MAX_BYTES / 1024} KB`;
+				return;
+			}
+			load(file.name.replace(/\.[^.]*$/, '') || 'shader', await file.text());
+			say.textContent = '';
+		}
+		const drop = $('[data-drop]');
+		drop.addEventListener('dragover', (e) => {
+			e.preventDefault();
+			drop.classList.add('over');
+		});
+		drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+		drop.addEventListener('drop', (e) => {
+			e.preventDefault();
+			drop.classList.remove('over');
+			const file = e.dataTransfer?.files?.[0];
+			if (file) openFile(file);
+		});
+		$('[data-paste]').addEventListener('click', async () => {
+			try {
+				const pasted = await navigator.clipboard.readText();
+				if (!pasted.trim()) {
+					say.textContent = 'Nothing to paste';
+					return;
+				}
+				load(nameOf(pasted), pasted);
+				say.textContent = '';
+			} catch {
+				text.focus();
+				text.select();
+				say.textContent = 'Press Ctrl+V (or ⌘V) to paste over the code';
+			}
+		});
+		/** A pasted shader's name: its @name in lower case with dashes, as a file would have it. */
+		function nameOf(source: string) {
+			const said = M.parse(source).title;
+			return said ? said.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pasted' : 'pasted';
+		}
+
+		// ---- Compiling ---------------------------------------------------------------------------
+		let ck: any = null;
+		/** The last version that compiled: what the screen shows. */
+		let good: { effect: any; meta: Meta; name: string; slots: Map<string, { slot: number; n: number }> } | null = null;
+		/** The text as it is now: its meta, and its problem if it has one. */
+		let current: { meta: Meta; problem: { line: number | null; text: string } | null } | null = null;
+
+		function check() {
+			const source = text.value;
+			const meta = M.parse(source);
+			let problem: { line: number | null; text: string } | null = null;
+			const first = M.problems(source)[0];
+			if (first) problem = { line: null, text: first };
+			else if (ck) {
+				let message = '';
+				const effect = ck.RuntimeEffect.Make(source, (m: string) => (message = m));
+				if (!effect) problem = M.compileError(message || "it doesn't compile");
+				else {
+					good?.effect.delete();
+					const slots = new Map<string, { slot: number; n: number }>();
+					for (let i = 0; i < effect.getUniformCount(); i++) {
+						const u = effect.getUniform(i);
+						slots.set(effect.getUniformName(i), { slot: u.slot, n: u.columns * u.rows });
+					}
+					const before = good?.meta.params ?? [];
+					good = { effect, meta, name: state.name, slots };
+					if (forceParams || !sameParams(before, meta.params)) drawParams(meta.params);
+					forceParams = false;
+					controlsFor(meta);
+				}
+			}
+			current = { meta, problem };
+			errorLine = problem?.line ?? null;
+			drawGutter();
+			drawLog();
+			dirty = true;
+			contentDirty = true;
+		}
+
+		function drawLog() {
+			const name = state.name;
+			const ent = (kind: string, first: string, rest: (string | Node)[] = [], dim = false) => {
+				const e = document.createElement('div');
+				e.className = `sp-ent ${kind}`;
+				const bar = document.createElement('b');
+				const body = document.createElement('div');
+				const t1 = document.createElement('div');
+				t1.className = 't1';
+				t1.textContent = first;
+				body.append(t1);
+				for (const r of rest) {
+					const t2 = document.createElement('div');
+					t2.className = dim ? 't2 dim' : 't2';
+					t2.append(r);
+					body.append(t2);
+				}
+				e.append(bar, body);
+				return e;
+			};
+			const out: HTMLElement[] = [];
+			if (!current) return;
+			if (current.problem) {
+				const words = M.capital(M.problemText(current.problem));
+				let line: string | Node = words;
+				if (current.problem.line !== null) {
+					const b = document.createElement('button');
+					b.type = 'button';
+					b.textContent = words;
+					const n = current.problem.line;
+					b.title = `Select line ${n}`;
+					b.addEventListener('click', () => selectLine(n));
+					line = b;
+				}
+				out.push(ent('error', `Shader ${name} can't be used`, [line]));
+				cap.textContent = good ? `${name} can't be used: the last version that compiled is shown` : `${name} can't be used`;
+			} else if (!ck) {
+				out.push(ent('info', `Shader ${name}`, [noCompiler || 'Loading the compiler, about 3 MB the first time'], true));
+				cap.textContent = noCompiler ? 'No preview' : 'Loading';
+			} else {
+				const [first, ...rest] = M.checkLines(current.meta);
+				out.push(ent('info', `Shader ${name} ${first}`, rest));
+				cap.textContent = `${name} compiles`;
+			}
+			for (const w of M.warnings(text.value)) out.push(ent('error', w));
+			log.replaceChildren(...out);
+		}
+
+		// ---- Parameters and the other controls ---------------------------------------------------
+		const sameParams = (a: Param[], b: Param[]) =>
+			a.length === b.length && a.every((p, i) => p.name === b[i].name && p.range === b[i].range && p.title === b[i].title);
+		function drawParams(params: Param[]) {
+			const box = $('[data-params]');
+			box.replaceChildren();
+			for (const [k] of values) if (!params.some((p) => p.name === k)) values.delete(k);
+			params.forEach((p, i) => {
+				const id = `sp-param-${i}`;
+				const row = document.createElement('div');
+				row.className = 'sp-row';
+				const lab = document.createElement('label');
+				lab.className = 'sp-lab';
+				lab.htmlFor = id;
+				lab.textContent = p.title;
+				const shown = document.createElement('output');
+				shown.htmlFor.add(id);
+				lab.append(shown);
+				const value = values.has(p.name) ? p.clean(values.get(p.name)!) : p.default;
+				values.set(p.name, value);
+				let input: HTMLInputElement | HTMLSelectElement;
+				if (p.choices.length) {
+					const sel = document.createElement('select');
+					p.choices.forEach((c, k) => sel.append(new Option(c, String(k), false, k === value)));
+					input = sel;
+				} else {
+					const r = document.createElement('input');
+					r.type = 'range';
+					r.min = String(p.min);
+					r.max = String(p.max);
+					r.step = p.whole ? '1' : String((p.max - p.min) / 200);
+					r.value = String(value);
+					input = r;
+				}
+				input.id = id;
+				const hint = document.createElement('p');
+				hint.className = 'sp-hint';
+				hint.textContent = p.choices.length ? `${p.name}: ${p.choices.join(', ')}` : `${p.name}, ${p.text(p.min)} to ${p.text(p.max)}`;
+				const show = () => {
+					shown.textContent = p.text(values.get(p.name)!);
+					if (input instanceof HTMLInputElement) input.setAttribute('aria-valuetext', shown.textContent);
+				};
+				input.addEventListener('input', () => {
+					values.set(p.name, p.clean(Number(input.value)));
+					show();
+					dirty = true;
+				});
+				show();
+				row.append(lab, input, hint);
+				box.append(row);
+			});
+		}
+
+		const onInputs = $$('[data-on]');
+		const onHint = $('[data-on-hint]');
+		const behindBox = $<HTMLInputElement>('[data-behind]');
+		const behindHint = $('[data-behind-hint]');
+		const onceBtn = $('[data-once]');
+		function controlsFor(meta: Meta) {
+			const why = M.wallpaperProblem(good!.name, meta);
+			onInputs.find((i) => i.value === 'wallpaper')!.disabled = !!why;
+			if (why && state.on === 'wallpaper') {
+				state.on = 'home';
+				onInputs.find((i) => i.value === 'home')!.checked = true;
+			}
+			onHint.textContent = why ?? 'Wallpaper: the live wallpaper, with no text';
+			behindHint.textContent = why
+				? state.behind
+					? 'Half of a sample wallpaper shows through, as with log.wallpaper at 50'
+					: ''
+				: `${good!.name} brings its own ground: the phone's wallpaper doesn't show behind it`;
+			onceBtn.hidden = meta.once === null;
+			contentDirty = true;
+		}
+		onInputs.forEach((i) =>
+			i.addEventListener('change', () => {
+				state.on = i.value as 'home' | 'wallpaper';
+				contentDirty = dirty = true;
+			})
+		);
+		behindBox.addEventListener('change', () => {
+			state.behind = behindBox.checked;
+			if (good) controlsFor(good.meta);
+			contentDirty = dirty = true;
+		});
+		themeSel.addEventListener('change', () => {
+			state.theme = themeSel.value;
+			themed();
+		});
+		$$('[data-mode]').forEach((i) => {
+			i.checked = i.value === state.mode;
+			i.addEventListener('change', () => {
+				state.mode = i.value;
+				themed();
+			});
+		});
+		$$('[data-play]').forEach((i) =>
+			i.addEventListener('change', () => {
+				state.playing = i.value === 'on';
+				lastTick = null;
+				dirty = true;
+			})
+		);
+		onceBtn.addEventListener('click', () => {
+			state.seconds = 0;
+			lastTick = null;
+			dirty = true;
+		});
+		const battery = $<HTMLInputElement>('[data-battery]');
+		battery.addEventListener('input', () => {
+			state.battery = Number(battery.value) / 100;
+			$('[data-battery-text]').textContent = `${battery.value}%`;
+			$('[data-level]').textContent = `${battery.value}%`;
+			dirty = true;
+		});
+		$<HTMLInputElement>('[data-charging]').addEventListener('change', (e) => {
+			state.charging = (e.target as HTMLInputElement).checked;
+			dirty = true;
+		});
+		const tiltInputs = $$('[data-tilt]');
+		const pad = $('[data-pad]');
+		const knob = $('[data-knob]');
+		function setTilt(x: number, y: number) {
+			state.tilt = [Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y))];
+			tiltInputs[0].value = String(state.tilt[0]);
+			tiltInputs[1].value = String(state.tilt[1]);
+			knob.style.left = `${50 + state.tilt[0] * 42}%`;
+			knob.style.top = `${50 + state.tilt[1] * 42}%`;
+			$('[data-tilt-text]').textContent = `${state.tilt[0].toFixed(2)}, ${state.tilt[1].toFixed(2)}`;
+			dirty = true;
+		}
+		tiltInputs.forEach((i) => i.addEventListener('input', () => setTilt(Number(tiltInputs[0].value), Number(tiltInputs[1].value))));
+		const padAt = (e: PointerEvent) => {
+			const r = pad.getBoundingClientRect();
+			setTilt(((e.clientX - r.left) / r.width - 0.5) / 0.42, ((e.clientY - r.top) / r.height - 0.5) / 0.42);
+		};
+		pad.addEventListener('pointerdown', (e) => {
+			pad.setPointerCapture(e.pointerId);
+			padAt(e);
+		});
+		pad.addEventListener('pointermove', (e) => {
+			if (pad.hasPointerCapture(e.pointerId)) padAt(e);
+		});
+		pad.addEventListener('dblclick', () => setTilt(0, 0));
+		const nowBox = $<HTMLInputElement>('[data-now]');
+		const hour = $<HTMLInputElement>('[data-hour]');
+		const day = $<HTMLInputElement>('[data-day]');
+		const today = new Date();
+		day.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+		nowBox.addEventListener('change', () => {
+			state.now = nowBox.checked;
+			hour.disabled = state.now;
+			showHour();
+			contentDirty = dirty = true;
+		});
+		hour.addEventListener('input', () => {
+			state.hour = Number(hour.value);
+			showHour();
+			contentDirty = dirty = true;
+		});
+		day.addEventListener('input', () => {
+			state.day = day.value;
+			dirty = true;
+		});
+
+		/** The time the phone has: now, or the hour picked on the day picked. */
+		function phoneTime() {
+			const now = new Date();
+			const [y, m, d] = (day.value || '').split('-').map(Number);
+			const t = new Date(now);
+			if (y && m && d) t.setFullYear(y, m - 1, d);
+			if (!state.now) t.setHours(Math.floor(state.hour), Math.round((state.hour % 1) * 60), 0, 0);
+			return t;
+		}
+		const hhmm = (t: Date) => `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+		function showHour() {
+			const t = hhmm(phoneTime());
+			$('[data-hour-text]').textContent = state.now ? `now, ${t}` : t;
+			hour.setAttribute('aria-valuetext', t);
+			$('[data-clock]').textContent = t;
+		}
+		showHour();
+
+		// ---- The theme -----------------------------------------------------------------------------
+		const palette = () => data.themes[state.theme][state.mode as 'dark' | 'light'];
+		const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+		const lum = (hex: string) => {
+			const [r, g, b] = rgb(hex).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+			return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		};
+		/** The shader's names for the theme's roles (WallpaperWriter.colors). */
+		const ROLE: Record<string, string> = {
+			bg: 'background', surface: 'surface', fg: 'text', dim: 'muted', accent: 'accent',
+			error: 'error', warn: 'warn', good: 'good', info: 'info', link: 'link',
+		};
+		function themed() {
+			const p = palette();
+			for (const [k, v] of Object.entries({ bg: p.background, fg: p.text, dim: p.muted, accent: p.accent, info: p.info, error: p.error }))
+				root.style.setProperty(`--t-${k}`, v);
+			contentDirty = dirty = true;
+		}
+		themed();
+
+		// ---- Home, drawn as the shader's input -------------------------------------------------
+		/** CSS px for one dp: the screen is a phone about 360 dp wide, drawn smaller. */
+		const DP = 0.82;
+		const FONT_DP = 14;
+		const LINE_DP = 22;
+		const page = document.createElement('canvas');
+		let fontsReady = false;
+		Promise.all(['400', '600'].map((w) => document.fonts.load(`${w} 12px "JetBrains Mono"`)))
+			.catch(() => null)
+			.then(() => {
+				fontsReady = true;
+				contentDirty = dirty = true;
+			});
+
+		/** The size of the screen, in px of the canvas, and its pixel ratio. */
+		const size = { w: 1, h: 1, ratio: 1 };
+		const cellOf = () => {
+			const px = FONT_DP * DP * size.ratio;
+			return { w: px * 0.6, h: Math.max(LINE_DP * DP * size.ratio, px * 1.2), px };
+		};
+		/** The grid as the app works it out when the columns aren't known: what fits, in the middle. */
+		function gridOf() {
+			const c = cellOf();
+			const cols = Math.floor(size.w / c.w);
+			return { cols, rows: Math.floor(size.h / c.h), left: (size.w - cols * c.w) / 2 };
+		}
+		/** The share of the phone's wallpaper behind the page (WallpaperChoice.homeShare): none for a shader that brings its ground. */
+		const share = () => (state.behind && good && M.wallpaperProblem(good.name, good.meta) ? 0.5 : 0);
+
+		function drawPage() {
+			page.width = size.w;
+			page.height = size.h;
+			const g = page.getContext('2d')!;
+			const p = palette();
+			const [r, gr, b] = rgb(p.background).map((v) => Math.round(v * 255));
+			g.clearRect(0, 0, size.w, size.h);
+			g.fillStyle = `rgba(${r},${gr},${b},${(1 - share()) * M.PAGE_ALPHA})`;
+			g.fillRect(0, 0, size.w, size.h);
+			screen.classList.toggle('paper', share() > 0);
+			if (state.on === 'wallpaper') return;
+			const c = cellOf();
+			const { cols, rows, left } = gridOf();
+			const t = phoneTime();
+			const ago = (min: number) => hhmm(new Date(t.getTime() - min * 60_000));
+			// The world clock as it was when `clock` was typed, six minutes ago.
+			const zone = (offset: number) => hhmm(new Date(t.getTime() + (offset * 60 + t.getTimezoneOffset() - 6) * 60_000));
+			const name = good?.name ?? state.name;
+			type Row = { text: string; color: string; time?: string; bold?: boolean; bar?: string };
+			const cmd = (text: string, time: string): Row => ({ text, color: p.text, time, bold: true, bar: p.accent });
+			const out = (text: string, color = p.text, bar = p.accent): Row => ({ text, color, bar });
+			const entries: Row[][] = [
+				[cmd('clock', ago(6)), out(`Tokyo     ${zone(9)}`), out(`Lisbon    ${zone(0)}`), out(`London    ${zone(0)}`), out(`New York  ${zone(-5)}`)],
+				[cmd('weather', ago(4)), out('Lisbon 14°, clear'), out('Tomorrow 19°, sunny', p.muted)],
+				[cmd('open mps', ago(3)), out("No app matches 'mps'", p.error, p.error)],
+				[cmd(`shader ${name}`, ago(0)), out(`Shader: ${name}`, p.info), out("'shader off' turns it off", p.muted)],
+			];
+			// From the bottom up, as the log is: the prompt last, a line over the bottom edge.
+			const lines: (Row | null)[] = [];
+			for (const e of entries) lines.push(null, ...e);
+			lines.push(null, { text: '', color: p.text });
+			const top = rows - 1 - lines.length;
+			const font = (bold?: boolean) => `${bold ? 600 : 400} ${c.px}px "JetBrains Mono", monospace`;
+			g.textBaseline = 'middle';
+			lines.forEach((row, i) => {
+				const at = top + i;
+				if (!row || at < 2) return;
+				const y = at * c.h;
+				if (row.bar) {
+					g.globalAlpha = 0.45;
+					g.fillStyle = row.bar;
+					g.fillRect(left, y, Math.max(1, 2 * DP * size.ratio), c.h);
+					g.globalAlpha = 1;
+				}
+				const x = left + c.w;
+				if (row.bold || row === lines[lines.length - 1]) {
+					g.font = font(true);
+					g.fillStyle = p.accent;
+					g.fillText('$', x, y + c.h / 2);
+				}
+				g.font = font(row.bold);
+				g.fillStyle = row.color;
+				const room = cols - 3 - (row.time ? 6 : 0);
+				const words = row.text.length > room ? row.text.slice(0, Math.max(0, room - 1)) + '…' : row.text;
+				g.fillText(words, x + (row.bold ? 2 * c.w : 0), y + c.h / 2);
+				if (row.time) {
+					g.font = font(false);
+					g.fillStyle = p.muted;
+					g.fillText(row.time, left + (cols - 6) * c.w, y + c.h / 2);
+				}
+				if (row === lines[lines.length - 1]) {
+					g.fillStyle = p.accent;
+					g.fillRect(x + 2 * c.w, y + (c.h - c.px * 1.2) / 2, c.w, c.px * 1.2);
+				}
+			});
+		}
+
+		// ---- Drawing ---------------------------------------------------------------------------
+
+		function resize() {
+			const r = screen.getBoundingClientRect();
+			const ratio = Math.min(window.devicePixelRatio || 1, software ? 1 : 2);
+			const w = Math.max(1, Math.round(r.width * ratio));
+			const h = Math.max(1, Math.round(r.height * ratio));
+			if (w === size.w && h === size.h && ratio === size.ratio && surface) return;
+			Object.assign(size, { w, h, ratio });
+			canvas.width = w;
+			canvas.height = h;
+			if (!ck) return;
+			surface?.delete();
+			surface = gl ? ck.MakeOnScreenGLSurface(gl, w, h, ck.ColorSpace.SRGB) : ck.MakeSWCanvasSurface(canvas);
+			contentDirty = dirty = true;
+		}
+		new ResizeObserver(resize).observe(screen);
+
+		const usesClock = (m: Meta) => m.animated && (m.uses('time') || m.uses('touchAge') || m.uses('progress'));
+
+		/** Sets the uniforms a shader declares, as ShaderUniforms.set does. */
+		function uniforms(meta: Meta, slots: Map<string, { slot: number; n: number }>, count: number) {
+			const u = new Float32Array(count);
+			const put = (name: string, ...v: number[]) => {
+				const d = meta.declared(name);
+				const s = slots.get(name);
+				if (!d || !s || d.floats !== v.length || s.n !== v.length) return;
+				u.set(v, s.slot);
+			};
+			const c = cellOf();
+			const { cols, left } = gridOf();
+			const p = palette();
+			const seconds = usesClock(meta) ? state.seconds : 0;
+			const touched = (meta.uses('touch') || meta.uses('touchAge')) && touch !== null;
+			put('time', seconds);
+			if (meta.once !== null) put('progress', Math.min((seconds % (meta.once + 1)) / meta.once, 1));
+			put('resolution', size.w, size.h);
+			put('cell', c.w, c.h);
+			put('grid', cols, Math.floor(size.h / c.h));
+			put('origin', left, 0);
+			put('dark', lum(p.background) < lum(p.text) ? 1 : 0);
+			put('wallpaper', state.on === 'wallpaper' ? 1 : 0);
+			put('touch', touched ? touch!.x : -1, touched ? touch!.y : -1);
+			put('touchAge', !touched ? M.NEVER : meta.animated ? Math.max(0, seconds - touch!.at) : 0);
+			put('pressed', pressed ? 1 : 0);
+			put('battery', state.battery);
+			put('charging', state.charging ? 1 : 0);
+			const sr = screen.getBoundingClientRect();
+			put('corner', parseFloat(getComputedStyle(screen).borderTopLeftRadius) * size.ratio || 0);
+			const cut = $('[data-cut]').getBoundingClientRect();
+			const k = size.w / Math.max(1, sr.width);
+			if (!meta.declared('cutout')?.color) put('cutout', (cut.left - sr.left) * k, 0, (cut.right - sr.left) * k, (cut.bottom - sr.top) * k);
+			put('tilt', state.tilt[0], state.tilt[1]);
+			put('seed', 0);
+			if (meta.declared('date')?.floats === 4) {
+				const t = phoneTime();
+				const secs = t.getHours() * 3600 + t.getMinutes() * 60 + t.getSeconds() + (state.now ? t.getMilliseconds() / 1000 : 0);
+				put('date', t.getFullYear(), t.getMonth() + 1, t.getDate(), secs);
+			}
+			for (const prm of meta.params) put(prm.name, values.get(prm.name) ?? prm.default);
+			for (const [name, role] of Object.entries(ROLE)) {
+				const d = meta.declared(name);
+				if (d && (d.color || d.floats === 4)) put(name, ...rgb(p[role]), 1);
+			}
+			return u;
+		}
+
+		function draw(now: number) {
+			requestAnimationFrame(draw);
+			if (!surface || !fontsReady) return;
+			const meta = good?.meta;
+			let frame: number | null = null;
+			const moving = !!meta && state.playing && usesClock(meta);
+			if (moving) {
+				frame = M.frameMs(meta!.pace, touch ? now - touch.atMs : null);
+				if (frame !== null && now - lastDraw >= frame - 4) dirty = true;
+			}
+			if (!moving || frame === null) lastTick = null;
+			// A shader that reads the date is drawn again when the minute changes.
+			const minute = Math.floor(Date.now() / 60_000);
+			if (minute !== lastMinute) {
+				lastMinute = minute;
+				showHour();
+				contentDirty = dirty = true;
+			}
+			if (!dirty) return;
+			dirty = false;
+			if (moving && frame !== null) {
+				if (lastTick !== null) state.seconds += M.step(now - lastTick, frame) / 1000;
+				lastTick = now;
+			}
+			lastDraw = now;
+			$('[data-time]').textContent =
+				`${state.seconds.toFixed(1)} s` + (meta?.once != null ? `, progress ${Math.min((state.seconds % (meta.once + 1)) / meta.once, 1).toFixed(2)}` : '');
+			if (contentDirty) {
+				contentDirty = false;
+				drawPage();
+				content?.delete();
+				image?.delete();
+				image = ck.MakeImageFromCanvasImageSource(page);
+				content = image.makeShaderOptions(ck.TileMode.Decal, ck.TileMode.Decal, ck.FilterMode.Nearest, ck.MipmapMode.None);
+			}
+			const sk = surface.getCanvas();
+			sk.clear(ck.TRANSPARENT);
+			if (!good) {
+				sk.drawImage(image, 0, 0, null);
+				surface.flush();
+				return;
+			}
+			let shader: any = null;
+			try {
+				shader = good.effect.makeShaderWithChildren(uniforms(good.meta, good.slots, good.effect.getUniformFloatCount()), [content]);
+				paint.p.setShader(shader);
+				sk.drawRect(ck.LTRBRect(0, 0, size.w, size.h), paint.p);
+			} catch {
+				sk.drawImage(image, 0, 0, null);
+			} finally {
+				shader?.delete();
+			}
+			surface.flush();
+		}
+
+		// ---- Touches ---------------------------------------------------------------------------
+		let ringTimer = 0;
+		function touchAt(clientX: number, clientY: number) {
+			const r = screen.getBoundingClientRect();
+			const k = size.w / Math.max(1, r.width);
+			touch = { x: (clientX - r.left) * k, y: (clientY - r.top) * k, at: state.seconds, atMs: performance.now() };
+			ring.hidden = false;
+			ring.classList.remove('gone');
+			ring.style.left = `${clientX - r.left}px`;
+			ring.style.top = `${clientY - r.top}px`;
+			clearTimeout(ringTimer);
+			pressed = true;
+			dirty = true;
+		}
+		function release() {
+			if (!pressed) return;
+			pressed = false;
+			ringTimer = window.setTimeout(() => ring.classList.add('gone'), 300);
+			dirty = true;
+		}
+		screen.addEventListener('pointerdown', (e) => {
+			screen.setPointerCapture(e.pointerId);
+			touchAt(e.clientX, e.clientY);
+		});
+		screen.addEventListener('pointerup', release);
+		screen.addEventListener('pointercancel', release);
+		screen.addEventListener('keydown', (e) => {
+			if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
+				e.preventDefault();
+				const r = screen.getBoundingClientRect();
+				touchAt(r.left + r.width / 2, r.top + r.height / 2);
+			}
+		});
+		screen.addEventListener('keyup', (e) => {
+			if (e.key === 'Enter' || e.key === ' ') release();
+		});
+
+		// ---- Loading CanvasKit -------------------------------------------------------------------
+		function cannot(words: string) {
+			noCompiler = words;
+			msg.textContent = words;
+			msg.hidden = false;
+			drawLog();
+		}
+		load('fireflies', data.examples.fireflies);
+		if (typeof WebAssembly !== 'object') {
+			cannot("This browser has no WebAssembly, which the preview needs to compile a shader. The code can still be edited here.");
+			return;
+		}
+		const s = document.createElement('script');
+		s.src = `${data.canvaskit}canvaskit.js`;
+		s.onerror = () => cannot("The compiler couldn't be loaded. Reload the page to try again.");
+		s.onload = async () => {
+			try {
+				ck = await (window as any).CanvasKitInit({ locateFile: (f: string) => data.canvaskit + f });
+			} catch {
+				return cannot("The compiler couldn't be started in this browser.");
+			}
+			try {
+				const handle = ck.GetWebGLContext(canvas, { antialias: 0, depth: 0, stencil: 0, alpha: 1, premultipliedAlpha: 1 });
+				gl = handle ? ck.MakeWebGLContext(handle) : null;
+			} catch {
+				gl = null;
+			}
+			if (!gl) {
+				software = true;
+				msg.textContent = 'This browser has no WebGL, so the picture is drawn without the graphics chip: slowly, and at a lower resolution.';
+				msg.hidden = false;
+			}
+			paint.p = new ck.Paint();
+			size.w = 0;
+			resize();
+			check();
+			requestAnimationFrame(draw);
+		};
+		document.head.append(s);
+	}
+</script>

@@ -337,6 +337,9 @@ The quickest start is a template: a working shader of 20 to 50 lines whose comme
 3. In the editor, **Save** checks it at once. For a file you changed elsewhere, run `shader reload`, or
    **Add shader → Read the script folder again**. If it doesn't compile, a line in the log says why.
 
+On a computer, the [shader preview](/tools/shader-preview/) compiles a file in the browser and draws it over home as
+Kolahal does, with its parameters, the themes and touches.
+
 | Template | What it shows |
 | --- | --- |
 | `template-empty` | Empty: just the basics, the screen as it is, to start from |

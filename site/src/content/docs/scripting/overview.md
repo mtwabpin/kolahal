@@ -401,6 +401,9 @@ them, and the [library](/scripting/library/) scripts have them too.
 | `@tags <word>[, …]` | Search keywords for Get more scripts. |
 | `@requires <x.y.z>` | The oldest Kolahal version the script works with. Kolahal won't add it from a file, a folder, a backup or Get more scripts until you have that version or newer. |
 
+The [Script check](/tools/script-check/) reads a script's header and syntax in your browser, as the
+editor would, before the script goes on the phone.
+
 ## Sandbox and limits
 
 Scripts run in a separate `:script` process. If an engine crashes, the home screen keeps working.
