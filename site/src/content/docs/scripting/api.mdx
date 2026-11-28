@@ -3734,7 +3734,8 @@ tty.screen({
 - The code before the screen has the limit of any run, 60 seconds. The screen itself has none.
 - If Android stops the script's process, the screen closes, and a line in the log says so.
 - `http`, `rss` and `sleep` work in a function, but they count towards its second and the screen
-  stands still meanwhile. Fetch what a screen needs before `tty.screen`. In JavaScript, a call in a
+  stands still meanwhile. A request's `timeout` doesn't make a call longer. Fetch what a screen
+  needs before `tty.screen`. In JavaScript, a call in a
   function that isn't awaited is dropped when the function ends.
 - In one call a script can draw as much as 8 full screens, and more is an error. The whole screen
   each frame is one of them.
@@ -3783,13 +3784,19 @@ return JSON.parse(r.body).stargazers_count;
 
 ### http.request(opts)
 
-Sends a request with any method. `opts` is `{ url, method, body, contentType, headers }`.
+Sends a request with any method. `opts` is `{ url, method, body, contentType, headers, timeout }`.
 
 - Only `url` is required.
 - `method` defaults to `GET`.
 - A string `body` is sent as it is, as `text/plain; charset=utf-8`.
 - A table / object `body` is encoded as JSON and sent as `application/json`.
 - `contentType`, or a `Content-Type` header, sets a different type.
+- `timeout` is how many seconds the request waits for its answer, from 1 to 60; a larger number
+  counts as 60. Without it, a request fails when the site sends nothing for 20 seconds, or after 30
+  seconds in all. Use it for a site that is slow to answer, such as an AI model. When the run has
+  less time left, it is made longer: the wait plus 10 seconds, and at most 120 seconds for the
+  whole run. In a call of a [screen's](#screen-limits) function, the call keeps its 1 second. Needs
+  Kolahal 0.5.23; add `@requires 0.5.23`, as an older one waits as without it.
 
 <Tabs syncKey="lang">
 <TabItem label="Lua">

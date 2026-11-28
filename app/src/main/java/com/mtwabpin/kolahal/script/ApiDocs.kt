@@ -264,14 +264,14 @@ object ApiDocs {
         ),
         ApiDoc(
             "http.request",
-            "http.request{ url, method, body, contentType, headers } -> response",
-            "Any method; a table body is sent as JSON",
+            "http.request{ url, method, body, contentType, headers, timeout } -> response",
+            "Any method; a table body is sent as JSON; timeout: seconds to wait, up to 60",
             LUA
         ),
         ApiDoc(
             "http.request",
-            "await http.request({ url, method, body, contentType, headers }) -> response",
-            "Any method; an object body is sent as JSON",
+            "await http.request({ url, method, body, contentType, headers, timeout }) -> response",
+            "Any method; an object body is sent as JSON; timeout: seconds to wait, up to 60",
             JS
         ),
 

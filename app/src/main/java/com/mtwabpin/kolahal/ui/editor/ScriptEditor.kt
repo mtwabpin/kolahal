@@ -125,7 +125,7 @@ fun ScriptEditor(
         val m = state.message ?: return@LaunchedEffect
         // If a run never reports (the worker didn't start), stop waiting after the time limit.
         if (m.kind == EditorMessage.Kind.BUSY) {
-            delay((ScriptWorker.TIMEOUT_MS + 15_000).milliseconds)
+            delay((ScriptWorker.MAX_TIMEOUT_MS + 15_000).milliseconds)
             if (state.message === m) {
                 state.message = null; runSince = null
             }

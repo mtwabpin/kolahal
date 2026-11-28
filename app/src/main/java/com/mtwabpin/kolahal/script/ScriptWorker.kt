@@ -21,8 +21,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withTimeout
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Runs one script (by id) or an inline REPL snippet. It runs inside the `:script` process through
@@ -52,6 +50,9 @@ class ScriptWorker(context: Context, params: WorkerParameters) :
         /** The line of the typed command that started this run ([LogContext.FROM]). */
         const val KEY_FROM = "from"
         const val TIMEOUT_MS = 60_000L
+
+        /** The longest a run may go on when a request asked to wait longer (`timeout`, [HostApi.stretchedTo]). */
+        const val MAX_TIMEOUT_MS = 2 * TIMEOUT_MS
     }
 }
 
@@ -213,9 +214,11 @@ internal object ScriptRun {
         // This is also true when Android stops the run and this returns at once.
         val status = try {
             val most = ScriptWorker.TIMEOUT_MS + 2_000
-            val result = if (handover == null) withTimeout(most.milliseconds) {
+            // A request that asked to wait longer moves the end, up to MAX_TIMEOUT_MS.
+            val until = { host.stretchedTo + 2_000 }
+            val result = if (handover == null) ScreenRuns.limited(most, null, until) {
                 engine.run(code, name, host, ScriptWorker.TIMEOUT_MS, repl, args, event)
-            } else ScreenRuns.limited(most, handover) {
+            } else ScreenRuns.limited(most, handover, until) {
                 // Only its code has the limit of a run. Its screen goes on for as long as it shows.
                 engine.run(code, name, host, ScriptWorker.TIMEOUT_MS, repl, args, event)
             }

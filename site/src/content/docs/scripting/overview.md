@@ -406,6 +406,8 @@ them, and the [library](/scripting/library/) scripts have them too.
 Scripts run in a separate `:script` process. If an engine crashes, the home screen keeps working.
 
 - A run can take at most **60 seconds** and use at most **64 MB** of memory.
+  - A request with a longer [`timeout`](/scripting/api/#httprequestopts) makes the run longer, so
+    the wait fits, up to 120 seconds in all.
   - A [screen of its own](/scripting/api/#ttyscreenspec) goes on after the code, for as long as you leave it
     open. Each call of its functions has 1 second.
   - In Lua, `string.rep` refuses results over 16 MB.

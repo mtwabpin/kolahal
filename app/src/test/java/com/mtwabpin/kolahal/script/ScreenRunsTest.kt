@@ -132,6 +132,24 @@ class ScreenRunsTest {
         }
     }
 
+    /** A request that asked to wait longer moves the limit ([HostApi.stretchedTo]), with a screen or without. */
+    @Test
+    fun theLimitMovesWhenARunIsStretched() {
+        // Each run's limit moves to 400 ms from its own start.
+        fun moved() = System.currentTimeMillis() + 400
+        val a = moved()
+        assertEquals("late", within { ScreenRuns.limited(50, null, { a }) { delay(250); "late" } })
+        val b = moved()
+        assertEquals("late", within { ScreenRuns.limited(50, ScreenHandover(), { b }) { delay(250); "late" } })
+        // Past the moved limit, it ends as at any other.
+        val c = moved()
+        try {
+            within { ScreenRuns.limited<Unit>(50, null, { c }) { awaitCancellation() } }
+            fail("expected a timeout")
+        } catch (_: TimeoutCancellationException) {
+        }
+    }
+
     /** The screen has none, and a run's own error and result come out as they are. */
     @Test
     fun theScreenHasNone() {

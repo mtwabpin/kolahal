@@ -41,6 +41,9 @@ internal class RunWatchdog(
     @Volatile
     private var killAt = System.currentTimeMillis() + timeoutMs + GRACE_MS
 
+    /** [killAt], or later if a request that asked to wait longer moved the run's end ([HostApi.stretchedTo]). */
+    private fun endsAt() = maxOf(killAt, host.stretchedTo + GRACE_MS)
+
     /** A screen waits for home: nothing of the script runs, so nothing is watched but the clock ([rest]). */
     @Volatile
     private var resting = false
@@ -59,7 +62,7 @@ internal class RunWatchdog(
             // hundred wake-ups a second. A call of a screen's ends that sleep.
             val idle = nativeLimitMb == null || resting
             if (idle) every = WATCH_EVERY_MS
-            val wait = if (idle) maxOf(WATCH_EVERY_MS, killAt - System.currentTimeMillis()) else every
+            val wait = if (idle) maxOf(WATCH_EVERY_MS, endsAt() - System.currentTimeMillis()) else every
             LockSupport.parkNanos(wait * 1_000_000L)
             if (closed) return@thread
             val heap = Debug.getNativeHeapAllocatedSize()
@@ -70,7 +73,7 @@ internal class RunWatchdog(
             last = heap
             val reason = when {
                 nativeLimitMb != null && !resting && heap - baseline > nativeLimitMb * 1024L * 1024 -> "used over $nativeLimitMb MB"
-                System.currentTimeMillis() > killAt -> "still running after timeout"
+                System.currentTimeMillis() > endsAt() -> "still running after timeout"
                 else -> null
             } ?: continue
             runCatching { host.logStopped("${host.scriptName}: $reason, killed script process") }

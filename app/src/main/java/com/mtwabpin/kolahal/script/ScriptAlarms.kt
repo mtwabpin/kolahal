@@ -131,7 +131,7 @@ class ScriptRunService : Service() {
         // The screen may be off, so the run keeps the phone awake for as long as a run may take.
         val wake = getSystemService(PowerManager::class.java)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "kolahal:script-at")
-            .apply { acquire(ScriptWorker.TIMEOUT_MS + 15_000) }
+            .apply { acquire(ScriptWorker.MAX_TIMEOUT_MS + 15_000) }
         scope.launch {
             try {
                 runCatching {

@@ -89,10 +89,45 @@ class HostApi(
     private var deadline = Long.MAX_VALUE
     private var timeoutS = 0L
 
-    /** The engine calls this when the run starts. */
-    fun startClock(timeoutMs: Long) {
+    /** When the run started ([startClock]); a stretched run ends by [MAX_RUN_MS] after it. */
+    private var startedAt = 0L
+
+    /** Whether a request may stretch the run ([stretchFor]): in the run's code, not in a call of its screen. */
+    private var mayStretch = false
+
+    /**
+     * Where a request that asked to wait longer (`timeout`) moved the end of the run, or 0 while none
+     * has. The other guards of the run (Lua's hook, [RunWatchdog], the worker) end it no earlier than this.
+     */
+    @Volatile
+    var stretchedTo = 0L
+        private set
+
+    /**
+     * The engine calls this when the run starts, and before each call of its screen ([screenCall]
+     * true). A screen's call keeps its own limit: a request there can't stretch it.
+     */
+    fun startClock(timeoutMs: Long, screenCall: Boolean = false) {
         timeoutS = timeoutMs / 1000
-        deadline = System.currentTimeMillis() + timeoutMs
+        val now = System.currentTimeMillis()
+        deadline = now + timeoutMs
+        stretchedTo = 0L
+        mayStretch = !screenCall
+        if (!screenCall) startedAt = now
+    }
+
+    /**
+     * A request is about to wait up to [waitMs]: if the run ends sooner, it ends later, enough for the
+     * wait and [STRETCH_AFTER_MS] of the script's own work after it, at most [MAX_RUN_MS] from its start.
+     */
+    @Synchronized
+    private fun stretchFor(waitMs: Long) {
+        if (!mayStretch) return
+        val to = stretchedEnd(System.currentTimeMillis(), waitMs, deadline, startedAt)
+        if (to > deadline) {
+            deadline = to
+            stretchedTo = to
+        }
     }
 
     /** Stops the run as its timeout would. Lua's guards don't let a script catch this message. */
@@ -429,6 +464,8 @@ class HostApi(
         bodyIsJson: Boolean = false,
         contentType: String? = null,
         headers: Map<*, *>? = null,
+        /** How long the request may wait, from `timeout` ([requestTimeoutMs]). Null: as long as any request. */
+        timeoutMs: Long? = null,
     ): Map<String, Any?> {
         live()
         flush() // show what was logged before a slow request
@@ -445,7 +482,7 @@ class HostApi(
             ?: throw IllegalArgumentException("not a web address: ${redact(url)}")
         // From here on, the request holds the values, so anything it throws is masked.
         try {
-            return sendFilled(url, target, method, body, bodyIsJson, contentType, headers)
+            return sendFilled(url, target, method, body, bodyIsJson, contentType, headers, timeoutMs)
         } catch (e: Exception) {
             throw masked(e)
         }
@@ -460,6 +497,7 @@ class HostApi(
         bodyIsJson: Boolean,
         contentType: String?,
         headers: Map<*, *>?,
+        timeoutMs: Long?,
     ): Map<String, Any?> {
         // The secrets' values go in now, where the script put their marks, and only for their sites.
         val realUrl = fillSecrets(url, target)
@@ -496,9 +534,13 @@ class HostApi(
             listOf(request.url.toString(), realBody.orEmpty()) + h.values,
             request.url.isHttps
         )
-        val call = client.newCall(request)
+        // A request that asked for its own time waits that long, for the first byte too (the client waits
+        // 20 s for it), and the run makes room for it. A screen's call keeps its limit, so there it is cut short.
+        if (timeoutMs != null) stretchFor(timeoutMs)
+        val call = (if (timeoutMs == null) client else client.newBuilder()
+            .readTimeout(timeoutMs, TimeUnit.MILLISECONDS).build()).newCall(request)
         // No longer than the time the run has left (the client's own limit is 30 s).
-        call.timeout().timeout(minOf(remainingMs(), Net.CALL_TIMEOUT_MS), TimeUnit.MILLISECONDS)
+        call.timeout().timeout(minOf(remainingMs(), timeoutMs ?: Net.CALL_TIMEOUT_MS), TimeUnit.MILLISECONDS)
         return call.execute().use { resp ->
             mapOf(
                 "status" to resp.code,
@@ -511,7 +553,7 @@ class HostApi(
 
     fun httpGet(url: String, headers: Map<*, *>? = null) = httpRequest(url, headers = headers)
 
-    /** `http.request(opts)`: `{ url, method, body, headers, contentType }`. A body that isn't text is sent as JSON. */
+    /** `http.request(opts)`: `{ url, method, body, headers, contentType, timeout }`. A body that isn't text is sent as JSON. */
     fun httpRequest(opts: Map<*, *>): Map<String, Any?> = httpRequest(
         url = opts["url"]?.toString() ?: throw IllegalArgumentException("url is required"),
         method = opts["method"]?.toString() ?: "GET",
@@ -519,6 +561,7 @@ class HostApi(
         bodyIsJson = opts["body"].let { it != null && it !is String },
         contentType = opts["contentType"]?.toString(),
         headers = opts["headers"] as? Map<*, *>,
+        timeoutMs = requestTimeoutMs(opts["timeout"]),
     )
 
     fun rssParse(xml: String): Map<String, Any?> = RssParser.parse(xml).toMap()
@@ -1211,6 +1254,33 @@ class HostApi(
     }
 
     companion object {
+        /** The longest a request may ask to wait (`timeout`), in seconds. */
+        const val MAX_REQUEST_TIMEOUT_S = 60L
+
+        /** The longest a run may go on once a request stretched it ([stretchFor]). */
+        const val MAX_RUN_MS = ScriptWorker.MAX_TIMEOUT_MS
+
+        /** The time a stretched run keeps after its request's wait, for the script's own work. */
+        const val STRETCH_AFTER_MS = 10_000L
+
+        /**
+         * A request's `timeout`, in seconds, as milliseconds: from 1 to [MAX_REQUEST_TIMEOUT_S] (120 is 60).
+         * Null when it is missing, and the request waits as any other.
+         */
+        fun requestTimeoutMs(value: Any?): Long? {
+            if (value == null) return null
+            val s = (value as? Number)?.toDouble()?.takeIf { !it.isNaN() }
+                ?: throw IllegalArgumentException("http.request: timeout is a number of seconds")
+            return (s.coerceIn(1.0, MAX_REQUEST_TIMEOUT_S.toDouble()) * 1000).toLong()
+        }
+
+        /**
+         * Where a run that ends at [deadline] ends once a request at [now] asks to wait [waitMs]: the
+         * later of its end and the wait plus [STRETCH_AFTER_MS], but no later than [MAX_RUN_MS] after [startedAt].
+         */
+        fun stretchedEnd(now: Long, waitMs: Long, deadline: Long, startedAt: Long): Long =
+            maxOf(deadline, minOf(now + waitMs + STRETCH_AFTER_MS, startedAt + MAX_RUN_MS))
+
         private const val MAX_BODY = 4L * 1024 * 1024
         private const val MAX_SEEN = 500
         private const val STATUS_MAX = 80

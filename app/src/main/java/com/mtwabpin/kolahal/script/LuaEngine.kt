@@ -44,7 +44,8 @@ class LuaEngine : ScriptEngine {
         try {
             lua.openLibraries()
             lua.push(guarded("script stopped") { l ->
-                if (!ctx.isActive || System.currentTimeMillis() > deadline) {
+                // A request that asked to wait longer may have moved the end ([HostApi.stretchedTo]).
+                if (!ctx.isActive || System.currentTimeMillis() > maxOf(deadline, host.stretchedTo)) {
                     host.stopForTimeout()
                     l.push("script timed out after ${timeoutMs / 1000}s")
                     -1
@@ -74,7 +75,7 @@ class LuaEngine : ScriptEngine {
                 /** Calls the script's function through the prelude's `__kolahal_screen`. Everything here is on this run's thread. */
                 override suspend fun call(callback: String, cols: Int, rows: Int, args: List<Any?>, limitMs: Long): Boolean {
                     watchdog.call(limitMs)
-                    host.startClock(limitMs)
+                    host.startClock(limitMs, screenCall = true)
                     deadline = System.currentTimeMillis() + limitMs
                     val top = lua.top
                     lua.getGlobal("__kolahal_screen")

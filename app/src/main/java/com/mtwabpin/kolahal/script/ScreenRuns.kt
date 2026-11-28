@@ -12,6 +12,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** What a run tells its worker about its screen (`tty.screen`). */
 internal class ScreenHandover {
@@ -59,16 +60,31 @@ internal class ScreenRuns(private val scope: CoroutineScope, private val failed:
 
     companion object {
         /**
-         * Runs [block] with at most [ms] for the script's code, up to [ScreenHandover.codeDone]. The
-         * screen that follows has no limit. Past it, this throws what withTimeout throws.
+         * Runs [block] with at most [ms] for the script's code, up to [ScreenHandover.codeDone] when there
+         * is a [handover]. The screen that follows has no limit. The limit ends no earlier than [until]
+         * says (a request that asked to wait longer moves it, [HostApi.stretchedTo]). Past it, this throws
+         * what withTimeout throws.
          */
-        suspend fun <T> limited(ms: Long, handover: ScreenHandover, block: suspend () -> T): T = coroutineScope {
+        suspend fun <T> limited(
+            ms: Long,
+            handover: ScreenHandover?,
+            until: () -> Long = { 0L },
+            block: suspend () -> T,
+        ): T = coroutineScope {
             val run = async { block() }
-            withTimeout(ms) {
-                select<Unit> {
-                    run.onJoin {}
-                    handover.codeDone.onJoin {}
+            val end = System.currentTimeMillis() + ms
+            while (true) {
+                val left = maxOf(end, until()) - System.currentTimeMillis()
+                val done = withTimeoutOrNull(left.coerceAtLeast(0)) {
+                    select<Unit> {
+                        run.onJoin {}
+                        if (handover != null) handover.codeDone.onJoin {}
+                    }
+                    true
                 }
+                if (done == true) break
+                // Past the end, unless it moved meanwhile.
+                if (maxOf(end, until()) <= System.currentTimeMillis()) withTimeout(0L) {}
             }
             run.await()
         }

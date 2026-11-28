@@ -100,7 +100,7 @@ class JsEngine : ScriptEngine {
         host.runScreen(object : ScreenSession.Script {
             override suspend fun call(callback: String, cols: Int, rows: Int, args: List<Any?>, limitMs: Long): Boolean {
                 watchdog.call(limitMs)
-                host.startClock(limitMs)
+                host.startClock(limitMs, screenCall = true)
                 js.evaluationTimeoutMillis = limitMs
                 screenResult = null
                 val values = (listOf(callback, cols, rows) + args).joinToString { Json.stringify(it) }
