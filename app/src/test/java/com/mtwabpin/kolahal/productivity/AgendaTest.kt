@@ -8,7 +8,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 class AgendaTest {
-    private val zone = ZoneId.of("Asia/Kolkata")
+    private val zone = ZoneId.of("Asia/Tokyo")
     private val today = LocalDate.of(2026, 10, 17)
     private fun local(d: Int, h: Int, m: Int = 0) =
         LocalDateTime.of(2026, 10, d, h, m).atZone(zone).toInstant().toEpochMilli()

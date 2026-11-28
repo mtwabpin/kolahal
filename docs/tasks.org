@@ -61,9 +61,9 @@ ships (the release notes then say what changed).
 - =ui/widgets/WidgetSettingsScreen.kt= (=ScriptOptions='s call of =OptionDialog=), =ui/scripts/ScriptDialogs.kt=
   (=OptionDialog=).
 - On the settings page of widget 2 of weather, the city dialog says "Default: London" (the
-  declared default), but Reset gives the script's own value, Pune. The dialog's title uses the
+  declared default), but Reset gives the script's own value, Tokyo. The dialog's title uses the
   file name.
-- Fix: show "Script's value: Pune" for a further widget, titled with the widget's name. Small.
+- Fix: show "Script's value: Tokyo" for a further widget, titled with the widget's name. Small.
 - Remark:
 
 ** TODO [#B] The picker has no preview of Kolahal's own widgets  :arrange:

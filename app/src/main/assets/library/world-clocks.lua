@@ -2,20 +2,20 @@
 -- @title World clocks
 -- @desc The time in up to 4 places you list: a widget
 -- @author Kolahal
--- @version 1.2
+-- @version 1.3
 -- @widget clock 2x2
 -- @tags clock, time, zones
 -- @requires 0.5.8
--- @option zones "Asia/Kolkata Europe/London America/New_York" Up to 4 time zones, by name; Zone=Label names one yourself
+-- @option zones "Asia/Tokyo Europe/London America/New_York" Up to 4 time zones, by name; Zone=Label names one yourself
 --
 -- Its widget, once you placed it on the widgets page, shows the time in each place. Kolahal moves
 -- the clocks itself. So this script runs only when you place the widget, when you tap it, and once
 -- in a week. After you change its zones option, tap the widget's title: it then shows the new
 -- places. At 4x2 a tap on the day strips picks an hour instead.
 --
--- A zone is a name such as Asia/Kolkata, Europe/London or UTC. The place's name on the widget is
+-- A zone is a name such as Asia/Tokyo, Europe/London or UTC. The place's name on the widget is
 -- the last part of the zone's name ("New York" for America/New_York). To pick the name yourself,
--- write it after the zone: Asia/Kolkata=Pune. Write a space in a name as "_": Asia/Dubai=Head_office.
+-- write it after the zone: Asia/Tokyo=Tokyo_office. Write a space in a name as "_": Asia/Dubai=Head_office.
 --
 -- It needs no access.
 
@@ -37,7 +37,7 @@ local function places(text)
 end
 
 local zones = places(options.zones)
-if #zones == 0 then zones = places("Asia/Kolkata Europe/London America/New_York") end
+if #zones == 0 then zones = places("Asia/Tokyo Europe/London America/New_York") end
 
 -- Its widget: a clock for each place. A zone that Kolahal doesn't know is an error that names it.
 -- The clocks never get old, so the content counts as current for a week: the longest there is.

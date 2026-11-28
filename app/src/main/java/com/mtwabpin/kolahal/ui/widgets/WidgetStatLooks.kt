@@ -487,7 +487,7 @@ private fun SplitStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
     }
 }
 
-/** A stat's label and the card's title on one line: "Sunny · Pune". A [target] follows the label: "Steps of 8,000 · Pune". */
+/** A stat's label and the card's title on one line: "Sunny · Tokyo". A [target] follows the label: "Steps of 8,000 · Tokyo". */
 @Composable
 private fun labelAndTitle(label: String?, title: String?, target: String? = null): AnnotatedString? {
     val words = target?.let(StatTarget::words)
@@ -506,8 +506,8 @@ private fun labelAndTitle(label: String?, title: String?, target: String? = null
 }
 
 /**
- * Shape's stat in a card that is a cookie: the icon, the value, and "Sunny · Pune", with a target
- * after the label ("Steps of 8,000 · Pune"). A small card has the value and the label. It has no
+ * Shape's stat in a card that is a cookie: the icon, the value, and "Sunny · Tokyo", with a target
+ * after the label ("Steps of 8,000 · Tokyo"). A small card has the value and the label. It has no
  * badge: the card is one shape.
  */
 @Composable
@@ -537,8 +537,8 @@ private fun ShapedStat(spec: WidgetSpec.Stat, box: WidgetSizes.Box) {
 
 /**
  * Shape's stat in a wide card: the value in a cookie (or the shape chosen for the card, [cardShape]),
- * and beside it "Sunny · Pune" over the smaller values. A target follows the label ("Steps of 8,000 ·
- * Pune"); past it the bar has its mark ([StatBar]), and a large card writes the share under it
+ * and beside it "Sunny · Tokyo" over the smaller values. A target follows the label ("Steps of 8,000 ·
+ * Tokyo"); past it the bar has its mark ([StatBar]), and a large card writes the share under it
  * ([TargetShare]). Shape has no badge.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

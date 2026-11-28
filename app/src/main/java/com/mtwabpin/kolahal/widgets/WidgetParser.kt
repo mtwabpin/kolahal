@@ -902,16 +902,16 @@ object WidgetParser {
         }
 
         /**
-         * A time zone by its name, such as `Asia/Kolkata` or `UTC`. It is needed, and it is never
+         * A time zone by its name, such as `Asia/Tokyo` or `UTC`. It is needed, and it is never
          * cut: a name `java.time.ZoneId.of` does not know is an error. Styles go first and then
          * secrets ([clean]), as for any text.
          */
         fun zone(key: String): String {
-            val v = values[key] ?: fail("$key is needed: a time zone name, such as Asia/Kolkata")
+            val v = values[key] ?: fail("$key is needed: a time zone name, such as Asia/Tokyo")
             val name = (v as? String)?.let { clean(StyledText.plain(it)).trim() }
-                ?: fail("$key must be a time zone name, such as Asia/Kolkata, not ${shown(v)}")
+                ?: fail("$key must be a time zone name, such as Asia/Tokyo, not ${shown(v)}")
             runCatching { java.time.ZoneId.of(name) }.getOrNull()
-                ?: fail("no time zone ${shown(name)}; use a name such as Asia/Kolkata or UTC")
+                ?: fail("no time zone ${shown(name)}; use a name such as Asia/Tokyo or UTC")
             return name
         }
 

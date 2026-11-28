@@ -31,7 +31,7 @@ import java.util.Locale
 
 /** What the built-in cards draw for Kolahal's own data ([OwnCards]). */
 class OwnCardsTest {
-    private val zone = ZoneId.of("Asia/Kolkata")
+    private val zone = ZoneId.of("Asia/Tokyo")
 
     /** A moment in [zone], in milliseconds. */
     private fun at(day: Int, hour: Int, minute: Int = 0, second: Int = 0): Long =

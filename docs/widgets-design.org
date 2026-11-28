@@ -901,7 +901,7 @@ When the phone's animations are off, values change without motion. To verify on 
 
 *** Accessibility
 
-- Each card is one item for a screen reader: "Weather, Pune: 24 degrees, Sunny. Updated 5 minutes
+- Each card is one item for a screen reader: "Weather, Tokyo: 24 degrees, Sunny. Updated 5 minutes
   ago." Items with their own tap are separate items inside it.
 - Every button and switch is at least 48 dp. A row of a list or an agenda that takes a tap is 44 dp,
   or as tall as its text at a larger font size:
@@ -1239,7 +1239,7 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   A large card with rows of 40 dp or more (3 places or fewer) has each place's day on a line under
   its name: "today", "tomorrow" or "yesterday".
 - Fields :: =zones= (needed; the first 4 are kept): each ~{ zone, label }~. =zone= is a time
-  zone name such as =Asia/Kolkata=; an unknown one is an error. =label= is up to 24.
+  zone name such as =Asia/Tokyo=; an unknown one is an error. =label= is up to 24.
   =seconds= (true) shows seconds.
 - Kolahal ticks :: The script gives the places once. The time is in 12-hour or 24-hour form, as
   Kolahal's own setting says (=clock.24h=), like the header's clock.
@@ -1667,7 +1667,7 @@ them.
   #+begin_src lua
   -- @title World clocks
   -- @widget clock 2x2
-  -- @option zones "Asia/Kolkata Europe/London America/New_York" Time zones, by name
+  -- @option zones "Asia/Tokyo Europe/London America/New_York" Time zones, by name
   local zones = {}
   for z in options.zones:gmatch("%S+") do zones[#zones + 1] = { zone = z } end
   widget.show{ icon = "globe", zones = zones, staleAfter = 7 * 86400 }

@@ -16,7 +16,7 @@ import java.util.Locale
 
 /** What the built-in cards draw in the looks of their own: Next and Stack ([OwnDesigns]). */
 class OwnDesignsTest {
-    private val zone = ZoneId.of("Asia/Kolkata")
+    private val zone = ZoneId.of("Asia/Tokyo")
 
     /** A moment in [zone], in milliseconds. */
     private fun at(day: Int, hour: Int, minute: Int = 0): Long =

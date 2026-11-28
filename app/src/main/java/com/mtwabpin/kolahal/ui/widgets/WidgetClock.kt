@@ -844,7 +844,7 @@ private fun BoldClock(
     }
 }
 
-/** The first place's name in bold and its date, dim: "Pune · Fri 20 Nov". The date moves with the clock's tick. */
+/** The first place's name in bold and its date, dim: "Tokyo · Fri 20 Nov". The date moves with the clock's tick. */
 @Composable
 private fun PlaceAndDate(time: WidgetWords.ZoneTime, zone: ZoneId, now: State<Long>) {
     val type = MaterialTheme.typography
@@ -1057,7 +1057,7 @@ private fun SplitPlace(
  * The Shape clock.
  * - In a square box the card is the shape ([LocalCardShaped]), and this draws an analog dial in it
  *   with the first place's name ([ClockDial]).
- * - Wide: the dial in a small cookie at the start, the times beside it in words: "Pune 14:32" over
+ * - Wide: the dial in a small cookie at the start, the times beside it in words: "Tokyo 14:32" over
  *   "London 09:02 · New York 04:02".
  * - Large but not square: the dial at the start, a row for each place beside it.
  * - A [badge] is at the end of the first place's line, beside the dial. A card that is the shape,
@@ -1306,7 +1306,7 @@ private fun FittingLine(lines: List<String>, style: TextStyle, color: Color) {
 
 /**
  * A place's name in [color], and beside it, dim, the first of its lines ([WidgetWords.placeLines])
- * that fits whole with the name: "London · 5 h 30 min behind", "London −5:30", "Pune · Here".
+ * that fits whole with the name: "London · 9 h behind", "London −9:00", "Tokyo · Here".
  * - Where none fits, only the place's day is beside the name, as "+1" or "−1", and the name is cut
  *   with "…" before the day is. A place on the day here then has its name alone.
  * - The words are a text of their own after the name, so they follow it in a right-to-left page.

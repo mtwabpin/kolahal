@@ -324,7 +324,7 @@ sealed interface WidgetSpec {
     /** Kind `toggles`: 1 to 6 switches. A tap runs the script, and the script reports the new state. */
     data class Toggles(override val base: WidgetBase, val items: List<Toggle>) : WidgetSpec
 
-    /** One place of a [Clock]. [zone] is a time zone name that `java.time.ZoneId.of` knows, such as `Asia/Kolkata`. */
+    /** One place of a [Clock]. [zone] is a time zone name that `java.time.ZoneId.of` knows, such as `Asia/Tokyo`. */
     data class Zone(val zone: String, val label: String? = null)
 
     /** Kind `clock`: the time in up to 4 places. Kolahal ticks. With [seconds], it shows seconds. */

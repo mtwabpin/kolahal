@@ -37,7 +37,7 @@ internal object ReferenceExamplesLogs {
             )
 
             log(
-              "Pune, IN",
+              "Tokyo, JP",
               "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C"
             )
 
@@ -87,7 +87,7 @@ internal object ReferenceExamplesLogs {
             );
 
             log(
-              "Pune, IN",
+              "Tokyo, JP",
               "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C",
             );
 
@@ -133,7 +133,7 @@ internal object ReferenceExamplesLogs {
                     "Nvim 0.11.4",
                     url = "https://github.com/neovim/neovim/releases"
                 ),
-                Line("Pune, IN", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C"),
+                Line("Tokyo, JP", "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C"),
                 Line("Kolahal on GitHub", url = "https://github.com/mtwabpin/kolahal"),
                 Line(STORY_1, "128 points", url = "https://example.com/1", gap = true),
                 Line(STORY_2, "342 points", url = "https://example.com/2", gap = true),
@@ -408,7 +408,7 @@ internal object ReferenceExamplesLogs {
             "bars", "fmt.bar, fmt.bars, fmt.ranges",
             lua = """
             log(
-              "Pune · AQI 168",
+              "Tokyo · AQI 168",
               "Unhealthy\n"
                 .. fmt.bar(
                   168,
@@ -425,7 +425,7 @@ internal object ReferenceExamplesLogs {
             )
 
             log(
-              "Pune · 3 days",
+              "Tokyo · 3 days",
               fmt.ranges(
                 {
                   { "Today", 23, 31 },
@@ -437,7 +437,7 @@ internal object ReferenceExamplesLogs {
             """,
             js = """
             log(
-              "Pune · AQI 168",
+              "Tokyo · AQI 168",
               "Unhealthy\n"
                 + fmt.bar(
                   168,
@@ -454,7 +454,7 @@ internal object ReferenceExamplesLogs {
             );
 
             log(
-              "Pune · 3 days",
+              "Tokyo · 3 days",
               fmt.ranges(
                 [
                   ["Today", 23, 31],
@@ -466,7 +466,7 @@ internal object ReferenceExamplesLogs {
             """,
             lines = listOf(
                 Line(
-                    "Pune · AQI 168",
+                    "Tokyo · AQI 168",
                     "Unhealthy\n" + styles.bar(
                         listOf(
                             168.0,
@@ -484,7 +484,7 @@ internal object ReferenceExamplesLogs {
                     )
                 ),
                 Line(
-                    "Pune · 3 days",
+                    "Tokyo · 3 days",
                     styles.ranges(
                         listOf(
                             listOf(
@@ -500,7 +500,7 @@ internal object ReferenceExamplesLogs {
             "stats", "fmt.stats(items)",
             lua = """
             log(
-              "Pune",
+              "Tokyo",
               fmt.stats({
                 { "25°C", "☀️ Sunny" },
                 { "36%", "humidity" },
@@ -510,7 +510,7 @@ internal object ReferenceExamplesLogs {
             """,
             js = """
             log(
-              "Pune",
+              "Tokyo",
               fmt.stats([
                 ["25°C", "☀️ Sunny"],
                 ["36%", "humidity"],
@@ -520,7 +520,7 @@ internal object ReferenceExamplesLogs {
             """,
             lines = listOf(
                 Line(
-                    "Pune",
+                    "Tokyo",
                     StyledText.stats(
                         listOf(
                             "25°C" to "☀️ Sunny",
@@ -859,7 +859,7 @@ internal object ReferenceExamplesLogs {
             "fmt.ranges", "fmt.ranges",
             lua = """
             log(
-              "Pune",
+              "Tokyo",
               fmt.ranges(
                 {
                   { "Today", 23, 31 },
@@ -871,7 +871,7 @@ internal object ReferenceExamplesLogs {
             """,
             js = """
             log(
-              "Pune",
+              "Tokyo",
               fmt.ranges(
                 [
                   ["Today", 23, 31],
@@ -883,7 +883,7 @@ internal object ReferenceExamplesLogs {
             """,
             lines = listOf(
                 Line(
-                    "Pune",
+                    "Tokyo",
                     styles.ranges(
                         listOf(
                             listOf(
@@ -899,7 +899,7 @@ internal object ReferenceExamplesLogs {
             "fmt.stats", "fmt.stats",
             lua = """
             log(
-              "Pune",
+              "Tokyo",
               fmt.stats({
                 { "25°C", "Sunny" },
                 { "36%", "humidity" },
@@ -908,7 +908,7 @@ internal object ReferenceExamplesLogs {
             """,
             js = """
             log(
-              "Pune",
+              "Tokyo",
               fmt.stats([
                 ["25°C", "Sunny"],
                 ["36%", "humidity"],
@@ -917,7 +917,7 @@ internal object ReferenceExamplesLogs {
             """,
             lines = listOf(
                 Line(
-                    "Pune",
+                    "Tokyo",
                     StyledText.stats(listOf("25°C" to "Sunny", "36%" to "humidity"))
                 )
             ),

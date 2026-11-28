@@ -4,7 +4,7 @@
 -- @usage [<city>]
 -- @title Weather
 -- @author Kolahal
--- @version 1.2
+-- @version 1.3
 -- @requires 0.5.17
 -- @widget stat 2x1
 -- @gives rain, snow
@@ -56,7 +56,7 @@ if city == "" then city = trim(options.city or "") end
 if city == "" then city = store.get("city") or "" end
 -- An empty path makes wttr.in guess the location from your IP address.
 -- One line of fields: the place, the sky's symbol and words, the temperature, humidity, wind and UV
--- index ("Pune|☀️ |Sunny|+25°C|36%|←9km/h|3").
+-- index ("Tokyo|☀️ |Sunny|+25°C|36%|←9km/h|3").
 local url = "https://wttr.in/" .. urlencode(city) .. "?format=%l|%c|%C|%t|%h|%w|%u"
 
 local ok, r = pcall(http.get, url, { ["Accept-Language"] = "en" })
@@ -110,7 +110,7 @@ if line == "" and not further then
   shader.give("snow", force(sky, { "snow", "sleet", "blizzard", "ice pellets" }))
 end
 
--- Only background runs (no arguments) of the script's own city update the status line: "Pune: ☀️ 25°C".
+-- Only background runs (no arguments) of the script's own city update the status line: "Tokyo: ☀️ 25°C".
 if line == "" and not further then status(place .. ": " .. icon .. " " .. temp) end
 -- Its widget, in the same runs: the temperature big, the sky under it, humidity and wind smaller.
 -- A tap runs weather again and turns home to the log, for the full report.

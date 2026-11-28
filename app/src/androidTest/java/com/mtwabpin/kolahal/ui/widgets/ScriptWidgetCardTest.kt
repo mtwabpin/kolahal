@@ -1469,7 +1469,7 @@ class ScriptWidgetCardTest {
             WidgetSpec.Clock(
                 WidgetBase(title = "World"),
                 listOf(
-                    WidgetSpec.Zone("Asia/Kolkata", "Pune"),
+                    WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                     WidgetSpec.Zone("America/New_York"),
                     WidgetSpec.Zone("UTC")
                 )
@@ -1483,8 +1483,8 @@ class ScriptWidgetCardTest {
         }
         // Tall enough for a row for each place.
         show(world, height = 240.dp, actions = asked)
-        draws(world, "Pune", "New York", "UTC")
-        for (zone in listOf("Asia/Kolkata", "America/New_York", "UTC")) {
+        draws(world, "Tokyo", "New York", "UTC")
+        for (zone in listOf("Asia/Tokyo", "America/New_York", "UTC")) {
             assertTrue(
                 "${texts(world)} has none of ${times(zone)}",
                 texts(world).any { it in times(zone) })
@@ -1493,7 +1493,7 @@ class ScriptWidgetCardTest {
         val heard = said(world)
         assertTrue(
             heard,
-            heard.startsWith("World: ") && times("Asia/Kolkata").any { "Pune $it" in heard } && times(
+            heard.startsWith("World: ") && times("Asia/Tokyo").any { "Tokyo $it" in heard } && times(
                 "UTC"
             ).any { "UTC $it" in heard })
         // The content has no tap of its own: a tap on the card refreshes it.

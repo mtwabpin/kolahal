@@ -165,7 +165,7 @@ log(
 )
 
 log(
-  "Pune, IN",
+  "Tokyo, JP",
   "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C"
 )
 
@@ -219,7 +219,7 @@ log(
 );
 
 log(
-  "Pune, IN",
+  "Tokyo, JP",
   "Today: clear, 24–31°C\nTomorrow: rain, 23–29°C",
 );
 
@@ -364,7 +364,7 @@ Nothing else in the line is read as a style.
 | `fmt.color(role, text)` | in one of the theme's colors: `accent`, `link`, `info`, `muted`, `text`, `good`, `warn` or `bad` | <Image src={fColor} alt="Each role's name in its color: accent, link, info, muted, text, good, warn and bad" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.tag(role?, text)` | a short label on a shaded chip: see [Tags](#tags) | <Image src={fTag} alt="Three tags: a red LIVE, an accent NEW and a teal v1.2" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.link(text, url)` | text that opens a link: see [Links](#links) | <Image src={fLink} alt="Read the guide, with the guide underlined in the link color" width={240} densities={[1, 2]} class="fmt-shot" /> |
-| `fmt.stats(items)` | a line of big numbers, for a body: see [Big numbers](#big-numbers) | <Image src={fStats} alt="Pune, then 25°C large with Sunny under it, and 36% humidity" width={240} densities={[1, 2]} class="fmt-shot" /> |
+| `fmt.stats(items)` | a line of big numbers, for a body: see [Big numbers](#big-numbers) | <Image src={fStats} alt="Tokyo, then 25°C large with Sunny under it, and 36% humidity" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.list(items, numbered?)` | one item per line, with bullets, or numbered `1.`, `2.` … with `true`. Use it for a body. | <Image src={fList} alt="Today, then 1. standup and 2. review" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.table(rows, opts?)` | a table, for a body: see [Tables](#tables) | <Image src={fTable} alt="Rates, then a table: USD 84.40 and EUR 91.20" width={240} densities={[1, 2]} class="fmt-shot" /> |
 | `fmt.plain(text)` | the text without its styles | the same text, with no styles |
@@ -648,7 +648,7 @@ and the texts after them.
 <TabItem label="Lua">
 ```lua
 log(
-  "Pune · AQI 168",
+  "Tokyo · AQI 168",
   "Unhealthy\n"
     .. fmt.bar(
       168,
@@ -665,7 +665,7 @@ log(
 )
 
 log(
-  "Pune · 3 days",
+  "Tokyo · 3 days",
   fmt.ranges(
     {
       { "Today", 23, 31 },
@@ -679,7 +679,7 @@ log(
 <TabItem label="JavaScript">
 ```js
 log(
-  "Pune · AQI 168",
+  "Tokyo · AQI 168",
   "Unhealthy\n"
     + fmt.bar(
       168,
@@ -696,7 +696,7 @@ log(
 );
 
 log(
-  "Pune · 3 days",
+  "Tokyo · 3 days",
   fmt.ranges(
     [
       ["Today", 23, 31],
@@ -727,7 +727,7 @@ the others are smaller. They sit side by side and wrap when the screen is narrow
 <TabItem label="Lua">
 ```lua
 log(
-  "Pune",
+  "Tokyo",
   fmt.stats({
     { "25°C", "☀️ Sunny" },
     { "36%", "humidity" },
@@ -739,7 +739,7 @@ log(
 <TabItem label="JavaScript">
 ```js
 log(
-  "Pune",
+  "Tokyo",
   fmt.stats([
     ["25°C", "☀️ Sunny"],
     ["36%", "humidity"],
@@ -911,7 +911,7 @@ error. Kolahal versions before 0.4.14 ignore
 <Tabs syncKey="lang">
 <TabItem label="Lua">
 ```lua
-status("Pune: 24°C")
+status("Tokyo: 24°C")
 status("NZ 136/8 (33.2 ov) v IND", { progress = 200 / 300, refresh = 30 })
 status("AQI 168", { progress = 168 / 300, color = "bad" })
 status(nil)
@@ -919,7 +919,7 @@ status(nil)
 </TabItem>
 <TabItem label="JavaScript">
 ```js
-status("Pune: 24°C");
+status("Tokyo: 24°C");
 status("NZ 136/8 (33.2 ov) v IND", { progress: 200 / 300, refresh: 30 });
 status("AQI 168", { progress: 168 / 300, color: "bad" });
 status(null);
@@ -1504,7 +1504,7 @@ price's low and high of the day, with `value` where it is now.
 -- each day from its low to its high, on one scale; a dot for the temperature now
 widget.show{
   kind = "list",
-  title = "Pune",
+  title = "Tokyo",
   items = {
     { title = "Today", trailing = "22–31°", range = { low = 22, high = 31, value = 27 } },
     { title = "Sun", trailing = "21–30°", range = { low = 21, high = 30 } },
@@ -1518,7 +1518,7 @@ widget.show{
 // each day from its low to its high, on one scale; a dot for the temperature now
 widget.show({
   kind: "list",
-  title: "Pune",
+  title: "Tokyo",
   items: [
     { title: "Today", trailing: "22–31°", range: { low: 22, high: 31, value: 27 } },
     { title: "Sun", trailing: "21–30°", range: { low: 21, high: 30 } },
@@ -1986,7 +1986,7 @@ widget.show{
 -- progress: in the warning color
 widget.show{
   kind = "progress",
-  title = "Pune air",
+  title = "Tokyo air",
   value = 168,
   max = 300,
   text = "168",
@@ -2051,7 +2051,7 @@ widget.show({
 // progress: in the warning color
 widget.show({
   kind: "progress",
-  title: "Pune air",
+  title: "Tokyo air",
   value: 168,
   max: 300,
   text: "168",
@@ -2088,7 +2088,7 @@ widget.show({
   { src: wList, alt: 'A 4×2 list card called Reading list, with two rows: Kolahal’s guide, and No link here', size: '4x2', caption: 'list' },
   { src: wText, alt: 'A 2×2 text card called Word of the day: serendipity, its meaning, and From Wiktionary', size: '2x2', caption: 'text' },
   { src: wChart, alt: 'A 2×2 chart card called Unlocks: 8 unlocks today over seven bars from Sun to Today', size: '2x2', caption: 'chart' },
-  { src: wProgress, alt: 'A 2×1 progress card called Pune air: 168 in a shape filled in amber, and Unhealthy', size: '2x1', caption: 'progress' },
+  { src: wProgress, alt: 'A 2×1 progress card called Tokyo air: 168 in a shape filled in amber, and Unhealthy', size: '2x1', caption: 'progress' },
   { src: wCountdown, alt: 'A 2×1 countdown card called Goa trip, with the days to go', size: '2x1', caption: 'countdown' },
 ]} />
 
@@ -2164,7 +2164,7 @@ Each place is `{ zone, label }`. `zone` is needed.
 
 | Field | Value | What it is |
 | --- | --- | --- |
-| `zone` | a time zone's name | Needed: `Asia/Kolkata`, `Europe/London`, `America/New_York`, `UTC`. A name that Kolahal doesn't know is an error that names it. |
+| `zone` | a time zone's name | Needed: `Asia/Tokyo`, `Europe/London`, `America/New_York`, `UTC`. A name that Kolahal doesn't know is an error that names it. |
 | `label` | text, up to 24 | What to call the place. Without it: the last part of the zone's name, "New York" for `America/New_York`. |
 
 - Each place shows how far its time is from your phone's: "5 h 30 min behind", "3 h ahead",
@@ -2366,8 +2366,8 @@ widget.show{
   staleAfter = 604800,
   zones = {
     {
-      zone = "Asia/Kolkata",
-      label = "Pune",
+      zone = "Asia/Tokyo",
+      label = "Tokyo",
     },
     { zone = "America/New_York" },
   },
@@ -2563,8 +2563,8 @@ widget.show({
   staleAfter: 604800,
   zones: [
     {
-      zone: "Asia/Kolkata",
-      label: "Pune",
+      zone: "Asia/Tokyo",
+      label: "Tokyo",
     },
     { zone: "America/New_York" },
   ],
@@ -2622,7 +2622,7 @@ widget.show({
 <Cards items={[
   { src: wButtons, alt: 'A 4×1 buttons card: Start, a red Stop and Help', size: '4x1', caption: 'buttons' },
   { src: wToggles, alt: 'A 4×1 toggles card: Do Not Disturb, on', size: '4x1', caption: 'toggles' },
-  { src: wClock, alt: 'A 2×1 clock card called Clocks: the time in Pune and in New York', size: '2x1', caption: 'clock' },
+  { src: wClock, alt: 'A 2×1 clock card called Clocks: the time in Tokyo and in New York', size: '2x1', caption: 'clock' },
   { src: wAgenda, alt: 'A 4×2 agenda card called Plans: Lunch with Asha at 13:00 tomorrow at Cafe Goodluck, and the Goa trip all day after it', size: '4x2', caption: 'agenda' },
 ]} />
 

@@ -17,7 +17,7 @@ import java.time.ZoneOffset
  * `widget.show{ events = calendar.events() }`. A row has an `id`, which the widget reads and drops.
  */
 class CalendarRowsTest {
-    private val zone = ZoneId.of("Asia/Kolkata")
+    private val zone = ZoneId.of("Asia/Tokyo")
     private fun local(d: Int, h: Int, m: Int = 0) =
         LocalDateTime.of(2026, 10, d, h, m).atZone(zone).toInstant().toEpochMilli()
 

@@ -51,7 +51,7 @@ class RangeBarsTest {
 
     /** Three days of a forecast: the scale is 20 to 31. */
     private val forecast = WidgetSpec.Rows(
-        WidgetBase(title = "Pune"),
+        WidgetBase(title = "Tokyo"),
         listOf(
             WidgetSpec.Row(
                 "Sat",
@@ -102,12 +102,12 @@ class RangeBarsTest {
                     ) {
                         Box(Modifier.width(c.width)) {
                             WidgetCard(
-                                title = "Pune",
+                                title = "Tokyo",
                                 height = c.height,
                                 spec = c.spec,
                                 note = null,
                                 description = WidgetWords.description(
-                                    "Pune",
+                                    "Tokyo",
                                     c.spec,
                                     0L,
                                     ZoneId.systemDefault()

@@ -15,7 +15,7 @@ class WidgetFieldsTest {
     private fun parse(kind: WidgetKind, raw: Map<String, Any?>) = WidgetParser.parse(raw, kind, { it }, { it })
 
     private val base = mapOf(
-        "title" to "Pune",
+        "title" to "Tokyo",
         "icon" to "☀",
         "color" to "warn",
         "shape" to "sun",
@@ -102,7 +102,7 @@ class WidgetFieldsTest {
                 "events" to listOf(
                     mapOf(
                         "title" to "Final", "starts" to 1_800_000_000L, "ends" to 1_800_007_200L, "allDay" to true,
-                        "where" to "Pune", "color" to "good", "tap" to mapOf("args" to "open"), "id" to 7,
+                        "where" to "Tokyo", "color" to "good", "tap" to mapOf("args" to "open"), "id" to 7,
                     ),
                 ),
                 "days" to 7,

@@ -908,7 +908,7 @@ class LogLineTest {
             ), unit = "°"
         )
         val e = entry(
-            "Pune",
+            "Tokyo",
             LogKind.SCRIPT,
             ctx = mapOf(
                 LogContext.TITLE to "1",

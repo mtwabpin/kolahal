@@ -105,7 +105,7 @@ class ReminderFiringTest {
         val prefs = com.mtwabpin.kolahal.data.Stores.REMINDERS.open(context)
         val was = prefs.getString(ReminderScheduler.KEY_ZONE, null)
         val other =
-            if (ZoneId.systemDefault().id == "Asia/Kolkata") "Europe/London" else "Asia/Kolkata"
+            if (ZoneId.systemDefault().id == "Asia/Tokyo") "Europe/London" else "Asia/Tokyo"
         try {
             val elsewhere =
                 LocalDate.now().plusDays(1).atTime(3, 30).atZone(ZoneId.systemDefault()).toInstant()

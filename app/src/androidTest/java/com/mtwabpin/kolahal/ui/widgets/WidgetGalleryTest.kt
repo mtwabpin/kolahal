@@ -517,7 +517,7 @@ class WidgetGalleryTest {
 
     /** Three days as forecast.js sends them: each with its sky, its low and high, and a bar from the one to the other. */
     private val forecast = WidgetSpec.Rows(
-        base("Pune", "sun", ColorRole.INFO),
+        base("Tokyo", "sun", ColorRole.INFO),
         listOf(
             WidgetSpec.Row(
                 "Sat",
@@ -935,7 +935,7 @@ class WidgetGalleryTest {
             WidgetSpec.Clock(
                 base("Clocks", color = ColorRole.LINK),
                 listOf(
-                    WidgetSpec.Zone("Asia/Kolkata", "Pune"),
+                    WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                     WidgetSpec.Zone("Europe/London", "London")
                 )
             ),
@@ -1038,12 +1038,12 @@ class WidgetGalleryTest {
     /** The ready-made widgets of the mockup: the library scripts' cards, and Kolahal's own. */
     private fun readyMade(): List<Shot> {
         val weather = WidgetSpec.Stat(
-            base("Pune", "sun"), value = "27°", label = "Sunny",
+            base("Tokyo", "sun"), value = "27°", label = "Sunny",
             more = listOf(WidgetSpec.Small("62%", "humidity"), WidgetSpec.Small("9 km/h", "wind")),
         )
         // As aqi.js writes it on the US scale: a gauge to 300, a zone for each color of its bands.
         val aqi = WidgetSpec.Progress(
-            base("Pune", "wind", ColorRole.WARN),
+            base("Tokyo", "wind", ColorRole.WARN),
             value = 118f,
             max = 300f,
             text = "118",
@@ -1165,12 +1165,12 @@ class WidgetGalleryTest {
             Shortcut("maps", "maps", "pin")
         )
         return listOf(
-            Shot("weather", WidgetSize.S2X1, "Pune", weather),
-            Shot("weather", WidgetSize.S1X1, "Pune", weather),
-            Shot("aqi", WidgetSize.S2X2, "Pune", aqi),
-            Shot("aqi", WidgetSize.S1X1, "Pune", aqi),
-            Shot("forecast", WidgetSize.S2X2, "Pune", forecast),
-            Shot("forecast", WidgetSize.S4X2, "Pune", forecast),
+            Shot("weather", WidgetSize.S2X1, "Tokyo", weather),
+            Shot("weather", WidgetSize.S1X1, "Tokyo", weather),
+            Shot("aqi", WidgetSize.S2X2, "Tokyo", aqi),
+            Shot("aqi", WidgetSize.S1X1, "Tokyo", aqi),
+            Shot("forecast", WidgetSize.S2X2, "Tokyo", forecast),
+            Shot("forecast", WidgetSize.S4X2, "Tokyo", forecast),
             // The larger card has a start, for its bar: 55% of the wait is over.
             Shot("countdown-date", WidgetSize.S2X2, "Goa trip", goa.copy(from = now - 44 * 86_400)),
             Shot("countdown-date", WidgetSize.S2X1, "Goa trip", goa),
@@ -1351,7 +1351,7 @@ class WidgetGalleryTest {
                 WidgetSpec.Clock(
                     base("World clocks", "globe", ColorRole.LINK),
                     listOf(
-                        WidgetSpec.Zone("Asia/Kolkata", "Kolkata"),
+                        WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                         WidgetSpec.Zone("Europe/London", "London"),
                         WidgetSpec.Zone("America/New_York", "New York")
                     ),
@@ -1363,7 +1363,7 @@ class WidgetGalleryTest {
                 WidgetSpec.Clock(
                     base("World clocks", "globe", ColorRole.LINK),
                     listOf(
-                        WidgetSpec.Zone("Asia/Kolkata", "Kolkata"),
+                        WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                         WidgetSpec.Zone("Europe/London", "London"),
                         WidgetSpec.Zone("America/New_York", "New York")
                     ),

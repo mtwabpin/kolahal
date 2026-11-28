@@ -442,7 +442,7 @@ fun ThemePreview(p: Palette, modifier: Modifier = Modifier) {
             style = line.copy(color = p.link),
             maxLines = 1
         )
-        Text("weather · Pune 27°C", style = line.copy(color = p.script))
+        Text("weather · Tokyo 27°C", style = line.copy(color = p.script))
         Text("3 feeds refreshed", style = line.copy(color = p.info))
         Text("Command not found: fo", style = line.copy(color = p.error))
         Text("Older output, dimmed · 9:30", style = line.copy(color = p.dim))

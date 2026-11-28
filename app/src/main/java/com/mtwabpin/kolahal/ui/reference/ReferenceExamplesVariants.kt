@@ -385,7 +385,7 @@ internal object ReferenceExamplesVariants {
             lua = """
             widget.show{
               kind = "list",
-              title = "Pune",
+              title = "Tokyo",
               items = {
                 {
                   title = "Today",
@@ -412,7 +412,7 @@ internal object ReferenceExamplesVariants {
             js = """
             widget.show({
               kind: "list",
-              title: "Pune",
+              title: "Tokyo",
               items: [
                 {
                   title: "Today",
@@ -439,7 +439,7 @@ internal object ReferenceExamplesVariants {
             of = "list", variant = "With ranges",
         ) { _, _ ->
             WidgetSpec.Rows(
-                WidgetBase(title = "Pune"),
+                WidgetBase(title = "Tokyo"),
                 listOf(
                     WidgetSpec.Row(
                         "Today",
@@ -1087,7 +1087,7 @@ internal object ReferenceExamplesVariants {
 
             widget.show{
               kind = "countdown",
-              title = "Train to Mumbai",
+              title = "Train to Porto",
               label = "From platform 4",
               style = "clock",
               to = os.time({
@@ -1104,7 +1104,7 @@ internal object ReferenceExamplesVariants {
 
             widget.show({
               kind: "countdown",
-              title: "Train to Mumbai",
+              title: "Train to Porto",
               label: "From platform 4",
               style: "clock",
               to: new Date(
@@ -1120,7 +1120,7 @@ internal object ReferenceExamplesVariants {
             val to = java.time.Instant.ofEpochSecond(now).atZone(zone).truncatedTo(ChronoUnit.HOURS)
                 .plusHours(3).toEpochSecond()
             WidgetSpec.Countdown(
-                WidgetBase(title = "Train to Mumbai"),
+                WidgetBase(title = "Train to Porto"),
                 to = to,
                 label = "From platform 4",
                 style = "clock"
@@ -1721,8 +1721,8 @@ internal object ReferenceExamplesVariants {
               staleAfter = 604800,
               zones = {
                 {
-                  zone = "Asia/Kolkata",
-                  label = "Pune",
+                  zone = "Asia/Tokyo",
+                  label = "Tokyo",
                 },
                 { zone = "Europe/London" },
                 { zone = "America/New_York" },
@@ -1737,8 +1737,8 @@ internal object ReferenceExamplesVariants {
               staleAfter: 604800,
               zones: [
                 {
-                  zone: "Asia/Kolkata",
-                  label: "Pune",
+                  zone: "Asia/Tokyo",
+                  label: "Tokyo",
                 },
                 { zone: "Europe/London" },
                 { zone: "America/New_York" },
@@ -1751,7 +1751,7 @@ internal object ReferenceExamplesVariants {
             WidgetSpec.Clock(
                 WidgetBase(title = "Team", staleAfter = 604800),
                 listOf(
-                    WidgetSpec.Zone("Asia/Kolkata", "Pune"),
+                    WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                     WidgetSpec.Zone("Europe/London"),
                     WidgetSpec.Zone("America/New_York"),
                     WidgetSpec.Zone("Asia/Tokyo")

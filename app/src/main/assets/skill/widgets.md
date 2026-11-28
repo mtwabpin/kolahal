@@ -32,7 +32,7 @@ Each kind's own:
 - `countdown`: `to` (needed, seconds), `from` (seconds, adds a bar), `label` (60), `style` (`days`, `clock`, `dots`: a dot a day, `page`: calendar page), `reached` (60). Milliseconds are an error.
 - `buttons`: `items`, 1 to 8 `{ label, icon, color, tap, value }`; `label` (24) and `tap` needed; `value` (12): under the label.
 - `toggles`: `items`, 1 to 6 `{ label, icon, on, tap, value }`; `on`: the state now; `value` (12) replaces On/Off; `tap` is `{ args }`. Its run must change the thing, then call `widget.show` with the new state, even on failure.
-- `clock`: `zones` (needed, 1 to 4 `{ zone, label }`, zone like `Asia/Kolkata`, `UTC`), `seconds` (bool). Give `staleAfter = 604800`.
+- `clock`: `zones` (needed, 1 to 4 `{ zone, label }`, zone like `Asia/Tokyo`, `UTC`), `seconds` (bool). Give `staleAfter = 604800`.
 - `agenda`: `events` (needed, 20 kept, may be empty) `{ title, starts, ends, allDay, where, color, tap }` with `title` and `starts` needed; `days` (1 to 14, 3), `empty` (60). An all-day event starts at local midnight.
 - `image`: `image` (needed, an `https://` link), `alt` (needed, 200: what it shows), `caption` (60), `fit` (`crop`, `fit`).
 - `versus`: `sides` (needed, 2 `{ name, mark, color, value, text, detail, score, clock, lines }`, `name` needed, `value` ≥ 0, `lines` ≤ 3), `score` ("2–1" splits; optional with side scores or clocks), `turn` (1, 2), `moving`, `caption` (60). `score`, `clock`, `lines`: 0.5.23.

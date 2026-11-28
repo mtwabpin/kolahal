@@ -10,10 +10,10 @@ import java.time.ZoneOffset
 import java.util.Locale
 
 class WorldClockTest {
-    private val kolkata = ZoneId.of("Asia/Kolkata")
+    private val adelaide = ZoneId.of("Australia/Adelaide")
 
-    // 2026-10-24 00:30 in Kolkata (UTC+5:30): 19:00 UTC the day before.
-    private val now = Instant.parse("2026-10-23T19:00:00Z")
+    // 2026-10-24 08:30 in Adelaide (UTC+10:30, summer time): 22:00 UTC the day before.
+    private val now = Instant.parse("2026-10-23T22:00:00Z")
 
     @Test
     fun citiesInAnyCaseWithSpacesOrUnderscores() {
@@ -25,7 +25,7 @@ class WorldClockTest {
 
     @Test
     fun zoneIdsUtcAndOffsets() {
-        assertEquals(ZoneId.of("Asia/Kolkata"), WorldClock.find("asia/kolkata")!!.zone)
+        assertEquals(ZoneId.of("Australia/Adelaide"), WorldClock.find("australia/adelaide")!!.zone)
         assertEquals(ZoneOffset.UTC, WorldClock.find("UTC")!!.zone)
         assertEquals(ZoneOffset.ofHoursMinutes(5, 30), WorldClock.find("+5:30")!!.zone)
         assertEquals(ZoneOffset.ofHours(-8), WorldClock.find("-8")!!.zone)
@@ -47,23 +47,23 @@ class WorldClockTest {
         val tokyo = WorldClock.line(
             WorldClock.find("tokyo")!!,
             now,
-            kolkata,
+            adelaide,
             clock24 = true,
             locale = Locale.UK
         )
         assertEquals("Tokyo", tokyo.place)
-        assertEquals("04:00 · 3h30 ahead", tokyo.detail)
-        // London is on summer time in October: UTC+1, 4h30 behind Kolkata, and still the day before.
+        assertEquals("07:00 · 1h30 behind", tokyo.detail)
+        // London is on summer time in October: UTC+1, 9h30 behind Adelaide, and still the day before.
         assertEquals(
-            "20:00 Fri 23 Oct · 4h30 behind",
-            WorldClock.line(WorldClock.find("london")!!, now, kolkata, true, Locale.UK).detail
+            "23:00 Fri 23 Oct · 9h30 behind",
+            WorldClock.line(WorldClock.find("london")!!, now, adelaide, true, Locale.UK).detail
         )
         assertEquals(
-            "12:30 AM · same time",
+            "8:30 AM · same time",
             WorldClock.line(
-                WorldClock.find("+5:30")!!,
+                WorldClock.find("+10:30")!!,
                 now,
-                kolkata,
+                adelaide,
                 false,
                 Locale.US
             ).detail.replace(' ', ' ')

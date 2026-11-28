@@ -2,6 +2,7 @@
 # Made by tools/library-history.sh; a copy matching one of these is a copy you never edited.
 aqi.js 048f67b61b57ddd5
 aqi.js 1e0709383c060562
+aqi.js 36bd34e21a82874f
 aqi.js 547262a89d7c8351
 aqi.js 66b7f6417048c19c
 aqi.js 7af2168a5db0d726
@@ -315,6 +316,7 @@ weather.lua 9455c13ffb57463b
 weather.lua 9e28fefb93135221
 weather.lua a96c095e26d77d44
 weather.lua e10119b75310166b
+weather.lua e98b0c2b5c399076
 weather.lua ef720bfa0c80c47f
 webnumber.js 6e1eba52052d8a99
 webnumber.js a1132bab879d159a
@@ -334,6 +336,7 @@ world-clocks.lua 1c49b9a456e551d5
 world-clocks.lua 54042d1cbeaca93b
 world-clocks.lua 5b898a5d85da5f9c
 world-clocks.lua c6488812542c5e06
+world-clocks.lua d77d7ffb210b081c
 world-clocks.lua f89791ab640ac7b2
 xkcd.js 0aa2259873c4e7de
 xkcd.js 2c9381ac32ed4247

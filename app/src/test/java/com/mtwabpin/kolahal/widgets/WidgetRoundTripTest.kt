@@ -23,7 +23,7 @@ class WidgetRoundTripTest {
     }
 
     private val base = mapOf(
-        "title" to "Pune",
+        "title" to "Tokyo",
         "icon" to "☀",
         "color" to "warn",
         "tap" to mapOf("args" to "now", "label" to "Refresh"),
@@ -127,7 +127,7 @@ class WidgetRoundTripTest {
         WidgetKind.CLOCK,
         base + mapOf(
             "zones" to listOf(
-                mapOf("zone" to "Asia/Kolkata", "label" to "Pune"),
+                mapOf("zone" to "Asia/Tokyo", "label" to "Tokyo"),
                 mapOf("zone" to "America/New_York"),
                 mapOf("zone" to "UTC"),
                 mapOf("zone" to "+05:45")
@@ -145,7 +145,7 @@ class WidgetRoundTripTest {
                     "title" to "Final",
                     "starts" to 1_800_000_000L,
                     "ends" to 1_800_007_200L,
-                    "where" to "Pune",
+                    "where" to "Tokyo",
                     "color" to "good",
                     "tap" to mapOf("url" to "https://example.com/final")
                 ),

@@ -293,14 +293,14 @@ class WidgetWordsTest {
                 Locale.ENGLISH
             )
         )
-        // The day is the phone's: 20 Dec at 01:00 in Kolkata is still 19 Dec in UTC.
+        // The day is the phone's: 20 Dec at 01:00 in Adelaide is still 19 Dec in UTC.
         assertEquals(
             "20 Dec",
             WidgetWords.countdownEnds(
                 at("2026-10-01T00:00:00Z"),
-                at("2026-12-19T19:30:00Z"),
+                at("2026-12-19T14:30:00Z"),
                 now,
-                ZoneId.of("Asia/Kolkata"),
+                ZoneId.of("Australia/Adelaide"),
                 clock24 = true,
                 Locale.ENGLISH
             ).second
@@ -312,13 +312,13 @@ class WidgetWordsTest {
     @Test
     fun aCountdownsDayChangesAtMidnightHere() {
         fun at(text: String) = ZonedDateTime.parse(text).toEpochSecond()
-        val kolkata = ZoneId.of("Asia/Kolkata")
+        val adelaide = ZoneId.of("Australia/Adelaide")
         val newYork = ZoneId.of("America/New_York")
         val nov14 = java.time.LocalDate.of(2026, 11, 14).toEpochDay()
-        // East of UTC: midnight in Kolkata is 18:30 in UTC the day before.
-        assertEquals(nov14, WidgetWords.localDay(at("2026-11-14T18:29:59Z"), kolkata))
-        assertEquals(nov14 + 1, WidgetWords.localDay(at("2026-11-14T18:30:00Z"), kolkata))
-        assertEquals(nov14 + 1, WidgetWords.localDay(at("2026-11-15T05:00:00Z"), kolkata))
+        // East of UTC: midnight in Adelaide is 13:30 in UTC the day before.
+        assertEquals(nov14, WidgetWords.localDay(at("2026-11-14T13:29:59Z"), adelaide))
+        assertEquals(nov14 + 1, WidgetWords.localDay(at("2026-11-14T13:30:00Z"), adelaide))
+        assertEquals(nov14 + 1, WidgetWords.localDay(at("2026-11-15T05:00:00Z"), adelaide))
         // West of UTC: at 02:00 in UTC on the 15th it is still the 14th in New York, until 05:00.
         assertEquals(nov14, WidgetWords.localDay(at("2026-11-15T02:00:00Z"), newYork))
         assertEquals(nov14, WidgetWords.localDay(at("2026-11-15T04:59:59Z"), newYork))
@@ -520,14 +520,14 @@ class WidgetWordsTest {
                 WidgetSpec.Row("Sat", trailing = "22–31°", range = WidgetSpec.Range(22f, 31f)),
                 WidgetSpec.Row("BTC", range = WidgetSpec.Range(94_100f, 97_900f, 97_420f)),
                 WidgetSpec.Row(
-                    "Pune",
+                    "Tokyo",
                     trailing = "22–31°",
                     range = WidgetSpec.Range(22f, 31f, 27f)
                 ),
             ),
         )
         assertEquals(
-            "Prices: Sat, 22–31°, BTC, 97420, from 94100 to 97900, Pune, 22–31°, 27, from 22 to 31",
+            "Prices: Sat, 22–31°, BTC, 97420, from 94100 to 97900, Tokyo, 22–31°, 27, from 22 to 31",
             WidgetWords.description("Prices", rows, now, utc)
         )
         assertNull(WidgetWords.rowRange(rows.items[0]))
@@ -1189,14 +1189,14 @@ class WidgetWordsTest {
         DateTimeFormatter.ofPattern(WidgetWords.clockPattern(clock24, seconds), Locale.US)
 
     private val places = listOf(
-        WidgetSpec.Zone("Asia/Kolkata", "Pune"),
+        WidgetSpec.Zone("Australia/Adelaide", "Adelaide"),
         WidgetSpec.Zone("America/New_York"),
         WidgetSpec.Zone("UTC"),
         WidgetSpec.Zone("+05:45")
     )
 
     /**
-     * At 20:30:05 UTC on the 20th it is 02:00 on the 21st in Kolkata, and 15:30 on the 20th in New
+     * At 20:30:05 UTC on the 20th it is 07:00 on the 21st in Adelaide, and 15:30 on the 20th in New
      * York. Each place has its difference from here in minutes, and the phone's own zone is "here".
      */
     @Test
@@ -1204,7 +1204,7 @@ class WidgetWordsTest {
         val now = at(20, 20, 30, 5) * 1000
         assertEquals(
             listOf(
-                WidgetWords.ZoneTime("Pune", "02:00", "tomorrow", "+1", ahead = 330),
+                WidgetWords.ZoneTime("Adelaide", "07:00", "tomorrow", "+1", ahead = 630),
                 WidgetWords.ZoneTime("New York", "15:30", null, null, ahead = -300),
                 WidgetWords.ZoneTime("UTC", "20:30", null, null, ahead = 0, here = true),
                 WidgetWords.ZoneTime("+05:45", "02:15", "tomorrow", "+1", ahead = 345),
@@ -1215,18 +1215,18 @@ class WidgetWordsTest {
         val tokyo = WidgetWords.zoneTimes(places, now, ZoneId.of("Asia/Tokyo"), clockFormat(true))
         assertEquals(listOf(null, "yesterday", "yesterday", null), tokyo.map { it.day })
         assertEquals(listOf(null, "−1", "−1", null), tokyo.map { it.dayShort })
-        assertEquals(listOf(-210, -840, -540, -195), tokyo.map { it.ahead })
+        assertEquals(listOf(90, -840, -540, -195), tokyo.map { it.ahead })
         assertEquals(listOf(false, false, false, false), tokyo.map { it.here })
         // The form of the time is the setting's, and seconds show only when asked for.
         assertEquals(
-            listOf("2:00 AM", "3:30 PM", "8:30 PM", "2:15 AM"),
+            listOf("7:00 AM", "3:30 PM", "8:30 PM", "2:15 AM"),
             WidgetWords.zoneTimes(places, now, utc, clockFormat(false)).map { it.time })
         assertEquals(
-            listOf("02:00:05", "15:30:05", "20:30:05", "02:15:05"),
+            listOf("07:00:05", "15:30:05", "20:30:05", "02:15:05"),
             WidgetWords.zoneTimes(places, now, utc, clockFormat(true, seconds = true))
                 .map { it.time })
         assertEquals(
-            "2:00:05 AM",
+            "7:00:05 AM",
             WidgetWords.zoneTimes(places, now, utc, clockFormat(false, seconds = true))[0].time
         )
         // A zone the phone does not know is left out. The parser has refused it already.
@@ -1242,14 +1242,14 @@ class WidgetWordsTest {
 
     @Test
     fun aPlaceWithoutALabelIsNamedByItsZone() {
-        assertEquals("Kolkata", WidgetWords.zoneLabel(WidgetSpec.Zone("Asia/Kolkata")))
+        assertEquals("Adelaide", WidgetWords.zoneLabel(WidgetSpec.Zone("Australia/Adelaide")))
         assertEquals("New York", WidgetWords.zoneLabel(WidgetSpec.Zone("America/New_York")))
         assertEquals(
             "Buenos Aires",
             WidgetWords.zoneLabel(WidgetSpec.Zone("America/Argentina/Buenos_Aires"))
         )
         assertEquals("UTC", WidgetWords.zoneLabel(WidgetSpec.Zone("UTC")))
-        assertEquals("Home", WidgetWords.zoneLabel(WidgetSpec.Zone("Asia/Kolkata", "Home")))
+        assertEquals("Home", WidgetWords.zoneLabel(WidgetSpec.Zone("Australia/Adelaide", "Home")))
     }
 
     /** The size of the digits comes from the room and the form of the time, never from the digits themselves. */
@@ -1308,18 +1308,18 @@ class WidgetWordsTest {
         val now = at(20, 20, 30, 5)
         val clock = WidgetSpec.Clock(base, zones = places.take(3), seconds = true)
         assertEquals(
-            "World: Pune 02:00 tomorrow, 5 hours 30 minutes ahead, New York 15:30, 5 hours behind, UTC 20:30, here",
+            "World: Adelaide 07:00 tomorrow, 10 hours 30 minutes ahead, New York 15:30, 5 hours behind, UTC 20:30, here",
             WidgetWords.description("World", clock, now, utc, clock24 = true, locale = Locale.US),
         )
         assertEquals(
-            "World: Pune 2:00 AM tomorrow, 5 hours 30 minutes ahead, New York 3:30 PM, 5 hours behind, UTC 8:30 PM, here",
+            "World: Adelaide 7:00 AM tomorrow, 10 hours 30 minutes ahead, New York 3:30 PM, 5 hours behind, UTC 8:30 PM, here",
             WidgetWords.description("World", clock, now, utc, clock24 = false, locale = Locale.US),
         )
     }
 
-    /** At 08:00 on 20 November in Kolkata: 02:30 in London, 21:30 the day before in New York, 08:15 in Kathmandu. */
-    private val kolkataMorning =
-        ZonedDateTime.of(2026, 11, 20, 8, 0, 0, 0, ZoneId.of("Asia/Kolkata")).toInstant()
+    /** At 08:00 on 20 November in Adelaide: 21:30 the day before in London, 16:30 the day before in New York, 03:15 in Kathmandu. */
+    private val adelaideMorning =
+        ZonedDateTime.of(2026, 11, 20, 8, 0, 0, 0, ZoneId.of("Australia/Adelaide")).toInstant()
             .toEpochMilli()
 
     private fun seenFrom(here: String, now: Long, vararg zones: String) =
@@ -1358,43 +1358,43 @@ class WidgetWordsTest {
     /** Half-hour and 45-minute zones, a place on another day, the phone's own zone, and one that keeps its time. */
     @Test
     fun aPlacesLinesGoFromTheLongestToTheShortest() {
-        val (kolkata, london, newYork, kathmandu, colombo) =
+        val (adelaide, london, newYork, kathmandu, brokenHill) =
             seenFrom(
-                "Asia/Kolkata",
-                kolkataMorning,
-                "Asia/Kolkata",
+                "Australia/Adelaide",
+                adelaideMorning,
+                "Australia/Adelaide",
                 "Europe/London",
                 "America/New_York",
                 "Asia/Kathmandu",
-                "Asia/Colombo"
+                "Australia/Broken_Hill"
             )
-        assertEquals(listOf("Here"), WidgetWords.placeLines(kolkata))
-        assertEquals(listOf("5 h 30 min behind", "−5:30"), WidgetWords.placeLines(london))
+        assertEquals(listOf("Here"), WidgetWords.placeLines(adelaide))
+        assertEquals(listOf("10 h 30 min behind · Yesterday", "−10:30 · Yesterday", "−10:30 −1"), WidgetWords.placeLines(london))
         assertEquals(
-            listOf("10 h 30 min behind · Yesterday", "−10:30 · Yesterday", "−10:30 −1"),
+            listOf("15 h 30 min behind · Yesterday", "−15:30 · Yesterday", "−15:30 −1"),
             WidgetWords.placeLines(newYork)
         )
         assertEquals(
-            "Nepal is 15 minutes ahead of India",
-            listOf("15 min ahead", "+0:15"),
+            "Nepal is 4 h 45 min behind South Australia",
+            listOf("4 h 45 min behind", "−4:45"),
             WidgetWords.placeLines(kathmandu)
         )
         assertEquals(
             "another zone with the same time",
             listOf("Same time", "±0:00"),
-            WidgetWords.placeLines(colombo)
+            WidgetWords.placeLines(brokenHill)
         )
-        // The other way round: Kolkata is ahead of New York, and on the next day.
+        // The other way round: Adelaide is ahead of New York, and on the next day.
         assertEquals(
-            listOf("10 h 30 min ahead · Tomorrow", "+10:30 · Tomorrow", "+10:30 +1"),
-            WidgetWords.placeLines(seenFrom("America/New_York", kolkataMorning, "Asia/Kolkata")[0])
+            listOf("15 h 30 min ahead · Tomorrow", "+15:30 · Tomorrow", "+15:30 +1"),
+            WidgetWords.placeLines(seenFrom("America/New_York", adelaideMorning, "Australia/Adelaide")[0])
         )
     }
 
     /** "Here" is the phone's own zone, or the same fixed offset by another name; another zone with the same time is not. */
     @Test
     fun hereIsThePhonesOwnZone() {
-        val now = kolkataMorning
+        val now = adelaideMorning
         assertEquals(
             listOf(true, true, true, false),
             seenFrom("UTC", now, "UTC", "GMT", "Etc/UTC", "Europe/London").map { it.here })
@@ -1405,7 +1405,7 @@ class WidgetWordsTest {
         )
         assertEquals(
             listOf(true, false),
-            seenFrom("Asia/Kolkata", now, "Asia/Kolkata", "Asia/Colombo").map { it.here })
+            seenFrom("Australia/Adelaide", now, "Australia/Adelaide", "Australia/Broken_Hill").map { it.here })
     }
 
     /** The difference is the two clocks' at that moment, so it follows summer time in both places. */
@@ -1511,16 +1511,16 @@ class WidgetWordsTest {
             ),
             WidgetWords.dayStrip(day, utc, ZoneId.of("Asia/Kathmandu")),
         )
-        // New York seen from Kolkata, 10:30 behind: its working day is the evening and the night here.
+        // New York seen from Adelaide, 15:30 behind: its working day is the evening and the night here.
         assertEquals(
             listOf(
-                stretch(0, 18, work),
-                stretch(18, 34, light),
-                stretch(34, 66, night),
-                stretch(66, 78, light),
-                stretch(78, 96, work)
+                stretch(0, 2, light),
+                stretch(2, 38, work),
+                stretch(38, 54, light),
+                stretch(54, 86, night),
+                stretch(86, 96, light)
             ),
-            WidgetWords.dayStrip(day, ZoneId.of("Asia/Kolkata"), ZoneId.of("America/New_York")),
+            WidgetWords.dayStrip(day, ZoneId.of("Australia/Adelaide"), ZoneId.of("America/New_York")),
         )
     }
 
@@ -1582,35 +1582,35 @@ class WidgetWordsTest {
     /** The hour picked is a moment of the phone's day, and the line stands where that moment is on the strip. */
     @Test
     fun anHourPickedIsAMomentOfTheDayHere() {
-        val kolkata = ZoneId.of("Asia/Kolkata")
+        val adelaide = ZoneId.of("Australia/Adelaide")
         val day = java.time.LocalDate.of(2026, 11, 20)
-        val three = WidgetWords.hourMoment(day, 15, kolkata)
-        assertEquals(java.time.Instant.parse("2026-11-20T09:30:00Z").toEpochMilli(), three)
+        val three = WidgetWords.hourMoment(day, 15, adelaide)
+        assertEquals(java.time.Instant.parse("2026-11-20T04:30:00Z").toEpochMilli(), three)
         assertEquals(
             "24 is the next day's 00:00",
-            java.time.Instant.parse("2026-11-20T18:30:00Z").toEpochMilli(),
-            WidgetWords.hourMoment(day, 24, kolkata)
+            java.time.Instant.parse("2026-11-20T13:30:00Z").toEpochMilli(),
+            WidgetWords.hourMoment(day, 24, adelaide)
         )
-        assertEquals(15 / 24f, WidgetWords.stripAt(three, day, kolkata), 1e-6f)
+        assertEquals(15 / 24f, WidgetWords.stripAt(three, day, adelaide), 1e-6f)
         assertEquals(
             1f,
-            WidgetWords.stripAt(WidgetWords.hourMoment(day, 24, kolkata), day, kolkata),
+            WidgetWords.stripAt(WidgetWords.hourMoment(day, 24, adelaide), day, adelaide),
             1e-6f
         )
         assertEquals(
             "08:00",
             (8 * 60) / 1440f,
-            WidgetWords.stripAt(kolkataMorning, day, kolkata),
+            WidgetWords.stripAt(adelaideMorning, day, adelaide),
             1e-6f
         )
         assertEquals(
             "the day before",
             0f,
-            WidgetWords.stripAt(kolkataMorning - 86_400_000, day, kolkata),
+            WidgetWords.stripAt(adelaideMorning - 86_400_000, day, adelaide),
             1e-6f
         )
-        // Every place's time follows: at 15:00 in Kolkata it is 09:30 in London.
-        assertEquals("09:30", seenFrom("Asia/Kolkata", three, "Europe/London")[0].time)
+        // Every place's time follows: at 15:00 in Adelaide it is 04:30 in London.
+        assertEquals("04:30", seenFrom("Australia/Adelaide", three, "Europe/London")[0].time)
         // An hour the clocks skip is the hour after it.
         val london = ZoneId.of("Europe/London")
         assertEquals(
@@ -1810,9 +1810,9 @@ class WidgetWordsTest {
                 clock24 = true
             ),
         )
-        // The time is the phone's: 10:42 in UTC is 16:12 in India.
+        // The time is the phone's: 10:42 in UTC is 19:42 in Tokyo.
         assertEquals(
-            "Failed 16:12",
+            "Failed 19:42",
             WidgetWords.footer(
                 hasContent = false,
                 old = false,
@@ -1820,7 +1820,7 @@ class WidgetWordsTest {
                 triedAt = at,
                 failed = true,
                 now = now,
-                zone = ZoneId.of("Asia/Kolkata"),
+                zone = ZoneId.of("Asia/Tokyo"),
                 clock24 = true
             )!!.text
         )
@@ -2061,7 +2061,7 @@ class WidgetWordsTest {
     /** A large card with no icon has the first letter of its title as its badge. */
     @Test
     fun aBadgeLetterIsTheTitlesFirstLetterAsACapital() {
-        assertEquals("P", WidgetWords.badgeLetter("pune weather"))
+        assertEquals("T", WidgetWords.badgeLetter("tokyo weather"))
         assertEquals("H", WidgetWords.badgeLetter("  #hn top"))
         assertEquals("2", WidgetWords.badgeLetter("2fa codes"))
         assertEquals("É", WidgetWords.badgeLetter("été"))

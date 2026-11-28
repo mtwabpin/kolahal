@@ -94,7 +94,7 @@ class ScriptRichLinesTest {
     fun barsInBothLanguages() {
         lua("""log("AQI 168", fmt.bar(168, { max = 300, color = "bad" }))""")
         js("""log("Unlocks", fmt.bars([["Mon", 42], ["Tue", 21, "21 unlocks"]], { color: "good" }))""")
-        lua("""log("Pune", fmt.ranges({ { "Sat", 23, 31 }, { "Sun", 22, 30 } }, { unit = "°" }))""")
+        lua("""log("Tokyo", fmt.ranges({ { "Sat", 23, 31 }, { "Sun", 22, 30 } }, { unit = "°" }))""")
         val (aqi, unlocks, forecast) = lines().map { meters(it.ctx.body!!) }
         assertEquals(0.56f, aqi.single().to, 0.01f)
         assertEquals(StyledText.ColorRole.BAD, aqi.single().color)
@@ -102,7 +102,7 @@ class ScriptRichLinesTest {
         assertEquals("Unlocks\nMon\t42\nTue\t21 unlocks", lines()[1].shownText)
         assertEquals(1f / 9, forecast[0].from, 0.001f)
         assertEquals(0f, forecast[1].from)
-        assertEquals("Pune\nSat\t23°\t31°\nSun\t22°\t30°", lines()[2].shownText)
+        assertEquals("Tokyo\nSat\t23°\t31°\nSun\t22°\t30°", lines()[2].shownText)
         // A typo in an option, or a value that isn't a number, is an error that says so.
         val typo =
             runCatching { lua("""fmt.bar(1, { colour = "bad" })""") }.exceptionOrNull()?.message.orEmpty()

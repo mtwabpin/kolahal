@@ -646,7 +646,7 @@ internal object WidgetWords {
         return listOf("$long · $day", "$short · $day", "$short ${time.dayShort}")
     }
 
-    /** A place's name. Without a label it is the last part of the zone's name: "Asia/Kolkata" is "Kolkata". */
+    /** A place's name. Without a label it is the last part of the zone's name: "Asia/Tokyo" is "Tokyo". */
     fun zoneLabel(zone: WidgetSpec.Zone): String =
         zone.label ?: zone.zone.substringAfterLast('/').replace('_', ' ')
 

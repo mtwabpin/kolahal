@@ -332,7 +332,7 @@ class StyledTextBlocksTest {
         assertEquals("-2", StyledText.number(-2.0))
     }
 
-    /** fmt.stats: values with their labels, as a line of its own; plain text reads "24° Pune · 60% humidity". */
+    /** fmt.stats: values with their labels, as a line of its own; plain text reads "24° Tokyo · 60% humidity". */
     /** A column chart: its heights on one scale, its labels and its words; plain text keeps the words only. */
     @Test
     fun columnsAreAChartWithWords() {
@@ -375,7 +375,7 @@ class StyledTextBlocksTest {
     fun statsAreALineOfBigNumbers() {
         val body = "Now\n" + StyledText.stats(
             listOf(
-                "24°" to "Pune, clear",
+                "24°" to "Tokyo, clear",
                 StyledText.color(StyledText.ColorRole.GOOD, "60%") to "humidity",
                 "12" to ""
             )
@@ -386,15 +386,15 @@ class StyledTextBlocksTest {
             listOf("24°", "60%", "12"),
             stats.map { s -> s.value.joinToString("") { it.text } })
         assertEquals(
-            listOf("Pune, clear", "Humidity", ""),
+            listOf("Tokyo, clear", "Humidity", ""),
             stats.map { s -> s.label.joinToString("") { it.text } })
         assertEquals(StyledText.ColorRole.GOOD, stats[1].value.single().color)
-        assertEquals("Now\n24° Pune, clear · 60% Humidity · 12\nlater", StyledText.plain(body))
+        assertEquals("Now\n24° Tokyo, clear · 60% Humidity · 12\nlater", StyledText.plain(body))
         assertTrue(StyledText.hasBlock(body))
         assertEquals(
             "Now" to StyledText.stats(
                 listOf(
-                    "24°" to "Pune, clear",
+                    "24°" to "Tokyo, clear",
                     StyledText.color(StyledText.ColorRole.GOOD, "60%") to "humidity",
                     "12" to ""
                 )
@@ -504,7 +504,7 @@ class StyledTextBlocksTest {
                     "",
                     "40/50"
                 ) + "\n" + StyledText.bar(0.5) + "\n" +
-                StyledText.stats(listOf("24°" to "Pune")) + "\n" + StyledText.list(
+                StyledText.stats(listOf("24°" to "Tokyo")) + "\n" + StyledText.list(
             listOf(
                 "one",
                 italic("two")
@@ -513,7 +513,7 @@ class StyledTextBlocksTest {
         val kept = StyledText.inline(blocks)
         assertEquals(StyledText.plain(blocks), StyledText.plain(kept))
         assertEquals(
-            "Top\na\tb\nc\td\nOvers\t40/50\n24° Pune\n1. one\n2. two",
+            "Top\na\tb\nc\td\nOvers\t40/50\n24° Tokyo\n1. one\n2. two",
             StyledText.plain(kept)
         )
         assertFalse(StyledText.hasBlock(kept))

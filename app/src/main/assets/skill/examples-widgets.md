@@ -195,8 +195,8 @@ widget.show{
 // @title Sun
 // @widget sky 2x2
 // @every 6h
-// @option lat 18.52 Latitude
-// @option lng 73.86 Longitude
+// @option lat 35.68 Latitude
+// @option lng 139.69 Longitude
 
 const r = await http.cached(`https://api.sunrise-sunset.org/json?lat=${options.lat}&lng=${options.lng}&formatted=0`, 21600);
 if (!r.ok) throw new Error(`HTTP ${r.status}`);

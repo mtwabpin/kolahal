@@ -203,7 +203,7 @@ class WidgetSpecJsonTest {
     private val buttons = WidgetSpec.Buttons(bare, items = listOf(WidgetSpec.Button("Go", go)))
     private val toggles =
         WidgetSpec.Toggles(bare, items = listOf(WidgetSpec.Toggle("Mute", on = false, tap = go)))
-    private val clock = WidgetSpec.Clock(bare, zones = listOf(WidgetSpec.Zone("Asia/Kolkata")))
+    private val clock = WidgetSpec.Clock(bare, zones = listOf(WidgetSpec.Zone("Asia/Tokyo")))
     private val agenda =
         WidgetSpec.Agenda(bare, events = listOf(WidgetSpec.Event("Final", starts = 1_800_000_000L)))
     private val media = WidgetSpec.Media(
@@ -410,7 +410,7 @@ class WidgetSpecJsonTest {
             WidgetSpec.Clock(
                 fullBase,
                 zones = listOf(
-                    WidgetSpec.Zone("Asia/Kolkata", "Pune"),
+                    WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                     WidgetSpec.Zone("UTC"),
                     WidgetSpec.Zone("America/New_York", "NYC"),
                     WidgetSpec.Zone("+05:45")
@@ -436,7 +436,7 @@ class WidgetSpecJsonTest {
                         "Final",
                         1_800_000_000L,
                         ends = 1_800_007_200L,
-                        where = "Pune",
+                        where = "Tokyo",
                         color = StyledText.ColorRole.GOOD,
                         tap = WidgetTap(url = "https://example.com/final")
                     ),
@@ -748,19 +748,19 @@ class WidgetSpecJsonTest {
                 "zones",
                 listOf(
                     "UTC",
-                    "Asia/Kolkata",
+                    "Europe/Lisbon",
                     "Europe/Paris",
                     "Asia/Tokyo",
                     "Not/AZone"
                 ).map { mapOf("zone" to it) })
         }) as WidgetSpec.Clock
         assertEquals(
-            listOf("UTC", "Asia/Kolkata", "Europe/Paris", "Asia/Tokyo"),
+            listOf("UTC", "Europe/Lisbon", "Europe/Paris", "Asia/Tokyo"),
             zones.zones.map { it.zone })
         assertNull(WidgetJson.decode(changed(clock) {
             put(
                 "zones",
-                listOf(mapOf("zone" to "Asia/Poona"))
+                listOf(mapOf("zone" to "Europe/Atlantis"))
             )
         }))
         assertNull(WidgetJson.decode(changed(clock) { put("zones", listOf(mapOf("zone" to ""))) }))

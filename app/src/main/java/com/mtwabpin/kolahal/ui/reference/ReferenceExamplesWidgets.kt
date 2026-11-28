@@ -138,7 +138,7 @@ internal object ReferenceExamplesWidgets {
             lua = """
             widget.show{
               kind = "progress",
-              title = "Pune air",
+              title = "Tokyo air",
               value = 168,
               max = 300,
               text = "168",
@@ -149,7 +149,7 @@ internal object ReferenceExamplesWidgets {
             js = """
             widget.show({
               kind: "progress",
-              title: "Pune air",
+              title: "Tokyo air",
               value: 168,
               max: 300,
               text: "168",
@@ -159,7 +159,7 @@ internal object ReferenceExamplesWidgets {
             """,
         ) { _, _ ->
             WidgetSpec.Progress(
-                WidgetBase(title = "Pune air", color = ColorRole.WARN),
+                WidgetBase(title = "Tokyo air", color = ColorRole.WARN),
                 value = 168f,
                 max = 300f,
                 text = "168",
@@ -363,8 +363,8 @@ internal object ReferenceExamplesWidgets {
               staleAfter = 604800,
               zones = {
                 {
-                  zone = "Asia/Kolkata",
-                  label = "Pune",
+                  zone = "Asia/Tokyo",
+                  label = "Tokyo",
                 },
                 { zone = "America/New_York" },
               },
@@ -377,8 +377,8 @@ internal object ReferenceExamplesWidgets {
               staleAfter: 604800,
               zones: [
                 {
-                  zone: "Asia/Kolkata",
-                  label: "Pune",
+                  zone: "Asia/Tokyo",
+                  label: "Tokyo",
                 },
                 { zone: "America/New_York" },
               ],
@@ -387,7 +387,7 @@ internal object ReferenceExamplesWidgets {
         ) { _, _ ->
             WidgetSpec.Clock(
                 WidgetBase(title = "Clocks", staleAfter = 604800),
-                listOf(WidgetSpec.Zone("Asia/Kolkata", "Pune"), WidgetSpec.Zone("America/New_York"))
+                listOf(WidgetSpec.Zone("Asia/Tokyo", "Tokyo"), WidgetSpec.Zone("America/New_York"))
             )
         },
         Widget(

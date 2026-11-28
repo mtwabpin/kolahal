@@ -218,7 +218,7 @@ If Android blocks Kolahal's notifications, a "tap to allow" line appears (once a
 
 ## Status lines
 
-`status(text)` sets one line for this script, for example `weather ▸ Pune: ☀️ +27°C`.
+`status(text)` sets one line for this script, for example `weather ▸ Tokyo: ☀️ +27°C`.
 `status(nil)` (or `null` in JS) clears it. Kolahal uses only the first line of the text, up to 80
 characters.
 
@@ -558,7 +558,7 @@ with an `@secret` line, and you set the value on the phone:
 -- @secret OWM_KEY api.openweathermap.org Your OpenWeather API key
 local key = secrets.get("OWM_KEY")
 if not key then return "set OWM_KEY in the script's sheet" end
-local r = http.get("https://api.openweathermap.org/data/2.5/weather?q=Pune&appid=" .. key)
+local r = http.get("https://api.openweathermap.org/data/2.5/weather?q=Tokyo&appid=" .. key)
 ```
 
 The `@secret` line gives:

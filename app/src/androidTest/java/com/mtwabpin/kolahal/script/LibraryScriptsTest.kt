@@ -419,13 +419,13 @@ class LibraryScriptsTest {
             lines().map { StyledText.plain(it.text) })
     }
 
-    /** Weather: the place as the title, then big numbers; a timer run keeps "Pune: ☀️ 25°C" as its status line. */
+    /** Weather: the place as the title, then big numbers; a timer run keeps "Tokyo: ☀️ 25°C" as its status line. */
     @Test
     fun weatherShowsBigNumbers() {
-        val answer = "Pune|☀️ |Sunny|+25°C|36%|←9km/h|3"
-        run("weather.lua", "Pune", before = luaStandIns(answer))
+        val answer = "Tokyo|☀️ |Sunny|+25°C|36%|←9km/h|3"
+        run("weather.lua", "Tokyo", before = luaStandIns(answer))
         val e = lines().single()
-        assertEquals("Pune", e.text)
+        assertEquals("Tokyo", e.text)
         val stats = StyledText.lines(e.ctx.body!!).single().stats!!
         assertEquals(
             listOf("25°C", "36%", "← 9 km/h", "3"),
@@ -435,9 +435,9 @@ class LibraryScriptsTest {
             stats.map { s -> s.label.joinToString("") { it.text } })
         assertNull(status.get(name))
         run("weather.lua", before = luaStandIns(answer.replace("+25", "-3")))
-        assertEquals("Pune: ☀️ -3°C", status.get(name))
+        assertEquals("Tokyo: ☀️ -3°C", status.get(name))
         // Not the line it expects: a failure that says so.
-        run("weather.lua", "Pune", before = luaStandIns("Pune: ☀️ +25°C"))
+        run("weather.lua", "Tokyo", before = luaStandIns("Tokyo: ☀️ +25°C"))
         assertEquals("No weather", only().first)
     }
 
@@ -907,7 +907,7 @@ class LibraryScriptsTest {
     @Test
     fun forecastFillsItsWidgetWithRanges() {
         val geo =
-            """{"results":[{"name":"Pune","country_code":"IN","latitude":18.5,"longitude":73.8}]}"""
+            """{"results":[{"name":"Tokyo","country_code":"JP","latitude":35.7,"longitude":139.7}]}"""
         // Friday 20 November 2026 and the two days after it.
         val days =
             """{"daily":{"time":["2026-11-20","2026-11-21","2026-11-22"],"weather_code":[0,61,95],
@@ -929,7 +929,7 @@ class LibraryScriptsTest {
         )
 
         val card = mapOf(
-            "title" to "Pune, IN", "icon" to "sun",
+            "title" to "Tokyo, JP", "icon" to "sun",
             "items" to listOf(
                 day("Fri", "sun", "clear", 18, 31),
                 day("Sat", "rain", "rain", 17, 28),
@@ -943,7 +943,7 @@ class LibraryScriptsTest {
         // Typed, it logs the days, still as today and tomorrow, and fills the widget the same.
         run("forecast.js", before = before)
         val logged = lines().single().shownText.lines()
-        assertEquals("Pune, IN", logged[0])
+        assertEquals("Tokyo, JP", logged[0])
         assertEquals(
             listOf("Today", "Tomorrow", "Sun"),
             logged.drop(1).map { it.substringBefore(' ') })
@@ -955,7 +955,7 @@ class LibraryScriptsTest {
     fun aqiLeadsWithBigNumbers() {
         val hours = { v: Int -> List(24) { v }.joinToString(",", "[", "]") }
         val geo =
-            """{"results":[{"name":"Pune","country_code":"IN","latitude":18.5,"longitude":73.8}]}"""
+            """{"results":[{"name":"Tokyo","country_code":"JP","latitude":35.7,"longitude":139.7}]}"""
         val air =
             """{"current":{"european_aqi":60},"hourly":{"pm2_5":${hours(72)},"pm10":${hours(98)},"nitrogen_dioxide":${
                 hours(31)
@@ -964,8 +964,8 @@ class LibraryScriptsTest {
             "const http = { get: async (url) => ({ ok: true, status: 200, body: url.includes('geocoding') ? ${
                 com.mtwabpin.kolahal.script.Json.stringify(geo)
             } : ${com.mtwabpin.kolahal.script.Json.stringify(air)} }) };\n"
-        run("aqi.js", "Pune", before = before)
-        val e = lines().first { it.text.startsWith("Pune, IN") }
+        run("aqi.js", "Tokyo", before = before)
+        val e = lines().first { it.text.startsWith("Tokyo, JP") }
         val numbers = bigNumbers(e.ctx.body!!)
         assertEquals(
             listOf("last hour", "24 hours", "PM2.5 µg/m³"),
@@ -1617,7 +1617,7 @@ class LibraryScriptsTest {
     fun worldClocksReadsItsZonesOption() {
         fun place(zone: String, label: String) = mapOf("zone" to zone, "label" to label)
         val start = listOf(
-            place("Asia/Kolkata", "Kolkata"),
+            place("Asia/Tokyo", "Tokyo"),
             place("Europe/London", "London"),
             place("America/New_York", "New York")
         )
@@ -1651,16 +1651,16 @@ class LibraryScriptsTest {
             run(
                 "world-clocks.lua",
                 event = forWidget,
-                options = mapOf("zones" to "Asia/Pune")
+                options = mapOf("zones" to "Europe/Atlantis")
             )
         }
-        assertEquals(true, wrong.exceptionOrNull()?.message?.contains("no time zone 'Asia/Pune'"))
+        assertEquals(true, wrong.exceptionOrNull()?.message?.contains("no time zone 'Europe/Atlantis'"))
 
         run("world-clocks.lua")
         assertEquals(
             Triple(
                 "World clocks",
-                "Kolkata (Asia/Kolkata)\nLondon (Europe/London)\nNew York (America/New_York)\nTheir time is on its widget: run widget add",
+                "Tokyo (Asia/Tokyo)\nLondon (Europe/London)\nNew York (America/New_York)\nTheir time is on its widget: run widget add",
                 null
             ),
             only(),
@@ -1684,7 +1684,7 @@ class LibraryScriptsTest {
                 WidgetSpec.Clock(
                     WidgetBase(icon = "globe", staleAfter = 604_800),
                     listOf(
-                        WidgetSpec.Zone("Asia/Kolkata", "Kolkata"),
+                        WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                         WidgetSpec.Zone("Europe/London", "London"),
                         WidgetSpec.Zone("America/New_York", "New York")
                     ),

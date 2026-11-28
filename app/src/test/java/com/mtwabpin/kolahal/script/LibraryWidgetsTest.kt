@@ -157,7 +157,7 @@ class LibraryWidgetsTest {
             "world-clocks.lua",
             luaTable(
                 "zones" to luaList(
-                    luaTable("zone" to "Asia/Kolkata", "label" to "Kolkata"),
+                    luaTable("zone" to "Asia/Tokyo", "label" to "Tokyo"),
                     luaTable("zone" to "America/New_York", "label" to "New York"),
                     luaTable("zone" to "Asia/Dubai", "label" to "Head office"),
                     luaTable("zone" to "UTC", "label" to "UTC"),
@@ -169,7 +169,7 @@ class LibraryWidgetsTest {
             WidgetSpec.Clock(
                 WidgetBase(staleAfter = week),
                 zones = listOf(
-                    WidgetSpec.Zone("Asia/Kolkata", "Kolkata"),
+                    WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                     WidgetSpec.Zone("America/New_York", "New York"),
                     WidgetSpec.Zone("Asia/Dubai", "Head office"),
                     WidgetSpec.Zone("UTC", "UTC"),
@@ -196,13 +196,13 @@ class LibraryWidgetsTest {
             fromLua(
                 "world-clocks.lua",
                 luaTable(
-                    "zones" to luaList(luaTable("zone" to "Asia/Pune", "label" to "Pune")),
+                    "zones" to luaList(luaTable("zone" to "Europe/Atlantis", "label" to "Tokyo")),
                     "staleAfter" to week.toDouble()
                 )
             )
         }
         assertEquals(
-            "widget: item 1 of zones: no time zone 'Asia/Pune'; use a name such as Asia/Kolkata or UTC",
+            "widget: item 1 of zones: no time zone 'Europe/Atlantis'; use a name such as Asia/Tokyo or UTC",
             wrong.exceptionOrNull()?.message
         )
     }
@@ -918,7 +918,7 @@ class LibraryWidgetsTest {
         val spec = fromLua(
             "weather.lua",
             luaTable(
-                "title" to "Pune", "icon" to "☀️", "value" to "25°C", "label" to "Sunny",
+                "title" to "Tokyo", "icon" to "☀️", "value" to "25°C", "label" to "Sunny",
                 "more" to luaList(
                     luaTable("value" to "36%", "label" to "humidity"),
                     luaTable("value" to "← 9 km/h", "label" to "wind")
@@ -928,7 +928,7 @@ class LibraryWidgetsTest {
         )
         assertEquals(
             WidgetSpec.Stat(
-                WidgetBase(title = "Pune", icon = "☀️", tap = toLog),
+                WidgetBase(title = "Tokyo", icon = "☀️", tap = toLog),
                 value = "25°C",
                 label = "Sunny",
                 more = listOf(
@@ -946,7 +946,7 @@ class LibraryWidgetsTest {
         val spec = fromLua(
             "weather.lua",
             luaTable(
-                "title" to "Pune", "icon" to "", "value" to "", "label" to "",
+                "title" to "Tokyo", "icon" to "", "value" to "", "label" to "",
                 "more" to luaList(
                     luaTable("value" to "", "label" to "humidity"),
                     luaTable("value" to "", "label" to "wind")
@@ -1381,7 +1381,7 @@ class LibraryWidgetsTest {
         fun spec(value: Any) = parse(
             "aqi.js",
             mapOf(
-                "title" to "Pune", "icon" to "wind", "style" to "gauge", "value" to value, "max" to 300L,
+                "title" to "Tokyo", "icon" to "wind", "style" to "gauge", "value" to value, "max" to 300L,
                 "unit" to "US AQI", "text" to "156", "label" to "Unhealthy", "color" to "bad",
                 "zones" to listOf(
                     mapOf("from" to 0L, "color" to "good"),
@@ -1393,7 +1393,7 @@ class LibraryWidgetsTest {
         )
 
         val expected = WidgetSpec.Progress(
-            WidgetBase(title = "Pune", icon = "wind", color = StyledText.ColorRole.BAD, tap = toLog),
+            WidgetBase(title = "Tokyo", icon = "wind", color = StyledText.ColorRole.BAD, tap = toLog),
             value = 156f, max = 300f, text = "156", label = "Unhealthy", style = "gauge", unit = "US AQI",
             zones = listOf(
                 WidgetSpec.GaugeZone(0f, StyledText.ColorRole.GOOD),
@@ -1415,13 +1415,13 @@ class LibraryWidgetsTest {
         val sky = parse(
             "sun.js",
             mapOf(
-                "kind" to "sky", "title" to "Pune, IN", "icon" to "sun", "color" to "warn",
+                "kind" to "sky", "title" to "Tokyo, JP", "icon" to "sun", "color" to "warn",
                 "rises" to 1_795_483_200L, "sets" to 1_795_521_240L, "staleAfter" to 86_400L, "tap" to jsToLog,
             ),
         )
         assertEquals(
             WidgetSpec.Sky(
-                WidgetBase(title = "Pune, IN", icon = "sun", color = StyledText.ColorRole.WARN, tap = toLog, staleAfter = 86_400),
+                WidgetBase(title = "Tokyo, JP", icon = "sun", color = StyledText.ColorRole.WARN, tap = toLog, staleAfter = 86_400),
                 rises = 1_795_483_200L,
                 sets = 1_795_521_240L,
             ),
@@ -1459,7 +1459,7 @@ class LibraryWidgetsTest {
         val spec = parse(
             "forecast.js",
             mapOf(
-                "title" to "Pune, IN",
+                "title" to "Tokyo, JP",
                 "icon" to "sun",
                 "items" to listOf(
                     day("Fri", "sun", "clear", 18, 30),
@@ -1469,7 +1469,7 @@ class LibraryWidgetsTest {
                 "tap" to jsToLog,
             ),
         ) as WidgetSpec.Rows
-        assertEquals(WidgetBase(title = "Pune, IN", icon = "sun", tap = toLog), spec.base)
+        assertEquals(WidgetBase(title = "Tokyo, JP", icon = "sun", tap = toLog), spec.base)
         assertEquals(
             listOf(
                 WidgetSpec.Row(

@@ -417,7 +417,7 @@ class HostDataTest {
 
     // ---- the calendar's rows in an agenda widget ------------------------------------------
 
-    private val zone = ZoneId.of("Asia/Kolkata")
+    private val zone = ZoneId.of("Asia/Tokyo")
     private fun local(d: Int, h: Int, m: Int = 0) =
         LocalDateTime.of(2026, 10, d, h, m).atZone(zone).toInstant().toEpochMilli()
 

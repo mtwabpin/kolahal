@@ -1,7 +1,7 @@
 // @title Air quality
 // @desc Air quality: aqi [city], without one its city option (US, Indian or European index; the nearest station's with a WAQI token)
 // @author Kolahal
-// @version 1.8
+// @version 1.9
 // @command
 // @usage [<city>]
 // @widget progress 2x1
@@ -14,7 +14,7 @@
 //
 // Talks to: geocoding-api.open-meteo.com and air-quality-api.open-meteo.com (free, no key), and
 // api.waqi.info when you set a WAQI token. `aqi Delhi`, or `aqi` for its city option (`script set
-// aqi city Pune`); `script set aqi scale in` for India's index. On a timer (no arguments) it keeps
+// aqi city Tokyo`); `script set aqi scale in` for India's index. On a timer (no arguments) it keeps
 // the latest figure as its status line: pin it (`script pin aqi`) to see it at the top of home.
 // Its widget, once you placed it on the widgets page, shows that figure on a gauge, its arc colored
 // by the scale's bands.

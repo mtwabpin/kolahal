@@ -29,7 +29,7 @@ class WidgetParserTest {
     fun aStatWithAllItsFields() {
         val spec = parse(
             mapOf(
-                "title" to "Pune",
+                "title" to "Tokyo",
                 "icon" to "☀️",
                 "color" to "good",
                 "staleAfter" to 7200,
@@ -50,7 +50,7 @@ class WidgetParserTest {
         assertEquals(
             WidgetSpec.Stat(
                 WidgetBase(
-                    title = "Pune",
+                    title = "Tokyo",
                     icon = "☀️",
                     color = StyledText.ColorRole.GOOD,
                     staleAfter = 7200,
@@ -450,7 +450,7 @@ class WidgetParserTest {
             WidgetSpec.Clock(
                 WidgetBase(title = "World"),
                 zones = listOf(
-                    WidgetSpec.Zone("Asia/Kolkata", "Pune"),
+                    WidgetSpec.Zone("Asia/Tokyo", "Tokyo"),
                     WidgetSpec.Zone("UTC"),
                     WidgetSpec.Zone("+05:30")
                 ),
@@ -459,7 +459,7 @@ class WidgetParserTest {
             clock(
                 "title" to "World",
                 "zones" to listOf(
-                    mapOf("zone" to " Asia/Kolkata ", "label" to "Pune"),
+                    mapOf("zone" to " Asia/Tokyo ", "label" to "Tokyo"),
                     mapOf("zone" to "UTC"),
                     mapOf("zone" to "+05:30")
                 ),
@@ -473,7 +473,7 @@ class WidgetParserTest {
     @Test
     fun aClockKeepsItsFirstFourZones() {
         val six = listOf(
-            "Asia/Kolkata",
+            "Europe/Lisbon",
             "Europe/Paris",
             "America/New_York",
             "Asia/Tokyo",
@@ -481,7 +481,7 @@ class WidgetParserTest {
             "Not/AZone"
         ).map { mapOf("zone" to it) }
         assertEquals(
-            listOf("Asia/Kolkata", "Europe/Paris", "America/New_York", "Asia/Tokyo"),
+            listOf("Europe/Lisbon", "Europe/Paris", "America/New_York", "Asia/Tokyo"),
             clock("zones" to six).zones.map { it.zone })
         // A label is cut at 24.
         assertEquals(
@@ -502,24 +502,24 @@ class WidgetParserTest {
     fun aClockRefusesAZoneItDoesNotKnow() {
         fun no(vararg fields: Pair<String, Any?>) = refused(mapOf(*fields), WidgetKind.CLOCK)
         assertEquals(
-            "widget: item 1 of zones: no time zone 'Asia/Poona'; use a name such as Asia/Kolkata or UTC",
-            no("zones" to listOf(mapOf("zone" to "Asia/Poona")))
+            "widget: item 1 of zones: no time zone 'Europe/Atlantis'; use a name such as Asia/Tokyo or UTC",
+            no("zones" to listOf(mapOf("zone" to "Europe/Atlantis")))
         )
         assertEquals(
-            "widget: item 2 of zones: no time zone 'IST'; use a name such as Asia/Kolkata or UTC",
-            no("zones" to listOf(mapOf("zone" to "UTC"), mapOf("zone" to "IST")))
+            "widget: item 2 of zones: no time zone 'PST'; use a name such as Asia/Tokyo or UTC",
+            no("zones" to listOf(mapOf("zone" to "UTC"), mapOf("zone" to "PST")))
         )
         assertEquals(
-            "widget: item 1 of zones: no time zone ''; use a name such as Asia/Kolkata or UTC",
+            "widget: item 1 of zones: no time zone ''; use a name such as Asia/Tokyo or UTC",
             no("zones" to listOf(mapOf("zone" to "")))
         )
         assertEquals(
-            "widget: item 1 of zones: zone must be a time zone name, such as Asia/Kolkata, not 5",
+            "widget: item 1 of zones: zone must be a time zone name, such as Asia/Tokyo, not 5",
             no("zones" to listOf(mapOf("zone" to 5)))
         )
         assertEquals(
-            "widget: item 1 of zones: zone is needed: a time zone name, such as Asia/Kolkata",
-            no("zones" to listOf(mapOf("label" to "Pune")))
+            "widget: item 1 of zones: zone is needed: a time zone name, such as Asia/Tokyo",
+            no("zones" to listOf(mapOf("label" to "Tokyo")))
         )
         assertEquals("widget: zones is needed: a list of places, each { zone, label }", no())
         assertEquals(
@@ -551,7 +551,7 @@ class WidgetParserTest {
                         "Final",
                         starts = 1_800_000_000,
                         ends = 1_800_007_200,
-                        where = "Pune",
+                        where = "Tokyo",
                         color = StyledText.ColorRole.GOOD,
                         tap = WidgetTap(url = "https://example.com/final")
                     ),
@@ -569,7 +569,7 @@ class WidgetParserTest {
                         "title" to "Final",
                         "starts" to 1_800_000_000,
                         "ends" to 1_800_007_200,
-                        "where" to "Pune",
+                        "where" to "Tokyo",
                         "color" to "good",
                         "tap" to mapOf("url" to "https://example.com/final")
                     ),
@@ -1714,13 +1714,13 @@ class WidgetParserTest {
         )
         val masked = assertThrows(IllegalArgumentException::class.java) {
             WidgetParser.parse(
-                mapOf("zones" to listOf(mapOf("zone" to "Asia/Kolkata"))),
+                mapOf("zones" to listOf(mapOf("zone" to "Asia/Tokyo"))),
                 WidgetKind.CLOCK,
                 text = { "•••" },
                 link = { it })
         }
         assertEquals(
-            "widget: item 1 of zones: no time zone '•••'; use a name such as Asia/Kolkata or UTC",
+            "widget: item 1 of zones: no time zone '•••'; use a name such as Asia/Tokyo or UTC",
             masked.message
         )
         assertEquals(
@@ -1818,7 +1818,7 @@ class WidgetParserTest {
                 link = { it })
         }
         assertEquals(
-            "widget: item 1 of zones: no time zone '•••'; use a name such as Asia/Kolkata or UTC",
+            "widget: item 1 of zones: no time zone '•••'; use a name such as Asia/Tokyo or UTC",
             zone.message
         )
         // The mask gets every text without a style mark in it.
