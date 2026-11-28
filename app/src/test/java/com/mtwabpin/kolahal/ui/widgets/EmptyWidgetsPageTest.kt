@@ -17,25 +17,31 @@ class EmptyWidgetsPageTest {
         assertFalse(EmptyPageArt.showsPicture(360f))
     }
 
-    private val sky = Color(0xFFE8E2DF)
-    private val ridge = Color(0xFFE1DBD9)
-    private val sun = Color(0xFF9C5E5B)
-    private val ink = Color(0xFF464261)
+    private val high = Color(0xFF26233A)
+    private val highest = Color(0xFF2A2740)
+    private val lowest = Color(0xFF110F1A)
+    private val sun = Color(0xFFEBBCBA)
+    private val ink = Color(0xFFE0DEF4)
 
     @Test
-    fun theIconsColorsOnADarkTheme() {
-        // Rose Pine's page.
+    fun theThemesRolesOnADarkTheme() {
+        // A dark theme's page: the ridge is the darkest container, under a lighter sky.
         val dark = Color(0xFF191724)
         assertTrue(EmptyPageArt.isDark(dark))
-        assertEquals(EmptyPageArt.ICON, EmptyPageArt.colors(dark, sky, ridge, sun, ink))
-        assertEquals(Color(0xFF3A3350), EmptyPageArt.ICON.sky)
+        assertEquals(
+            EmptyPageArt.Colors(sky = high, sun = sun, ridge = lowest, ink = ink),
+            EmptyPageArt.colors(dark, high, highest, lowest, sun, ink),
+        )
     }
 
     @Test
     fun theThemesRolesOnALightTheme() {
-        // Rose Pine Dawn's page.
+        // A light theme's page: the ridge is the darkest container there, the highest one.
         val light = Color(0xFFFAF4ED)
         assertFalse(EmptyPageArt.isDark(light))
-        assertEquals(EmptyPageArt.Colors(sky = sky, sun = sun, ridge = ridge, ink = ink), EmptyPageArt.colors(light, sky, ridge, sun, ink))
+        assertEquals(
+            EmptyPageArt.Colors(sky = high, sun = sun, ridge = highest, ink = ink),
+            EmptyPageArt.colors(light, high, highest, lowest, sun, ink),
+        )
     }
 }

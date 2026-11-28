@@ -51,24 +51,17 @@ internal object EmptyPageArt {
     /** The picture's colors: [sky], [sun], [ridge], and [ink] for the outlines and the +. */
     data class Colors(val sky: Color, val sun: Color, val ridge: Color, val ink: Color)
 
-    /** The app icon's own colors (ic_launcher_background, ic_launcher_foreground). */
-    val ICON = Colors(
-        sky = Color(0xFF3A3350),
-        sun = Color(0xFFF0A868),
-        ridge = Color(0xFF231D2C),
-        ink = Color(0xFFF2E2C4),
-    )
-
     /** Whether a theme whose page is [surface] is dark: from the colors the app resolved, not the phone's setting. */
     fun isDark(surface: Color): Boolean = surface.luminance() < 0.5f
 
     /**
-     * The picture's colors on a page of [surface]: the icon's on a dark theme; on a light one the
-     * theme's [sky] (surfaceContainerHigh), [ridge] (surfaceContainerHighest), [sun] (primary) and
-     * [ink] (onSurface), so it isn't a dark block on a pale page.
+     * The picture's colors on a page of [surface], all from the theme: the sky is [high]
+     * (surfaceContainerHigh), the sun [sun] (primary), the outlines [ink] (onSurface), and the ridge
+     * the container farthest from the sky: [lowest] (surfaceContainerLowest, darker) on a dark theme,
+     * [highest] (surfaceContainerHighest, darker) on a light one.
      */
-    fun colors(surface: Color, sky: Color, ridge: Color, sun: Color, ink: Color): Colors =
-        if (isDark(surface)) ICON else Colors(sky = sky, sun = sun, ridge = ridge, ink = ink)
+    fun colors(surface: Color, high: Color, highest: Color, lowest: Color, sun: Color, ink: Color): Colors =
+        Colors(sky = high, sun = sun, ridge = if (isDark(surface)) lowest else highest, ink = ink)
 
     /** Below this height, in dp, the page leaves the picture out: landscape, split screen, a large font. */
     const val PICTURE_MIN_HEIGHT_DP = 480f
@@ -78,8 +71,9 @@ internal object EmptyPageArt {
 }
 
 /**
- * A widgets page with no widgets: the app icon's dusk scene with outlines where widgets would go, the
- * title "No widgets yet", one line, and Add a widget ([onAdd]: the picker, for this page), centered. A
+ * A widgets page with no widgets: the app icon's dusk scene in the theme's colors, with outlines
+ * where widgets would go, the title "No widgets yet", one line, and Add a widget ([onAdd]: the
+ * picker, for this page), centered. A
  * page other than page 1 has Remove page under it too ([onRemove]), a quieter text button: the page is
  * empty, so it goes at once, with nothing to undo. The picture is left out on a short page
  * ([EmptyPageArt.showsPicture]). The same on every widgets page; the strip above names the page.
@@ -146,8 +140,9 @@ private fun EmptyPagePicture() {
     val scheme = MaterialTheme.colorScheme
     val c = EmptyPageArt.colors(
         scheme.surface,
-        sky = scheme.surfaceContainerHigh,
-        ridge = scheme.surfaceContainerHighest,
+        high = scheme.surfaceContainerHigh,
+        highest = scheme.surfaceContainerHighest,
+        lowest = scheme.surfaceContainerLowest,
         sun = scheme.primary,
         ink = scheme.onSurface,
     )
