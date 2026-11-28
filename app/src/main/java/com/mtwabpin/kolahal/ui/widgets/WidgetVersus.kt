@@ -169,7 +169,14 @@ private fun figureStyle(face: Face): TextStyle =
  * The plan of a card: the scores' [size] and the [kept] parts ([VersusWords.keep]), with a 4×1's
  * status column [statusDp] wide (0 without one) and the caption's [captionLines] there.
  */
-private data class Plan(val size: Int, val kept: Set<Part>, val statusDp: Float = 0f, val captionLines: Int = 0)
+private data class Plan(
+    val size: Int,
+    val kept: Set<Part>,
+    val statusDp: Float = 0f,
+    val captionLines: Int = 0,
+    /** At 2×2, the sides whose names take two lines while [Part.NAMES] is kept. */
+    val wrap: Set<Int> = emptySet(),
+)
 
 /** How wide [text] is in [style], on one line, in dp. */
 private class Widths(val measure: (AnnotatedString, TextStyle) -> Float) {
@@ -350,9 +357,10 @@ private fun ruleColor(look: WidgetLook): Color =
 
 /**
  * A 2×2 or a 4×2: a header with the title and the badge (and at 4×2 a whole score), the rows, and
- * the caption at the foot. Under each name: at 2×2 its small figure and its detail on one line; at
- * 4×2 its detail, then its lines on one line, joined with " · ", and the small figures have a
- * column. A Bold or Split card writes its own age at the foot: after the caption at 4×2, under it
+ * the caption at the foot. A 2×2 name too long for its line wraps onto a second where the height
+ * has room to spare, and is cut only after that. Under each name: at 2×2 its small figure and its
+ * detail on one line; at 4×2 its detail, then its lines on one line, joined with " · ", and the
+ * small figures have a column. A Bold or Split card writes its own age at the foot: after the caption at 4×2, under it
  * at 2×2. What doesn't fit the height gives way ([VersusWords.largeHeight]).
  */
 @Composable
@@ -381,21 +389,34 @@ private fun LargeVersus(v: Versus) {
         zonePad = 2 * v.tileY,
         zoneGap = v.zoneGap.value.toInt(),
     )
-    val plan = remember(v.spec, v.width, v.height, title, age, density, widths, heights, types, figs) {
+    val nameLine = linesDp(names)
+    val plan = remember(v.spec, v.width, v.height, title, age, density, widths, heights, types, figs, nameLine) {
         val row = v.width.value - 2 * v.tileX
         val nameDp = minOf(72f, v.nameDp(widths, names))
         val room = if (v.face == Face.LARGE) 110f else row - v.markDp - v.nameGap - 12 - nameDp
         val size = VersusWords.scoreSize(v.sizes) { v.scoreDp(widths, types.getValue(it)) <= room }
         val t = types.getValue(size)
         val scoreLine = with(density) { lineDp(t) }
-        val h = heights.copy(line = maxOf(heights.line, kotlin.math.ceil(scoreLine).toInt()))
+        val line = maxOf(heights.line, kotlin.math.ceil(scoreLine).toInt())
+        // At 2×2, the names that would be cut on one line beside the scores' column take a second
+        // line where the height has room for it ([Part.NAMES]).
+        val turn = VersusWords.turnIndex(v.spec)
+        val nameRoom = row - v.markDp - v.nameGap - v.scoreDp(widths, t) - SCORE_GAP
+        val wrap = if (v.face != Face.SQUARE) emptySet() else v.spec.sides.indices.filterTo(mutableSetOf()) { i ->
+            widths.of(v.spec.sides[i].name, names) + (if (turn == i) DOT_ROOM else 0f) > nameRoom
+        }
+        val h = heights.copy(
+            line = line,
+            nameExtra = v.spec.sides.indices.map { if (it in wrap) (2 * nameLine - line).coerceAtLeast(0) else 0 },
+        )
         val figureDp = v.figures.maxOfOrNull { widths.of(it.small, figs) } ?: 0f
-        val kept = VersusWords.keep(VersusWords.present(v.spec, v.face)) { kept ->
+        val present = VersusWords.present(v.spec, v.face) + (if (wrap.isNotEmpty()) setOf(Part.NAMES) else emptySet())
+        val kept = VersusWords.keep(present) { kept ->
             VersusWords.largeHeight(v.spec, v.face, kept, h, title != null) <= v.height.value &&
                     (v.face != Face.LARGE || Part.TEXT !in kept ||
                             VersusWords.figureFits(row, (v.markDp + v.nameGap).toFloat(), nameDp, figureDp + 10, v.scoreDp(widths, t) + 12))
         }
-        Plan(size, kept)
+        Plan(size, kept, wrap = wrap)
     }
     val header = title != null || (Part.BADGE in plan.kept && v.spec.badge != null) || (v.face == Face.LARGE && v.whole != null)
     val caption = v.spec.line?.takeIf { Part.CAPTION in plan.kept }
@@ -463,7 +484,9 @@ private const val BAR = 6
  * The two rows in shared columns: the marks, the names, the small figures and the scores, at the
  * row's end. One layout measures both sides' parts and gives each column the width of its wider
  * part, so the columns line up; each row's parts are centered on one line. A name is cut with "…"
- * to the width the other columns leave; marks and scores are never cut. The lines under a name
+ * to the width the other columns leave, but at 2×2 it first takes a second line where the height
+ * has room ([Plan.wrap]), with the mark and the score centered on its two lines; marks and scores
+ * are never cut. The lines under a name
  * start where the name does and reach the row's end. [top] is over the rows (a 2×2's whole
  * score), the bar under them; the whole is centered in the height. A right-to-left phone mirrors it.
  */
@@ -489,7 +512,7 @@ private fun VersusGrid(v: Versus, plan: Plan, modifier: Modifier, top: (@Composa
                         side.name,
                         style = nameStyle(v.face),
                         color = c.content,
-                        maxLines = 1,
+                        maxLines = if (i in plan.wrap && Part.NAMES in plan.kept) 2 else 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
                     )

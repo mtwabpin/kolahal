@@ -10,11 +10,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -250,6 +252,56 @@ class VersusRowsCardTest {
         show(chess, 403.dp, 94.dp)
         assertTrue(texts().toString(), texts().containsAll(listOf("4:12", "1:04:12")))
         assertRowsAligned("4×1 chess")
+    }
+
+    /** How side [side]'s name is laid out: its lines, and whether one is cut with "…". */
+    private fun nameLayout(side: Int): TextLayoutResult {
+        val node = compose.onNode(hasWords and hasAnyAncestor(hasTestTag(versusTag("name", side))), useUnmergedTree = true)
+            .fetchSemanticsNode()
+        val results = mutableListOf<TextLayoutResult>()
+        node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(results)
+        return results.single()
+    }
+
+    /** A 2×2 match whose first name is too long for its line, as the library's cricket script has it. */
+    private val longName = WidgetSpec.Versus(
+        WidgetBase(title = "Cup final"),
+        listOf(
+            WidgetSpec.Side("Harbour Town", score = "187/4", text = "18.2 ov"),
+            WidgetSpec.Side("Valley", score = "201/6", text = "20 ov"),
+        ),
+        turn = 1,
+        line = "Need 15 off 10",
+        badge = "LIVE",
+    )
+
+    /**
+     * At 2×2 a name too long for its line takes a second line where the card has spare height:
+     * both its words show, none cut, and the mark and the score are centered on its two lines.
+     * Where there is no spare height (Split's tiles), it is cut with "…" as before, and the caption
+     * and the small figures stay: a name's second line never pushes another part out.
+     */
+    @Test
+    fun aLongNameWrapsAt2x2WhereThereIsSpareHeight() {
+        show(longName, 196.dp, 196.dp)
+        val wrapped = nameLayout(0)
+        assertEquals("the long name's lines", 2, wrapped.lineCount)
+        assertFalse("the long name is cut", wrapped.isLineEllipsized(0) || wrapped.isLineEllipsized(1))
+        assertEquals("the short name's lines", 1, nameLayout(1).lineCount)
+        assertTrue(
+            "the score (${bounds("score", 0).center.y}) is off the two-line name's center (${bounds("name", 0).center.y})",
+            near(bounds("score", 0).center.y, bounds("name", 0).center.y)
+        )
+        assertTrue("the name is not on two lines", bounds("name", 0).height > bounds("score", 0).height)
+        assertRowsAligned("2×2 with a name on two lines")
+        assertTrue(texts().toString(), texts().containsAll(listOf("Need 15 off 10", "18.2 ov", "20 ov")))
+
+        show(longName, 196.dp, 196.dp, WidgetLook.SPLIT)
+        val cut = nameLayout(0)
+        assertEquals("the cut name's lines", 1, cut.lineCount)
+        assertTrue("the name isn't cut with …", cut.isLineEllipsized(0))
+        assertTrue(texts().toString(), texts().containsAll(listOf("Need 15 off 10", "18.2 ov", "20 ov")))
+        assertRowsAligned("2×2 Split with a cut name")
     }
 
     /** The texts drawn inside the part tagged [tag]. */

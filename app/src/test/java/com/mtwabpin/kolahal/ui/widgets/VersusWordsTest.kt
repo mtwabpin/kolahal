@@ -176,12 +176,16 @@ class VersusWordsTest {
         assertEquals(setOf(Part.DETAIL, Part.CAPTION, Part.BADGE), VersusWords.present(chess, Face.LARGE))
     }
 
-    /** What gives way, in order: lines, details, the caption, the small figures, the badge. */
+    /** What gives way, in order: lines, a 2×2 name's second line, details, the caption, the small figures, the badge. */
     @Test
     fun thePartsGiveWayInOrder() {
         val all = Part.entries.toSet()
         assertEquals(all, VersusWords.keep(all) { true })
-        assertEquals(all - Part.LINES, VersusWords.keep(all) { it.size <= 4 })
+        assertEquals(all - Part.LINES, VersusWords.keep(all) { it.size <= 5 })
+        assertEquals(all - Part.LINES - Part.NAMES, VersusWords.keep(all) { it.size <= 4 })
+        // A name's second line uses spare height only: it goes before the details and the caption.
+        val square = setOf(Part.NAMES, Part.DETAIL, Part.CAPTION, Part.TEXT, Part.BADGE)
+        assertEquals(square - Part.NAMES, VersusWords.keep(square) { Part.NAMES !in it })
         assertEquals(setOf(Part.TEXT, Part.BADGE), VersusWords.keep(all) { it.size <= 2 })
         assertEquals(emptySet<Part>(), VersusWords.keep(all) { false })
         // A part that isn't there doesn't count: the caption goes first when there are no lines or details.
@@ -208,6 +212,10 @@ class VersusWordsTest {
         // A whole score is over the rows at 2×2.
         val wholeH = h.copy(whole = 24)
         assertEquals(88, VersusWords.largeHeight(bare.copy(score = "W/O"), Face.SQUARE, emptySet(), wholeH, title = false))
+        // A second side's name on two lines makes its row taller, only while its second line is kept.
+        val wrapped = h.copy(nameExtra = listOf(0, 12))
+        assertEquals(76, VersusWords.largeHeight(bare, Face.SQUARE, setOf(Part.NAMES), wrapped, title = false))
+        assertEquals(64, VersusWords.largeHeight(bare, Face.SQUARE, emptySet(), wrapped, title = false))
     }
 
     /** A 4×2 has the detail and the lines on lines of their own; Split's tiles add their room. */

@@ -2707,7 +2707,7 @@ Each side is `{ name, mark, color, value, text, detail, score, clock, lines }`. 
 
 | Field | Value | What it is |
 | --- | --- | --- |
-| `name` | text, up to 24 | The player or the team. Cut with "…" when a row has no more room. |
+| `name` | text, up to 24 | The player or the team. On a `2x2` card a long name takes a second line where the card has spare height. Cut with "…" when there is no more room. |
 | `mark` | text, up to 2 characters | A letter or two on a shape, in the side's color: `L`, `NO`. Without it: the first letter of the name. A mark is never a picture. |
 | `color` | a role | The side's color: its mark, its dot and its part of the bar. Without it: `accent` for the first side, `link` for the second. |
 | `value` | a number, 0 or more | The side's part of the thin bar under the rows: its share of the ball. |
@@ -2725,8 +2725,8 @@ Each side is `{ name, mark, color, value, text, detail, score, clock, lines }`. 
   gone when it is empty. A `2x2` and a `4x2` card have the title and the badge at the top, the rows
   with each side's detail under its name, and the caption at the foot; a `4x2` card adds each side's
   `lines`.
-- What has no room gives way, in this order: the sides' `lines`, their `detail`, the `caption`,
-  their `text`, the `badge`. Names are cut with "…" last; marks and scores never go.
+- What has no room gives way, in this order: the sides' `lines`, a `2x2` name's second line,
+  their `detail`, the `caption`, their `text`, the `badge`. Names are cut with "…" last; marks and scores never go.
 - The bar shows when both sides have a `value` and they aren't both 0. Each side's part is its
   value over the two, and moves to a new value smoothly.
 - The marks are shapes in every look, so a versus card has no **Shape** look.

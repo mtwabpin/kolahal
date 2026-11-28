@@ -1313,10 +1313,12 @@ kind ([[*What starts a run][What starts a run]]), so each entry names only what 
   the wider part's width and the names what is left, and centers each row's parts on one line. So
   marks, names and scores of the two rows share their center lines whatever the texts are. A
   right-to-left phone mirrors it.
-- Gives way :: Where room runs out, in this order: the sides' lines, their details, the caption,
-  the small figures, the badge. Names are cut with "…" last; marks and scores never go. A screen
-  reader still says everything, in this order: the badge; each side as "name score, figure,
-  detail", with "name's turn" after the side to move, then its lines; the caption.
+- Gives way :: Where room runs out, in this order: the sides' lines, a 2×2 name's second line, their
+  details, the caption, the small figures, the badge. At 2×2 a name too long for its line wraps
+  onto a second where there is spare height, never in place of another part; names are cut with
+  "…" last; marks and scores never go. A screen reader still says everything, in this order: the
+  badge; each side as "name score, figure, detail", with "name's turn" after the side to move, then
+  its lines; the caption.
 - When wide :: 4×1: the two rows, and at the end a status column (84 to 124 dp, as wide as what it
   holds) with a whole score, the badge, the caption on up to two lines, the script's footer and the
   card's age; gone when it is empty. 2×1: the two rows, a whole score at the end.

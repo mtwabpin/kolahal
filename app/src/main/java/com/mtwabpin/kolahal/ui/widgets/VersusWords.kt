@@ -113,10 +113,12 @@ internal object VersusWords {
 
     /**
      * The parts of a versus card that give way where room runs out, in the order they go: each
-     * side's lines first, then the details, the caption, each side's small figure, and the badge.
-     * Names are cut with "…" last; marks and scores never go. A screen reader still says every part.
+     * side's lines first, then a 2×2 name's second line ([NAMES]: a long name wraps only into spare
+     * height, never in place of anything else), the details, the caption, each side's small figure,
+     * and the badge. Names are cut with "…" last; marks and scores never go. A screen reader still
+     * says every part.
      */
-    enum class Part { LINES, DETAIL, CAPTION, TEXT, BADGE }
+    enum class Part { LINES, NAMES, DETAIL, CAPTION, TEXT, BADGE }
 
     /**
      * The face of a versus card, by its box and width: [SMALL] (1×1, the marks and the scores),
@@ -138,10 +140,13 @@ internal object VersusWords {
         Face.SMALL, Face.NARROW -> emptySet()
         Face.ROW -> setOf(Part.CAPTION, Part.TEXT, Part.BADGE)
         Face.SQUARE -> setOf(Part.DETAIL, Part.CAPTION, Part.TEXT, Part.BADGE)
-        Face.LARGE -> Part.entries.toSet()
+        Face.LARGE -> Part.entries.toSet() - Part.NAMES
     }
 
-    /** The parts [spec] has that [face] has a place for. */
+    /**
+     * The parts [spec] has that [face] has a place for. [Part.NAMES] is never here: a 2×2 adds it
+     * where a name would be cut on one line.
+     */
     fun present(spec: WidgetSpec.Versus, face: Face): Set<Part> = places(face).filterTo(mutableSetOf()) { part ->
         when (part) {
             Part.LINES -> spec.sides.any { it.lines.isNotEmpty() }
@@ -149,6 +154,7 @@ internal object VersusWords {
             Part.CAPTION -> spec.line != null
             Part.TEXT -> spec.sides.indices.any { figures(spec, it).small != null }
             Part.BADGE -> spec.badge != null
+            Part.NAMES -> false
         }
     }
 
@@ -184,6 +190,8 @@ internal object VersusWords {
         val whole: Int = 0,
         val zonePad: Int = 0,
         val zoneGap: Int = 0,
+        /** How much taller each side's row is with its name on two lines, while [Part.NAMES] is kept (0 for one line). */
+        val nameExtra: List<Int> = emptyList(),
     )
 
     /**
@@ -191,6 +199,7 @@ internal object VersusWords {
      * - A header shows with a title, a badge, or (4×2) a whole score.
      * - Under each name: a 2×2 has one line, the small figure and the detail; a 4×2 the detail and
      *   the lines, each on a line of its own.
+     * - A 2×2 name on two lines ([Part.NAMES]) makes its row [Heights.nameExtra] taller.
      * - A whole score is in a 2×2's middle, over the rows.
      * - [age] (0 without it) is the card's own age, which a Bold or Split card writes: on the
      *   caption's line at 4×2, under it at 2×2.
@@ -205,7 +214,7 @@ internal object VersusWords {
             } else {
                 if ((Part.TEXT in kept && figures(spec, i).small != null) || (Part.DETAIL in kept && side.detail != null)) 1 else 0
             }
-            h.line + subs * h.sub
+            h.line + (if (Part.NAMES in kept) h.nameExtra.getOrElse(i) { 0 } else 0) + subs * h.sub
         } + h.rowGap * (spec.sides.size - 1).coerceAtLeast(0)
         val caption = Part.CAPTION in kept && spec.line != null
         val foot = when {
