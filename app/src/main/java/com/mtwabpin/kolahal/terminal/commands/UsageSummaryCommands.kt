@@ -105,13 +105,13 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
 
 
     /**
-     * An app's name: the app list's, or Android's; else its package. Android names no app that was
+     * An app's name: Android's own, never a name set with `rename`; else its package. Android names no app that was
      * removed, none it hides from Kolahal (since Android 11 an app sees only the apps it declares),
      * and none without a label of its own. Kolahal can't tell those apart, so it says only the
      * package, not why: an app's use counts, named or not.
      */
     private fun name(pkg: String, byPkg: Map<String, AppEntry>): String {
-        byPkg[pkg]?.let { return it.label }
+        byPkg[pkg]?.let { return com.mtwabpin.kolahal.apps.AppNames.real(context, it) }
         return com.mtwabpin.kolahal.apps.AppNames.android(context, pkg) ?: pkg
     }
 
@@ -243,7 +243,7 @@ class UsageSummaryCommands(context: Context) : CommandGroup(context) {
         if (buckets.isEmpty()) return info("No usage recorded yet")
         val pkg = app.pkg
         val total = buckets.sumOf { it.total(pkg) }
-        if (total == 0L) return info("No use of ${app.label} recorded")
+        if (total == 0L) return info("No use of ${com.mtwabpin.kolahal.apps.AppNames.real(context, app)} recorded")
         val big = mutableListOf<Pair<String, String>>()
         UsageLevels.perDay(UsageLevels.counted(buckets), pkg)
             ?.let { big += "≈${duration(it)}" to "a day" }

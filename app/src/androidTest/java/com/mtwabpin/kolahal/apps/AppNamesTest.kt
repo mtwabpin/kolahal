@@ -35,6 +35,28 @@ class AppNamesTest {
         }
     }
 
+    /** `usage` names an app as Android does, not by its rename. */
+    @Test
+    fun usageShowsTheRealName() {
+        val prefs = AppPrefs.get(context)
+        apps.refresh()
+        waitUntil("the app list") { apps.apps.value.isNotEmpty() }
+        val app = apps.apps.value.first { it.profile.kind == ProfileKind.PERSONAL }
+        val real = AppNames.real(context, app)
+        try {
+            prefs.setLabel(app.key, "Zz Renamed")
+            apps.refresh()
+            val renamed = apps.apps.value.first { it.key == app.key }
+            waitUntil("the rename in the list") { apps.apps.value.any { it.key == app.key && it.label == "Zz Renamed" } }
+            assertEquals(real, AppNames.real(context, apps.apps.value.first { it.key == app.key }))
+            assertEquals(false, real == "Zz Renamed")
+            assertEquals(real, AppNames.real(context, renamed))
+        } finally {
+            prefs.setLabel(app.key, null)
+            apps.refresh()
+        }
+    }
+
     /** A package Android doesn't know has no name: the caller shows the package, or leaves it out. */
     @Test
     fun anUnknownPackageHasNoName() {

@@ -68,21 +68,21 @@ class AppUsage(private val context: Context) {
      * Each app's time in [sessions], biggest first, and the total ([total]), for `usage` and
      * `usage.today()`.
      * - An app with a minute or more is in the list; the rest count in the total only.
-     * - [label] names a package (the app list's name); without one, Android's name for it. A package
+     * - Each app is named as Android names it, not by a name the user gave it with `rename`. A package
      *   with no name at all (the phone's in-call screen) counts in the total, not in the list.
      */
-    fun times(sessions: List<Session>, label: (String) -> String?): Times {
+    fun times(sessions: List<Session>): Times {
         val counted = AppSessions.totals(sessions)
         val named = counted.filter { it.value >= 60_000 }.mapNotNull { (pkg, ms) ->
-            val name = label(pkg) ?: com.mtwabpin.kolahal.apps.AppNames.android(context, pkg)
+            val name = com.mtwabpin.kolahal.apps.AppNames.android(context, pkg)
             if (name.isNullOrBlank() || name == pkg) null else AppTime(pkg, name, ms)
         }.sortedByDescending { it.ms }
         return Times(named, counted.values.sum())
     }
 
     /** Today's screen time since local midnight: each app's time and the total, as `usage` and `usage.today` show it. */
-    fun today(label: (String) -> String?): Times =
-        times(read(startOf(LocalDate.now(zone))).sessions, label)
+    fun today(): Times =
+        times(read(startOf(LocalDate.now(zone))).sessions)
 
     /** The screen time of each of [days], in milliseconds, from one read of the events: what `usage N` and `usage.days` add up. */
     fun perDay(days: List<LocalDate>): List<Long> {

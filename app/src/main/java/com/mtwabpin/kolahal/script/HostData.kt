@@ -188,7 +188,7 @@ internal class HostData(
     fun usageToday(n: Any?): Map<String, Any?>? {
         val count = listCount("usage.today", "n", n, MAX_USAGE_APPS, DEFAULT_USAGE_APPS)
         if (!usageReady("usage.today")) return null
-        val t = com.mtwabpin.kolahal.usage.AppUsage(context).today { appNames[it] }
+        val t = com.mtwabpin.kolahal.usage.AppUsage(context).today()
         val limit = com.mtwabpin.kolahal.data.SharedSettings.get(
             context,
             com.mtwabpin.kolahal.data.Keys.USAGE_SCREEN_TIME_LIMIT

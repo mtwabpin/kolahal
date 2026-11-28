@@ -333,7 +333,7 @@ object CommandCatalog {
         CommandSpec(
             "usage",
             "usage [<days> | <app> | summary | week | month | year | full] [<app>]",
-            "Screen time per app, or one app in detail; over Android's weeks, months and years with a word. ≈ marks Android's own totals: about right, not exact. Its weeks and months start where the one before ended, not on Monday or the 1st. Tap a line of the summary to see that level.",
+            "Screen time per app, named as Android names it, or one app in detail; over Android's weeks, months and years with a word. ≈ marks Android's own totals: about right, not exact. Its weeks and months start where the one before ended, not on Monday or the 1st. Tap a line of the summary to see that level.",
             short = "Screen time per app",
             args = "<days> · <app> · summary · week · month · year · full",
             uses = listOf(

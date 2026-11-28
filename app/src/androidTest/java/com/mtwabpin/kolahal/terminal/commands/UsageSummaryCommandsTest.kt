@@ -116,7 +116,7 @@ class UsageSummaryCommandsTest {
         assertEquals(listOf("No app matches 'full zzqqxx'"), texts("usage full zzqqxx"))
     }
 
-    /** An app whose name starts like a word keeps its name: `usage weekly` is the app, `usage week` Android's weeks. */
+    /** An app renamed like a word is still found: `usage weekly` is the app, `usage week` Android's weeks. */
     @Test
     fun anAppNamedLikeAWord() = withUsageAccess("allow") {
         val apps = AppRepository.get(context)
@@ -128,10 +128,12 @@ class UsageSummaryCommandsTest {
             prefs.setLabel(app.key, "Weekly")
             apps.refresh()
             waitUntil("the new name") { apps.apps.value.any { it.key == app.key && it.label == "Weekly" } }
+            // Found by the name it was given, shown by its own.
+            val real = com.mtwabpin.kolahal.apps.AppNames.real(context, app)
             val shown = texts("usage weekly")
-            assertTrue(shown.toString(), shown.first().contains("Weekly today"))
+            assertTrue(shown.toString(), shown.first().contains("$real today"))
             val weeks = texts("usage week")
-            assertTrue(weeks.toString(), weeks.none { it.contains("Weekly today") })
+            assertTrue(weeks.toString(), weeks.none { it.contains("$real today") })
             assertTrue(
                 weeks.toString(),
                 weeks.first().startsWith("No usage recorded") || weeks.any { it.startsWith("Week\tTotal\tA day") })
@@ -153,6 +155,25 @@ class UsageSummaryCommandsTest {
             shown.toString(),
             shown.any { it.startsWith("Month\tTotal\tA day") })
         assertEquals(listOf("No app matches 'zzqqxx'"), texts("usage month zzqqxx"))
+    }
+
+    /** An app is found by the name you gave it, and shown by its own name. */
+    @Test
+    fun aRenamedAppShowsItsRealName() = withUsageAccess("allow") {
+        val prefs = com.mtwabpin.kolahal.apps.AppPrefs.get(context)
+        val list = AppRepository.get(context)
+        val app = list.apps.value.first { it.profile.kind == com.mtwabpin.kolahal.apps.ProfileKind.PERSONAL }
+        try {
+            prefs.setLabel(app.key, "Zzqq Renamed")
+            list.refresh()
+            waitUntil("the rename in the list") { list.apps.value.any { it.key == app.key && it.label == "Zzqq Renamed" } }
+            val shown = texts("usage month Zzqq Renamed")
+            assertTrue(shown.toString(), shown.none { it.contains("Zzqq Renamed") })
+            assertTrue(shown.toString(), shown.none { it.startsWith("No app matches") })
+        } finally {
+            prefs.setLabel(app.key, null)
+            list.refresh()
+        }
     }
 
     private fun lua(code: String, uses: Set<String> = setOf("usage")): String? {

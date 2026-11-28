@@ -163,7 +163,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         val packages = context.packageManager.getPackagesForUid(uid).orEmpty()
         // Several packages can share one id: the one with a name in the app list, if any.
         val app = packages.firstNotNullOfOrNull { pkg -> personal(pkg) }
-        if (app != null) return app.label
+        if (app != null) return com.mtwabpin.kolahal.apps.AppNames.real(context, app)
         return packages.firstNotNullOfOrNull { pkg ->
             com.mtwabpin.kolahal.apps.AppNames.android(
                 context,
@@ -204,7 +204,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         val read = reader.read(start)
         // Each app by its name in the app list, the personal app first; a package with no name counts toward "Other apps".
         val byPkg = apps.byPackage()
-        val times = reader.times(read.sessions) { byPkg[it]?.label }
+        val times = reader.times(read.sessions)
         val sum = times.total
         if (sum < 60_000) return info("No app usage recorded ${if (days == 1) "today" else "in $days days"}")
         // Big numbers: the screen time today; over several days, a day's average (over the finished
@@ -278,7 +278,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
         out(
             StyledText.stats(
                 listOf(
-                    duration(s.total) to "${app.label} today",
+                    duration(s.total) to "${com.mtwabpin.kolahal.apps.AppNames.real(context, app)} today",
                     s.opens.toString() to if (s.opens == 1) "open" else "opens",
                     duration(s.longest) to "longest",
                 )
@@ -316,7 +316,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
                 TimeFormats.dayLabel(chartDay, today, capital = false)
             if (chartDay != today) info("By hour, $dayName")
             val busy = minutes.withIndex().filter { it.value >= 1 }
-            val said = "${app.label} by hour, $dayName: " +
+            val said = "${com.mtwabpin.kolahal.apps.AppNames.real(context, app)} by hour, $dayName: " +
                     if (busy.isEmpty()) "under a minute in every hour" else busy.joinToString(", ") {
                         "%02d:00 %dm".format(
                             it.index,
@@ -545,7 +545,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
             val rows = mutableListOf(listOf("App", "Size", "Cache"))
             sizes.take(SHOWN).forEach { s ->
                 rows += listOf(
-                    byPkg[s.pkg]?.label ?: s.pkg,
+                    byPkg[s.pkg]?.let { com.mtwabpin.kolahal.apps.AppNames.real(context, it) } ?: s.pkg,
                     bytes(s.size),
                     bytes(s.cache)
                 )
@@ -565,7 +565,7 @@ class UsageCommands(context: Context) : CommandGroup(context) {
                 if (u.days == null) "no use recorded" else "${u.days} days",
                 u.bytes?.let(::bytes)
             ).joinToString(" · ")
-            out(app.label, appContext(app) + mapOf(LogContext.DESC to words))
+            out(com.mtwabpin.kolahal.apps.AppNames.real(context, app), appContext(app) + mapOf(LogContext.DESC to words))
         }
         val total = unused.sumOf { it.bytes ?: 0L }
         val count =

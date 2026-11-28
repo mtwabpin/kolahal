@@ -7,7 +7,7 @@ import android.content.Context
 import com.mtwabpin.kolahal.data.StyledText
 
 /**
- * An app's name for a package, the same everywhere: the log, notifications, Now playing, usage.
+ * An app's name for a package, the same everywhere: the log, notifications, Now playing (`usage` uses [real]).
  * - [label] (home's process): the app list's name, so a name you set with `rename` counts; the
  *   app in profile `serial` first, then in any profile; else Android's own name.
  * - [android] (any process, also `:script`): Android's own name.
@@ -25,6 +25,9 @@ object AppNames {
         }.getOrNull()
             ?.let(StyledText::strip)?.takeIf { it.isNotBlank() && it != pkg }
     }
+
+    /** [app]'s own name, as Android names it, whatever the user renamed it to: what `usage` shows. */
+    fun real(context: Context, app: AppEntry): String = android(context, app.pkg) ?: app.originalLabel
 
     /** The name Kolahal shows for [pkg]: the app list's, in profile [serial] first, else in any profile, else [android]. */
     fun label(context: Context, pkg: String, serial: Long? = null): String? {
