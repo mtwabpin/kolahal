@@ -265,8 +265,8 @@ internal fun WidgetGrid(gap: Dp, modifier: Modifier = Modifier, content: @Compos
  * A widgets page beside the terminal (`widgets.show`): the page at [location], page 1 unless said.
  * It shows every widget placed on that page where it was put, at its width and height
  * ([WidgetGrid]), on a page that scrolls, in the terminal's colors. Its top is left free for the
- * strip home draws over all its widgets pages ([WidgetsStrip]): the page's name and the marks. The pencil
- * (Arrange widgets) follows the last card ([PageEndAction]); a page with none shows [EmptyWidgetsPage]. A long-press on
+ * strip home draws over all its widgets pages ([WidgetsStrip]): the page's name and the marks. A page with
+ * no widgets shows [EmptyWidgetsPage]. A long-press on
  * a widget opens Arrange widgets with that widget chosen, and so does one on the line that stands for
  * a widget of a paused profile, a locked private space or a gone app.
  */
@@ -338,8 +338,7 @@ fun WidgetPanel(vm: TerminalViewModel, location: String = WidgetLocation.PANEL) 
 }
 
 /**
- * A widgets page's content, under the strip ([belowWidgetsStrip]): the widgets, then the pencil that opens
- * Arrange widgets ([PageEndAction]); or, when there are none, the empty page ([EmptyWidgetsPage]) with its
+ * A widgets page's content, under the strip ([belowWidgetsStrip]): the widgets; or, when there are none, the empty page ([EmptyWidgetsPage]) with its
  * Add a widget, and Remove page on a page other than page 1. They work on this page ([location]): a new widget
  * goes on it, Arrange widgets opens on it, and Remove page removes it.
  */
@@ -356,7 +355,6 @@ private fun WidgetPanelContent(
     val scroll = rememberScrollState(vm.widgetsScroll[location] ?: 0)
     LaunchedEffect(scroll, location) { snapshotFlow { scroll.value }.collect { vm.widgetsScroll[location] = it } }
     val onAdd = remember(location) { { widgets.addTo = location; vm.openScreen(Screen.WIDGET_PICKER) } }
-    val onArrange = remember(location) { { widgets.addTo = location; vm.openScreen(Screen.WIDGETS) } }
     // An empty page other than page 1 can be removed from here. Home then opens on the widgets page before it.
     val onRemove: (() -> Unit)? = remember(location) {
         if (location == WidgetLocation.PANEL) null else {
@@ -379,7 +377,7 @@ private fun WidgetPanelContent(
                 widgets.measuredPageHeightDp = with(density) { it.height.toDp().value.toInt() } - 2 * 4
             },
     ) {
-        if (PageEnd.of(panel.size) == PageEnd.EMPTY_PAGE) {
+        if (panel.size == 0) {
             EmptyWidgetsPage(onAdd, onRemove = onRemove)
             return@Column
         }
@@ -455,8 +453,6 @@ private fun WidgetPanelContent(
                     }
                 }
             }
-            // Arrange widgets after the last card, scrolling with it: hidden for now ([PAGE_END_PENCIL]).
-            if (PAGE_END_PENCIL) PageEndAction(onArrange)
         }
     }
 }

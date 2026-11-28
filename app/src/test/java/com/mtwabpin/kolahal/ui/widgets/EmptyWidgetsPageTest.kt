@@ -6,15 +6,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** What a widgets page shows at its end, and the empty page's picture: when it shows and in which colors. */
+/** The empty widgets page's picture: when it shows and in which colors. */
 class EmptyWidgetsPageTest {
-    @Test
-    fun whichEndShows() {
-        assertEquals(PageEnd.EMPTY_PAGE, PageEnd.of(0))
-        assertEquals(PageEnd.ARRANGE, PageEnd.of(1))
-        assertEquals(PageEnd.ARRANGE, PageEnd.of(12))
-    }
-
     @Test
     fun aShortPageLeavesThePictureOut() {
         assertTrue(EmptyPageArt.showsPicture(480f))

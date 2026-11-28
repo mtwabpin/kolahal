@@ -33,7 +33,7 @@ import org.junit.runner.RunWith
 /**
  * The widgets page beside the log ([WidgetPanel]): a hold on any widget opens Arrange widgets with it
  * chosen, on the line that stands for a widget that can't show too, and a screen reader has it. A page
- * with widgets ends with the pencil; one without shows the empty page and its Add a widget.
+ * with widgets ends with its last card; one without shows the empty page and its Add a widget.
  */
 @RunWith(AndroidJUnit4::class)
 class WidgetPanelTest {
@@ -118,7 +118,7 @@ class WidgetPanelTest {
         }
     }
 
-    /** A page with no widgets: the empty page's title and Add a widget, which opens the picker; no pencil. */
+    /** A page with no widgets: the empty page's title and Add a widget, which opens the picker; no Arrange button. */
     @Test
     fun anEmptyPageOffersToAddOne() {
         assumeTrue("widgets were placed before the test", widgets.widgets.value.isEmpty())
@@ -131,22 +131,16 @@ class WidgetPanelTest {
         compose.runOnIdle { assertEquals(Screen.WIDGET_PICKER, vm.screen.value) }
     }
 
-    /** A page with widgets ends with the pencil, which opens Arrange widgets; no Add a widget there. */
+    /** A page with widgets ends with its last card: no Arrange button and no Add a widget under it. */
     @Test
-    fun aPageWithWidgetsEndsWithThePencil() {
+    fun aPageWithWidgetsEndsWithItsLastCard() {
         val clock = t.clocks().first()
         t.allowBinding(clock)
         t.place(clock)
-        val vm = show()
+        show()
         compose.onNodeWithText("No widgets yet").assertDoesNotExist()
         compose.onNodeWithText(ADD_WIDGET).assertDoesNotExist()
-        if (!PAGE_END_PENCIL) {
-            // Hidden for now: the page ends with its last card.
-            compose.onNodeWithContentDescription(ARRANGE_WIDGETS).assertDoesNotExist()
-            return
-        }
-        compose.onNodeWithContentDescription(ARRANGE_WIDGETS).performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(Screen.WIDGETS, vm.screen.value) }
+        compose.onNodeWithContentDescription(ARRANGE_WIDGETS).assertDoesNotExist()
     }
 
     /**
