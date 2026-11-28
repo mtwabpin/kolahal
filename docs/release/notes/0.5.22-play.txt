@@ -1,0 +1,3 @@
+What's new:
+• Script widgets can show a target, a badge, a footer, a value on buttons and switches, and a line under each stage or side.
+• Deleting, copying or starring a log line no longer moves the other lines: the notice with Undo floats over the log.
