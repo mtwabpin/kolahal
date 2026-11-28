@@ -164,6 +164,8 @@ class AssistantSettingsTest {
         compose.waitForText("Delete all conversations?")
         compose.onNodeWithText("Delete").performClick()
         compose.waitFor("not deleted") { store.list().isEmpty() }
+        // Every value goes: headers and entries too.
+        assertEquals(emptySet<String>(), KvShelf(app).keys())
         compose.waitForText("None kept")
         scrollTo(Keys.ASSISTANT_HISTORY.key)
         compose.onNodeWithText("Keep history").performClick()

@@ -232,9 +232,15 @@ internal class AssistantSession(
 
     private suspend fun keep(with: AskWith, ticket: OpenConversation.Ticket) {
         val c = talk.kept(with.service.id, with.model, System.currentTimeMillis())
-        withContext(Dispatchers.IO) { runCatching { store.save(c) } }
+        val saved = withContext(Dispatchers.IO) { runCatching { store.save(c) } }
         // Deleted while it was being saved: deleted again, after the save.
-        if (!talk.isCurrent(ticket)) withContext(Dispatchers.IO) { runCatching { store.delete(c.id) } }
+        if (!talk.isCurrent(ticket)) {
+            withContext(Dispatchers.IO) { runCatching { store.delete(c.id) } }
+            return
+        }
+        // Back on the main thread: what couldn't be kept, or kept whole, is said here, where it still shows whole.
+        saved.exceptionOrNull()?.let { items += Item.Failed("This conversation couldn't be kept\n${it.message ?: it.javaClass.simpleName}", null, null) }
+        if ((saved.getOrNull() ?: 0) > 0) items += Item.Failed("Too large to keep in full\nThe history keeps a short note in its place", null, null)
     }
 
     /**

@@ -259,12 +259,18 @@ class AssistantPageTest {
         waitIdle(asker, 2)
         assertEquals(3, asker.asked[1].turns.size)
         compose.waitFor("not saved again") { store.load(kept.id)?.entries?.size == 4 }
+        // Each entry a value of its own, beside the conversation's header and the index.
+        assertEquals(
+            setOf("index", "h:${kept.id}") + (0..3).map { ConversationStore.entryKey(kept.id, it) },
+            KvShelf(app).keys(),
+        )
 
         compose.onNodeWithContentDescription("Earlier conversations").performClick()
         compose.waitForNode(hasTestTag("delete ${kept.id}"))
         compose.onNodeWithTag("delete ${kept.id}").performClick()
         compose.waitFor("not deleted") { store.list().isEmpty() }
         assertNull(store.load(kept.id))
+        assertEquals(setOf("index"), KvShelf(app).keys())
         compose.waitForText("No conversations kept yet")
     }
 
